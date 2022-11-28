@@ -9,7 +9,7 @@ Add this repository to [HACS](https://hacs.xyz/).
 Update your configuration.yaml file with
 
 ```yaml
-
+auth_oidc:
 ```
 
 Afterwards, restart Home Assistant.
