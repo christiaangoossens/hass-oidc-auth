@@ -1,0 +1,5 @@
+{
+    "name": "OpenID Connect",
+    "render_readme": true,
+    "homeassistant": "2022.11"
+}

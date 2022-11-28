@@ -1,0 +1,14 @@
+{
+  "domain": "auth_oidc",
+  "name": "OIDC Authentication",
+  "documentation": "",
+  "requirements": [],
+  "ssdp": [],
+  "zeroconf": [],
+  "homekit": {},
+  "dependencies": [
+    "auth"
+  ],
+  "codeowners": ["@christiaangoossens"],
+  "version": "0.1"
+}
