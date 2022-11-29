@@ -11,3 +11,7 @@ python = "3.10.*"
 [tool.poetry.dev-dependencies]
 homeassistant = "^2022.11.4"
 pylint = "^2.15.6"
+
+[tool.poetry.group.dev.dependencies]
+autopep8 = "^2.0.0"
+
