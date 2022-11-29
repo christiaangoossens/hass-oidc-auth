@@ -44,6 +44,8 @@ class OpenIDAuthProvider(AuthProvider):
 class OpenIdLoginFlow(LoginFlow):
     """Handler for the login flow."""
 
+    external_data: Any
+
     async def async_step_init(
         self, user_input: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
@@ -52,7 +54,7 @@ class OpenIdLoginFlow(LoginFlow):
 
     def redirect_uri(self) -> str:
         """Return the redirect uri."""
-        return f"{get_url(self.hass, require_current_request=True)}{AUTH_CALLBACK_PATH}?test=value&flow_id={self.flow_id}"
+        return f"{get_url(self.hass, allow_external=True, require_current_request=True)}{AUTH_CALLBACK_PATH}?test=value&flow_id={self.flow_id}"
 
     async def async_step_authenticate(
         self, user_input: Optional[Dict[str, str]] = None
@@ -69,5 +71,5 @@ class OpenIdLoginFlow(LoginFlow):
         self, user_input: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
         """Authorize user received from external step."""
-        _LOGGER.log(user_input)
+        _LOGGER.debug(self.external_data)
         return self.async_abort(reason="invalid_auth")
