@@ -4,8 +4,8 @@ Status: in progress, but very slowly.
 
 Current roadblocks:
 
-[ ] Find a way to do a redirect within the login step in Home Assistant, we should not use window.open
-[ ] Find out how to make this redirect work on all platforms (including mobile)
+- [ ] Find a way to do a redirect within the login step in Home Assistant, we should not use window.open
+- [ ] Find out how to make this redirect work on all platforms (including mobile)
 
 If this is solved, implementing OIDC itself is doable.
 
