@@ -3,9 +3,17 @@
 > [!CAUTION]
 > This is a pre-alpha release. I give no guarantees about code quality, error handling or security at this stage. Please treat this repo as a proof of concept for now and only use it on development HA installs.
 
-Provides an OIDC implementation for Home Assistant. We will likely have a sub-optimal user experience as the HA frontend does not allow updating the login form as required from a custom component.
+Provides an OIDC implementation for Home Assistant.
 
-TODOs:
+### Background
+If you would like to read the background/open letter that lead to this component, please see https://community.home-assistant.io/t/open-letter-for-improving-home-assistants-authentication-system-oidc-sso/494223. It's currently one of the most upvoted feature requests for Home Assistant.
+
+### Help wanted
+If you have any tips or would like to contribute, send me a message. You are also welcome to contribute a PR to fix any of the TODOs.
+
+Currently, this is a pre-alpha, so I welcome issues but I cannot guarantee I can fix them (at least within a reasonable time). Please turn on watch for this repository to remain updated. When the component is in a beta stage, issues will likely get fixed more frequently.
+
+### TODOs
 
 - [X] Basic flow
 - [ ] Improve welcome screen UI, should render a simple centered Tailwind UI instructing users that you should login externally to obtain a code.
@@ -25,13 +33,6 @@ Currently impossible TODOs (waiting for assistance from HA devs, not possible wi
 - [ ] Implement this redirection logic to open a Android Custom Tab (Android) / SFSafariViewController (iOS), instead of opening the link in the HA webview
 - [ ] Implement a final redirect back to the main page with the code as a query param instead of showing the finalize page
 
-### Background
-If you would like to read the background/open letter that lead to this component, please see https://community.home-assistant.io/t/open-letter-for-improving-home-assistants-authentication-system-oidc-sso/494223. It's currently one of the most upvoted feature requests for Home Assistant.
-
-### Help wanted
-If you have any tips or would like to contribute, send me a message. You are also welcome to contribute a PR to fix any of the TODOs.
-
-Currently, this is a pre-alpha, so I welcome issues but I cannot guarantee I can fix them (at least within a reasonable time). Please turn on watch for this repository to remain updated. When the component is in a beta stage, issues will likely get fixed more frequently.
 
 ## How to use
 ### Installation
