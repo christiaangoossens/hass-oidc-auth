@@ -1,17 +1,30 @@
-[tool.poetry]
+[project]
 name = "hass-oidc"
 version = "0.1.0"
-description = ""
-authors = ["Christiaan Goossens <contact@christiaangoossens.nl>"]
+description = "OIDC component for Home Assistant"
+authors = [
+    { name = "Christiaan Goossens", email = "contact@christiaangoossens.nl" }
+]
 license = "MIT"
+dependencies = [
+    "python-jose>=3.3.0",
+]
+readme = "README.md"
+requires-python = ">= 3.8"
 
-[tool.poetry.dependencies]
-python = "3.10.*"
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.poetry.dev-dependencies]
-homeassistant = "^2022.11.4"
-pylint = "^2.15.6"
+[tool.rye]
+managed = true
+dev-dependencies = [
+    "homeassistant~=2024.12",
+    "pylint~=3.3",
+]
 
-[tool.poetry.group.dev.dependencies]
-autopep8 = "^2.0.0"
+[tool.hatch.metadata]
+allow-direct-references = true
 
+[tool.hatch.build.targets.wheel]
+packages = ["custom_components/auth_oidc"]
