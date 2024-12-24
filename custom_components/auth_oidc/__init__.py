@@ -45,11 +45,16 @@ async def async_setup(hass: HomeAssistant, config):
 
     _LOGGER.debug("Added OIDC provider for Home Assistant")
 
-    oidc_client = oidc_client = OIDCClient(config[DOMAIN]["discovery_url"], config[DOMAIN]["client_id"], "http://foo/bar", "openid profile email")
+    # Define some fields
+    discovery_url = config[DOMAIN]["discovery_url"]
+    client_id = config[DOMAIN]["client_id"]
+    scope = "openid profile email"
+
+    oidc_client = oidc_client = OIDCClient(discovery_url, client_id, scope)
 
     hass.http.register_view(OIDCWelcomeView())
     hass.http.register_view(OIDCRedirectView(oidc_client))
+    hass.http.register_view(OIDCCallbackView(oidc_client, provider))
     hass.http.register_view(OIDCFinishView())
-    hass.http.register_view(OIDCCallbackView())
 
     return True

@@ -111,6 +111,8 @@ dbus-fast==2.24.4
     # via bluetooth-adapters
 dill==0.3.9
     # via pylint
+ecdsa==0.19.0
+    # via python-jose
 envs==1.4
     # via pycognito
 fnv-hash-fast==1.0.2
@@ -179,6 +181,9 @@ psutil==6.1.1
     # via psutil-home-assistant
 psutil-home-assistant==0.0.1
     # via homeassistant
+pyasn1==0.6.1
+    # via python-jose
+    # via rsa
 pycares==4.5.0
     # via aiodns
 pycognito==2024.5.1
@@ -200,6 +205,8 @@ pyric==0.1.6.3
     # via bluetooth-auto-recovery
 python-dateutil==2.9.0.post0
     # via botocore
+python-jose==3.3.0
+    # via hass-oidc
 python-slugify==8.0.4
     # via homeassistant
 pytz==2024.2
@@ -211,6 +218,8 @@ requests==2.32.3
     # via acme
     # via homeassistant
     # via pycognito
+rsa==4.9
+    # via python-jose
 s3transfer==0.10.4
     # via boto3
 securetar==2024.11.0
@@ -218,6 +227,7 @@ securetar==2024.11.0
 setuptools==75.6.0
     # via acme
 six==1.17.0
+    # via ecdsa
     # via python-dateutil
 sniffio==1.3.1
     # via anyio

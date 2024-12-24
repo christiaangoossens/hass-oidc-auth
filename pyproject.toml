@@ -6,7 +6,9 @@ authors = [
     { name = "Christiaan Goossens", email = "contact@christiaangoossens.nl" }
 ]
 license = "MIT"
-dependencies = []
+dependencies = [
+    "python-jose>=3.3.0",
+]
 readme = "README.md"
 requires-python = ">= 3.8"
 

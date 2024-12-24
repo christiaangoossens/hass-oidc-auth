@@ -25,17 +25,22 @@ class OIDCRedirectView(HomeAssistantView):
 
         _LOGGER.debug("Redirect view accessed")
 
-        auth_url = await self.oidc_client.get_authorization_url()
+        base_uri = str(request.url).split('/auth', 2)[0]
+        _LOGGER.debug("Base URI: %s", base_uri)
+
+        auth_url = await self.oidc_client.get_authorization_url(base_uri)
         _LOGGER.debug("Auth URL: %s", auth_url)
 
-        return web.Response(
+        if auth_url:
+            return web.HTTPFound(auth_url)
+        else:
+            return web.Response(
             headers={"content-type": "text/html"},
-            text="<h1>Redirect</h1>",
+            text="<h1>Plugin is misconfigured, discovery could not be obtained</h1>",
         )
 
     async def post(self, request: web.Request) -> web.Response:
         """POST"""
 
         _LOGGER.debug("Redirect POST view accessed")
-
-        return self.json_message("POST received")
+        return await self.get(request)
