@@ -46,7 +46,7 @@ You should now be able to see a second option on your login screen ("OpenID Conn
 Sadly, the user experience is pretty poor right now. Go to `/auth/oidc/welcome` (for example `https://hass.io/auth/oidc/welcome`, replace the URL with your Home Assistant URL) and follow the prompts provided to login, then copy the code into the input field from before. You should now login automatically with your username from SSO.
 
 > [!TIP]
-> You can use a different device to login instead. Open the /auth/oidc/welcome link on device A and then type the obtained code into the normal HA login on device B (can also be the mobile app) to login.
+> You can use a different device to login instead. Open the `/auth/oidc/welcome` link on device A and then type the obtained code into the normal HA login on device B (can also be the mobile app) to login.
 
 ## Development
 This project uses the Rye package manager for development. You can find installation instructions here: https://rye.astral.sh/guide/installation/.
