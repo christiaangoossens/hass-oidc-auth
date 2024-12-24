@@ -1,5 +1,8 @@
 # OIDC Auth for Home Assistant
 
+> [!CAUTION]
+> This is a pre-alpha release. I give no guarantees about code quality, error handling or security at this stage. Please treat this repo as a proof of concept for now and only use it on development HA installs.
+
 Aims to provide an OIDC implementation for Home Assistant. We will likely have a sub-optimal user experience as the HA frontend does not allow updating the login form as required from a custom component.
 
 TODOs:
