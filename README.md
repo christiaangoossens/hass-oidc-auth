@@ -15,5 +15,5 @@ auth_oidc:
 Afterwards, restart Home Assistant.
 
 ## Development
-This package uses poetry: https://github.com/python-poetry/poetry. Use `poetry install` to install.
-You can force the venv within the project with `poetry config virtualenvs.in-project true`.
+This project uses the Rye package manager for development. You can find installation instructions here: https://rye.astral.sh/guide/installation/.
+Start by installing the dependencies using `rye sync` and then point your editor towards the environment created in the `.venv` directory.

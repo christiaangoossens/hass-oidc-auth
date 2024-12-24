@@ -4,6 +4,11 @@ from typing import OrderedDict
 import voluptuous as vol
 from homeassistant.core import HomeAssistant
 
+from .endpoints.welcome import OIDCWelcomeView
+from .endpoints.redirect import OIDCRedirectView
+from .endpoints.finish import OIDCFinishView
+from .endpoints.callback import OIDCCallbackView
+
 DOMAIN = "auth_oidc"
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,4 +40,10 @@ async def async_setup(hass: HomeAssistant, config):
     hass.auth._providers = providers
 
     _LOGGER.debug("Added OIDC provider")
+
+    hass.http.register_view(OIDCWelcomeView())
+    hass.http.register_view(OIDCRedirectView())
+    hass.http.register_view(OIDCFinishView())
+    hass.http.register_view(OIDCCallbackView())
+
     return True

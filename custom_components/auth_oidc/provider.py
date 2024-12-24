@@ -2,18 +2,15 @@
 Allow access to users based on login with an external OpenID Connect Identity Provider (IdP).
 """
 import logging
-from secrets import token_hex
-from typing import Any, Dict, Optional, cast
+from typing import Dict, Optional
 from homeassistant.auth.providers import (
     AUTH_PROVIDERS,
     AuthProvider,
     LoginFlow,
+    AuthFlowResult,
 )
 from homeassistant.exceptions import HomeAssistantError
 import voluptuous as vol
-from homeassistant.helpers.network import get_url
-
-from .callback import async_register_view, AUTH_CALLBACK_PATH
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +21,7 @@ class InvalidAuthError(HomeAssistantError):
 class OpenIDAuthProvider(AuthProvider):
     """Allow access to users based on login with an external OpenID Connect Identity Provider (IdP)."""
 
-    DEFAULT_TITLE = "OpenID Connect"
+    DEFAULT_TITLE = "OpenID Connect (SSO)"
 
     @property
     def type(self) -> str:
@@ -36,40 +33,40 @@ class OpenIDAuthProvider(AuthProvider):
 
     async def async_login_flow(self, context: Optional[Dict]) -> LoginFlow:
         """Return a flow to login."""
-
-        async_register_view(self.hass)
         return OpenIdLoginFlow(self)
 
 
 class OpenIdLoginFlow(LoginFlow):
     """Handler for the login flow."""
 
-    external_data: Any
-
     async def async_step_init(
-        self, user_input: Optional[Dict[str, str]] = None
-    ) -> Dict[str, Any]:
+        self, user_input: dict[str, str] | None = None
+    ) -> AuthFlowResult:
         """Handle the step of the form."""
-        return await self.async_step_authenticate()
 
-    def redirect_uri(self) -> str:
-        """Return the redirect uri."""
-        return f"{get_url(self.hass, allow_external=True, require_current_request=True)}{AUTH_CALLBACK_PATH}?test=value&flow_id={self.flow_id}"
+        # Show the login form
+        # Currently, this form looks bad because the frontend gives no options to make it look better
+        # We will investigate options to make it look better in the future
+        return self.async_show_form(
+            step_id="mfa",
+            data_schema=vol.Schema(
+            {
+                vol.Required("code"): str,
+            }
+            ),
+            errors={},
+        )
+    
 
-    async def async_step_authenticate(
-        self, user_input: Optional[Dict[str, str]] = None
-    ) -> Dict[str, Any]:
-        """Authenticate user using external step."""
+    async def async_step_mfa(
+        self, user_input: dict[str, str] | None = None
+    ) -> AuthFlowResult:
+        """Handle the result of the form."""
 
-        if user_input:
-            self.external_data = str(user_input)
-            return self.async_external_step_done(next_step_id="authorize")
+        if user_input is None:
+            return self.async_abort(reason="no_code_given")
 
-        return self.async_external_step(step_id="authenticate", url=self.redirect_uri())
-
-    async def async_step_authorize(
-        self, user_input: Optional[Dict[str, str]] = None
-    ) -> Dict[str, Any]:
-        """Authorize user received from external step."""
-        _LOGGER.debug(self.external_data)
-        return self.async_abort(reason="invalid_auth")
+        # Log
+        _LOGGER.info("User input %s", user_input)
+        _LOGGER.info("Code %s was entered", user_input["code"])
+        return self.async_abort(reason="invalid_code")
