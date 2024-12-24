@@ -13,6 +13,8 @@ If you would like to read the background/open letter that lead to this component
 
 Add this repository to [HACS](https://hacs.xyz/).
 
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=christiaangoossens&repository=hass-oidc-auth&category=Integration)
+
 Update your `configuration.yaml` file with
 
 ```yaml
