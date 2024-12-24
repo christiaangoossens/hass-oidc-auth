@@ -20,5 +20,5 @@ class OIDCWelcomeView(HomeAssistantView):
 
         return web.Response(
             headers={"content-type": "text/html"},
-            text="<h1>Welcome!</h1>",
+            text="<h1>OIDC Login (beta)</h1><p><a href='/auth/oidc/redirect'>Login with OIDC</a></p>",
         )

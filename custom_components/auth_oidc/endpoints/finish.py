@@ -16,9 +16,9 @@ class OIDCFinishView(HomeAssistantView):
     async def get(self, request: web.Request) -> web.Response:
         """Receive response."""
 
-        _LOGGER.debug("Finish view accessed")
+        code = request.query.get("code", "FAIL")
 
         return web.Response(
             headers={"content-type": "text/html"},
-            text="<h1>Finish</h1>",
+            text=f"<h1>Done!</h1><p>Your code is: <b>{code}</b></p><p>Please return to the Home Assistant login screen (or your mobile app) and fill in this code into the single login field. It should be visible if you select 'Login with OpenID Connect (SSO)'.</p>",
         )

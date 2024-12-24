@@ -46,7 +46,4 @@ class OIDCCallbackView(HomeAssistantView):
 
         code = await self.oidc_provider.save_user_info(user_details)
 
-        return web.Response(
-            headers={"content-type": "text/html"},
-            text="<h1>Success, enter in this code: " + code + ".</h1>",
-        )
+        return web.HTTPFound(base_uri + "/auth/oidc/finish?code=" + code)
