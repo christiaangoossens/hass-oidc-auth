@@ -1,6 +1,5 @@
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
-from homeassistant.core import HomeAssistant, callback
 import logging
 
 PATH = "/auth/oidc/welcome"
