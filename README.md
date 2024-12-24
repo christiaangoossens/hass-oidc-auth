@@ -15,6 +15,18 @@ TODOs:
 - [ ] Make id_token claim used for the username configurable
 - [ ] Make id_token claim used for the name configurable
 - [ ] Add instructions on how to deploy this with Authentik & Authelia
+- [ ] Configure Github Actions to automatically lint and build the package
+- [ ] Configure Dependabot for automatic updates
+
+Currently impossible TODOs (waiting for assistance from HA devs, not possible without forking HA frontend & apps right now):
+
+- [ ] Update the HA frontend code to allow a redirection to be requested from an auth provider instead of manually opening welcome page
+- [ ] Implement this redirection logic to open a new tab on desktop
+- [ ] Implement this redirection logic to open a Android Custom Tab (Android) / SFSafariViewController (iOS), instead of opening the link in the HA webview
+- [ ] Implement a final redirect back to the main page with the code as a query param instead of showing the finalize page
+
+## Background
+If you would like to read the background/open letter that lead to this component, please see https://community.home-assistant.io/t/open-letter-for-improving-home-assistants-authentication-system-oidc-sso/494223. It's currently one of the most upvoted feature requests for Home Assistant.
 
 ## How to use
 ### Installation
