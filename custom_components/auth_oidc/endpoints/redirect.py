@@ -22,3 +22,10 @@ class OIDCRedirectView(HomeAssistantView):
             headers={"content-type": "text/html"},
             text="<h1>Redirect</h1>",
         )
+
+    async def post(self, request: web.Request) -> web.Response:
+        """POST"""
+
+        _LOGGER.debug("Redirect POST view accessed")
+
+        return self.json_message("POST received")
