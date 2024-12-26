@@ -3,13 +3,9 @@ name: hassfest
 
 on:
   push:
-    branches:
-      - main
-      - renovate/**
   pull_request:
     branches:
       - main
-      - renovate/**
   schedule:
     - cron: "0 0 * * *"
 
