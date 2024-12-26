@@ -13,11 +13,11 @@ from homeassistant.auth.providers import (
 )
 from homeassistant.exceptions import HomeAssistantError
 import voluptuous as vol
-from datetime import datetime, timedelta
-import random
-import string
-from homeassistant.helpers.storage import Store
+
 from collections.abc import Mapping
+from homeassistant.components import http
+import asyncio
+from .stores.code_store import CodeStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,11 +30,6 @@ class OpenIDAuthProvider(AuthProvider):
 
     DEFAULT_TITLE = "OpenID Connect (SSO)"
 
-    def __init__(self, *args, **kwargs):
-        """Initialize the OpenIDAuthProvider."""
-        super().__init__(*args, **kwargs)
-        self._user_meta = {}
-
     @property
     def type(self) -> str:
         return "auth_oidc"
@@ -42,11 +37,59 @@ class OpenIDAuthProvider(AuthProvider):
     @property
     def support_mfa(self) -> bool:
         return False
+
+    def __init__(self, *args, **kwargs):
+        """Initialize the OpenIDAuthProvider."""
+        super().__init__(*args, **kwargs)
+        self._user_meta = {}
+        self._codeStore: CodeStore | None = None
+        self._init_lock = asyncio.Lock()
+
+    async def async_initialize(self) -> None:
+        """Initialize the auth provider."""
+
+        # Init the code store first
+        # Use the same technique as the HomeAssistant auth provider for storage
+        # (https://github.com/home-assistant/core/blob/dev/homeassistant/auth/providers/homeassistant.py#L392)
+        async with self._init_lock:
+            if self._codeStore is not None:
+                return
+
+            store = CodeStore(self.hass)
+            await store.async_load()
+            self._codeStore = store
+            self._user_meta = {}
+    
+    async def async_retrieve_username(self, code: str) -> Optional[str]:
+        """Retrieve user from the code, return username and save meta for later use with this provider instance."""
+        if self._codeStore is None:
+            await self.async_initialize()
+            assert self._codeStore is not None
         
+        user_data = await self._codeStore.receive_userinfo_for_code(code)
+        if user_data is None:
+            return None
+
+        username = user_data["username"]
+        self._user_meta[username] = user_data
+        return username
+    
+    async def async_save_user_info(self, user_info: dict[str, dict|str]) -> str:
+        """Save user info and return a code."""
+        if self._codeStore is None:
+            await self.async_initialize()
+            assert self._codeStore is not None
+
+        return await self._codeStore.async_generate_code_for_userinfo(user_info)
+        
+    # ====
+    # Required functions for Home Assistant Auth Providers
+    # ====
+
     async def async_login_flow(self, context: Optional[Dict]) -> LoginFlow:
         """Return a flow to login."""
         return OpenIdLoginFlow(self)
-    
+
     async def async_get_or_create_credentials(
         self, flow_result: Mapping[str, str]
     ) -> Credentials:
@@ -64,7 +107,7 @@ class OpenIDAuthProvider(AuthProvider):
     ) -> UserMeta:
         """Return extra user metadata for credentials.
 
-        Currently, supports name, group and local_only.
+        Currently, supports name, is_active, group and local_only.
         """
         meta = self._user_meta.get(credentials.data["username"], {})
         groups = meta.get("groups", [])
@@ -76,64 +119,22 @@ class OpenIDAuthProvider(AuthProvider):
             group=group,
             local_only="true",
         )
-        
-    async def save_user_info(self, user_info: dict) -> str:
-        """Save user info during login."""
-        _LOGGER.info("User info to be saved: %s", user_info)
-
-        code = self._generate_code()
-        expiration = datetime.utcnow() + timedelta(minutes=5)
-        user_data = {
-            "user_info": user_info,
-            "code": code,
-            "expiration": expiration.isoformat()
-        }
-
-        await self._save_to_db(self._get_code_key(code), user_data)
-        return code
-        
-    async def async_retrieve_username(self, code: str) -> Optional[dict]:
-        """Retrieve user info based on the code."""
-        user_data = await self._get_from_db(self._get_code_key(code))
-        await self._wipe_from_db(self._get_code_key(code))
-
-        if user_data and datetime.fromisoformat(user_data["expiration"]) > datetime.utcnow():
-            username = user_data["user_info"]["preferred_username"]
-            self._user_meta[username] = user_data["user_info"]
-            return username
-        return None
-        
-    def _generate_code(self) -> str:
-        """Generate a random six-digit code."""
-        return ''.join(random.choices(string.digits, k=6))
-    
-    def _get_code_key(self, code: str) -> str:
-        return f"provider_oidc_auth_user_{code}"
-
-    async def _save_to_db(self, key: str, value: dict) -> None:
-        """Save key-value data to the Home Assistant storage."""
-        store = Store(self.hass, 1, key)
-        await store.async_save(value)
-
-    async def _get_from_db(self, key: str) -> Optional[dict]:
-        """Retrieve key-value data from the Home Assistant storage."""
-        store = Store(self.hass, 1, key)
-        return await store.async_load()
-
-    async def _wipe_from_db(self, key: str) -> None:
-        """Delete key-value data from the Home Assistant storage."""
-        store = Store(self.hass, 1, key)
-        return await store.async_remove()
-
+      
 
 class OpenIdLoginFlow(LoginFlow):
     """Handler for the login flow."""
 
-    async def async_step_init(
-        self, user_input: dict[str, str] | None = None
-    ) -> AuthFlowResult:
-        """Handle the step of the form."""
-
+    async def _finalize_user(self, code: str) -> AuthFlowResult:
+        username = await self._auth_provider.async_retrieve_username(code)
+        if username:
+            _LOGGER.info("Logged in user: %s", username)
+            return await self.async_finish({
+                "username": username,
+            })
+    
+        raise InvalidAuthError
+    
+    def _show_login_form(self, errors: dict[str, str] = {}) -> AuthFlowResult:
         # Show the login form
         # Currently, this form looks bad because the frontend gives no options to make it look better
         # We will investigate options to make it look better in the future
@@ -144,28 +145,37 @@ class OpenIdLoginFlow(LoginFlow):
                 vol.Required("code"): str,
             }
             ),
-            errors={},
+            errors=errors,
         )
-    
 
+    async def async_step_init(
+        self, user_input: dict[str, str] | None = None
+    ) -> AuthFlowResult:
+        """Handle the step of the form."""
+
+        # Try to use the user input first
+        if user_input is not None:
+            try:
+                return await self._finalize_user(user_input["code"])
+            except InvalidAuthError:
+                return self._show_login_form({"base": "invalid_auth"})       
+
+        # If not available, check the cookie
+        req = http.current_request.get()
+        codeCookie = req.cookies.get("auth_oidc_code")
+
+        if codeCookie:
+            _LOGGER.debug("Code cookie found on login: %s", codeCookie)
+            try:
+                return await self._finalize_user(codeCookie)
+            except InvalidAuthError:
+                pass
+
+        # If none are available, just show the form
+        return self._show_login_form()
+    
     async def async_step_mfa(
         self, user_input: dict[str, str] | None = None
     ) -> AuthFlowResult:
-        """Handle the result of the form."""
-
-        if user_input is None:
-            return self.async_abort(reason="no_code_given")
-
-        # Log
-        _LOGGER.info("User input %s", user_input)
-        _LOGGER.info("Code %s was entered", user_input["code"])
-
-        username = await self._auth_provider.async_retrieve_username(user_input["code"])
-        if username:
-            _LOGGER.info("Logged in user: %s", username)
-            
-            return await self.async_finish({
-                "username": username,
-            })
-
-        return self.async_abort(reason="invalid_code")
+        # This is a dummy step function just to use the nicer MFA UI instead
+        return await self.async_step_init(user_input)

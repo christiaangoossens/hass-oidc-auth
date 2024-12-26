@@ -19,7 +19,7 @@ class OIDCClient:
         self.client_id = client_id
         self.scope = scope
 
-    async def fetch_discovery_document(self):
+    async def _fetch_discovery_document(self):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(self.discovery_url) as response:
@@ -32,9 +32,9 @@ class OIDCClient:
                 _LOGGER.warning(f"Error: {e.status} - {e.message}")
             return None
     
-    async def get_authorization_url(self, base_uri):
+    async def async_get_authorization_url(self, redirect_uri: str):
         if not hasattr(self, 'discovery_document'):
-            self.discovery_document = await self.fetch_discovery_document()
+            self.discovery_document = await self._fetch_discovery_document()
 
         if not self.discovery_document:
             return None
@@ -57,7 +57,7 @@ class OIDCClient:
         query_params = {
             'response_type': 'code',
             'client_id': self.client_id,
-            'redirect_uri': base_uri + '/auth/oidc/callback',
+            'redirect_uri': redirect_uri,
             'scope': self.scope,
             'state': state,
             'nonce': nonce,
@@ -92,7 +92,7 @@ class OIDCClient:
             _LOGGER.warning(f"Error fetching JWKS: {e.status} - {e.message}")
             return None
 
-    async def _parse_id_token(self, id_token):
+    async def _parse_id_token(self, id_token: str):
         # Parse the id token to obtain the relevant details
         # Use python-jose
         if not hasattr(self, 'discovery_document'):
@@ -151,7 +151,7 @@ class OIDCClient:
     
         return None
     
-    async def complete_token_flow(self, base_uri, code, state):
+    async def async_complete_token_flow(self, redirect_uri: str, code: str, state: str):
         if state not in self.flows:
             return None
 
@@ -159,7 +159,7 @@ class OIDCClient:
         code_verifier = flow['code_verifier']
 
         if not hasattr(self, 'discovery_document'):
-            self.discovery_document = await self.fetch_discovery_document()
+            self.discovery_document = await self._fetch_discovery_document()
 
         if not self.discovery_document:
             return None
@@ -171,7 +171,7 @@ class OIDCClient:
             'grant_type': 'authorization_code',
             'client_id': self.client_id,
             'code': code,
-            'redirect_uri': base_uri + '/auth/oidc/callback',
+            'redirect_uri': redirect_uri,
             'code_verifier': code_verifier,
         }
 
@@ -197,8 +197,6 @@ class OIDCClient:
         
         return {
             "name": id_token.get("name"),
-            "email": id_token.get("email"),
-            "preferred_username": id_token.get("preferred_username"),
-            "nickname": id_token.get("nickname"),
+            "username": id_token.get("preferred_username"),
             "groups": id_token.get("groups"),
         }

@@ -3,6 +3,7 @@ from homeassistant.components.http import HomeAssistantView
 import logging
 from ..oidc_client import OIDCClient
 from ..provider import OpenIDAuthProvider
+from ..helpers import get_url
 
 PATH = "/auth/oidc/callback"
 
@@ -29,7 +30,6 @@ class OIDCCallbackView(HomeAssistantView):
         params = request.rel_url.query
         code = params.get("code")
         state = params.get("state")
-        base_uri = str(request.url).split('/auth', 2)[0]
 
         if not (code and state):
             return web.Response(
@@ -37,13 +37,14 @@ class OIDCCallbackView(HomeAssistantView):
                 text="<h1>Error</h1><p>Missing code or state parameter</p>",
             )
 
-        user_details = await self.oidc_client.complete_token_flow(base_uri, code, state)
+        redirect_uri = get_url("/auth/oidc/callback")
+        user_details = await self.oidc_client.async_complete_token_flow(redirect_uri, code, state)
         if user_details is None:
             return web.Response(
                 headers={"content-type": "text/html"},
                 text="<h1>Error</h1><p>Failed to get user details, see console.</p>",
             )
 
-        code = await self.oidc_provider.save_user_info(user_details)
+        code = await self.oidc_provider.async_save_user_info(user_details)
 
-        return web.HTTPFound(base_uri + "/auth/oidc/finish?code=" + code)
+        return web.HTTPFound(get_url("/auth/oidc/finish?code=" + code))

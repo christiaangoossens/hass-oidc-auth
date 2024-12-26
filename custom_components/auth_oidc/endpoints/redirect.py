@@ -3,6 +3,7 @@ from homeassistant.components.http import HomeAssistantView
 import logging
 
 from ..oidc_client import OIDCClient
+from ..helpers import get_url
 
 PATH = "/auth/oidc/redirect"
 
@@ -25,11 +26,9 @@ class OIDCRedirectView(HomeAssistantView):
 
         _LOGGER.debug("Redirect view accessed")
 
-        base_uri = str(request.url).split('/auth', 2)[0]
-        _LOGGER.debug("Base URI: %s", base_uri)
 
-        auth_url = await self.oidc_client.get_authorization_url(base_uri)
-        _LOGGER.debug("Auth URL: %s", auth_url)
+        redirect_uri = get_url("/auth/oidc/callback")
+        auth_url = await self.oidc_client.async_get_authorization_url(redirect_uri)
 
         if auth_url:
             return web.HTTPFound(auth_url)
