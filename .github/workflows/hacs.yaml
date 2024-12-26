@@ -3,6 +3,7 @@ name: hacs
 
 on:
   push:
+    - main
   pull_request:
     branches:
       - main

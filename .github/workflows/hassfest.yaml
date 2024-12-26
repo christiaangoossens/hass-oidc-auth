@@ -3,6 +3,7 @@ name: hassfest
 
 on:
   push:
+    - main
   pull_request:
     branches:
       - main
