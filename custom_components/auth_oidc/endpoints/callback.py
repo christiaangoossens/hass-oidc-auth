@@ -2,9 +2,9 @@
 
 from homeassistant.components.http import HomeAssistantView
 from aiohttp import web
-from auth_oidc.oidc_client import OIDCClient
-from auth_oidc.provider import OpenIDAuthProvider
-from auth_oidc.helpers import get_url
+from ..oidc_client import OIDCClient
+from ..provider import OpenIDAuthProvider
+from ..helpers import get_url
 
 PATH = "/auth/oidc/callback"
 

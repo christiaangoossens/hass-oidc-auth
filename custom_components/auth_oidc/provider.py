@@ -18,7 +18,7 @@ from homeassistant.components import http
 from homeassistant.exceptions import HomeAssistantError
 import voluptuous as vol
 
-from auth_oidc.stores.code_store import CodeStore
+from .stores.code_store import CodeStore
 
 _LOGGER = logging.getLogger(__name__)
 

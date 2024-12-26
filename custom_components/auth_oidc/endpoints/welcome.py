@@ -13,7 +13,7 @@ class OIDCWelcomeView(HomeAssistantView):
     url = PATH
     name = "auth:oidc:welcome"
 
-    async def get(self) -> web.Response:
+    async def get(self, _: web.Request) -> web.Response:
         """Receive response."""
 
         return web.Response(

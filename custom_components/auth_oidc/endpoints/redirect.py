@@ -4,8 +4,8 @@ can either be linked to directly or accessed through the welcome page."""
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from auth_oidc.oidc_client import OIDCClient
-from auth_oidc.helpers import get_url
+from ..oidc_client import OIDCClient
+from ..helpers import get_url
 
 PATH = "/auth/oidc/redirect"
 
@@ -20,7 +20,7 @@ class OIDCRedirectView(HomeAssistantView):
     def __init__(self, oidc_client: OIDCClient) -> None:
         self.oidc_client = oidc_client
 
-    async def get(self) -> web.Response:
+    async def get(self, _: web.Request) -> web.Response:
         """Receive response."""
 
         redirect_uri = get_url("/auth/oidc/callback")
@@ -34,6 +34,6 @@ class OIDCRedirectView(HomeAssistantView):
             text="<h1>Plugin is misconfigured, discovery could not be obtained</h1>",
         )
 
-    async def post(self) -> web.Response:
+    async def post(self, request: web.Request) -> web.Response:
         """POST"""
-        return await self.get()
+        return await self.get(request)

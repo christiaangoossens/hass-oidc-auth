@@ -3,7 +3,7 @@
 from homeassistant.components.http import HomeAssistantView
 from aiohttp import web
 
-from auth_oidc.helpers import get_url
+from ..helpers import get_url
 
 PATH = "/auth/oidc/finish"
 

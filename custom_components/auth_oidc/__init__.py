@@ -6,13 +6,13 @@ from typing import OrderedDict
 import voluptuous as vol
 from homeassistant.core import HomeAssistant
 
-from auth_oidc.endpoints.welcome import OIDCWelcomeView
-from auth_oidc.endpoints.redirect import OIDCRedirectView
-from auth_oidc.endpoints.finish import OIDCFinishView
-from auth_oidc.endpoints.callback import OIDCCallbackView
+from .endpoints.welcome import OIDCWelcomeView
+from .endpoints.redirect import OIDCRedirectView
+from .endpoints.finish import OIDCFinishView
+from .endpoints.callback import OIDCCallbackView
 
-from auth_oidc.oidc_client import OIDCClient
-from auth_oidc.provider import OpenIDAuthProvider
+from .oidc_client import OIDCClient
+from .provider import OpenIDAuthProvider
 
 DOMAIN = "auth_oidc"
 _LOGGER = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ CONFIG_SCHEMA = vol.Schema(
             {
                 vol.Required("client_id"): vol.Coerce(str),
                 vol.Optional("client_secret"): vol.Coerce(str),
-                vol.Required("discovery_url"): vol.Url,
+                vol.Required("discovery_url"): vol.Coerce(str),
             }
         )
     },
@@ -51,9 +51,9 @@ async def async_setup(hass: HomeAssistant, config):
     _LOGGER.debug("Added OIDC provider for Home Assistant")
 
     # Define some fields
-    discovery_url = config[DOMAIN]["discovery_url"]
-    client_id = config[DOMAIN]["client_id"]
-    scope = "openid profile email"
+    discovery_url: str = config[DOMAIN]["discovery_url"]
+    client_id: str = config[DOMAIN]["client_id"]
+    scope: str = "openid profile email"
 
     oidc_client = oidc_client = OIDCClient(discovery_url, client_id, scope)
 

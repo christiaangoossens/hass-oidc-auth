@@ -38,7 +38,7 @@ class OIDCClient:
     # Flows stores the state, code_verifier and nonce of all current flows.
     flows = {}
 
-    def __init__(self, discovery_url, client_id, scope):
+    def __init__(self, discovery_url: str, client_id: str, scope: str):
         self.discovery_url = discovery_url
         self.discovery_document = None
         self.client_id = client_id
