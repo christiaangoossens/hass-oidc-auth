@@ -7,9 +7,10 @@ import base64
 import hashlib
 from jose import jwt
 
-from jose import jwk, jwt
+from jose import jwk
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class OIDCClient:
     flows = {}
@@ -27,47 +28,54 @@ class OIDCClient:
                     return await response.json()
         except aiohttp.ClientResponseError as e:
             if e.status == 404:
-                _LOGGER.warning(f"Error: Discovery document not found at {self.discovery_url}")
+                _LOGGER.warning(
+                    f"Error: Discovery document not found at {self.discovery_url}"
+                )
             else:
                 _LOGGER.warning(f"Error: {e.status} - {e.message}")
             return None
-    
+
     async def async_get_authorization_url(self, redirect_uri: str):
-        if not hasattr(self, 'discovery_document'):
+        if not hasattr(self, "discovery_document"):
             self.discovery_document = await self._fetch_discovery_document()
 
         if not self.discovery_document:
             return None
 
-        auth_endpoint = self.discovery_document['authorization_endpoint']
+        auth_endpoint = self.discovery_document["authorization_endpoint"]
 
         # Generate the necessary PKCE parameters, nonce & state
-        code_verifier = base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode('utf-8')
-        code_challenge = base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode('utf-8')).digest()).rstrip(b'=').decode('utf-8')
-        nonce = base64.urlsafe_b64encode(os.urandom(16)).rstrip(b'=').decode('utf-8')
-        state = base64.urlsafe_b64encode(os.urandom(16)).rstrip(b'=').decode('utf-8')
+        code_verifier = (
+            base64.urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode("utf-8")
+        )
+        code_challenge = (
+            base64.urlsafe_b64encode(
+                hashlib.sha256(code_verifier.encode("utf-8")).digest()
+            )
+            .rstrip(b"=")
+            .decode("utf-8")
+        )
+        nonce = base64.urlsafe_b64encode(os.urandom(16)).rstrip(b"=").decode("utf-8")
+        state = base64.urlsafe_b64encode(os.urandom(16)).rstrip(b"=").decode("utf-8")
 
         # Save all of them for later verification
-        self.flows[state] = {
-            'code_verifier': code_verifier,
-            'nonce': nonce
-        }
+        self.flows[state] = {"code_verifier": code_verifier, "nonce": nonce}
 
         # Construct the params
         query_params = {
-            'response_type': 'code',
-            'client_id': self.client_id,
-            'redirect_uri': redirect_uri,
-            'scope': self.scope,
-            'state': state,
-            'nonce': nonce,
-            'code_challenge': code_challenge,
-            'code_challenge_method': 'S256',
+            "response_type": "code",
+            "client_id": self.client_id,
+            "redirect_uri": redirect_uri,
+            "scope": self.scope,
+            "state": state,
+            "nonce": nonce,
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
         }
-        
+
         url = f"{auth_endpoint}?{urllib.parse.urlencode(query_params)}"
         return url
-    
+
     async def _make_token_request(self, token_endpoint, query_params):
         try:
             async with aiohttp.ClientSession() as session:
@@ -76,11 +84,13 @@ class OIDCClient:
                     return await response.json()
         except aiohttp.ClientResponseError as e:
             response_json = await response.json()
-            _LOGGER.warning(f"Error: {e.status} - {e.message}, Response: {response_json}")
+            _LOGGER.warning(
+                f"Error: {e.status} - {e.message}, Response: {response_json}"
+            )
             return None
 
         return None
-    
+
     async def _get_jwks(self, jwks_uri):
         """Fetches JWKS from the given URL."""
         try:
@@ -95,13 +105,13 @@ class OIDCClient:
     async def _parse_id_token(self, id_token: str):
         # Parse the id token to obtain the relevant details
         # Use python-jose
-        if not hasattr(self, 'discovery_document'):
+        if not hasattr(self, "discovery_document"):
             self.discovery_document = await self.fetch_discovery_document()
 
         if not self.discovery_document:
             return None
-        
-        jwks_uri = self.discovery_document['jwks_uri']
+
+        jwks_uri = self.discovery_document["jwks_uri"]
 
         jwks_data = await self._get_jwks(jwks_uri)
         if not jwks_data:
@@ -113,11 +123,10 @@ class OIDCClient:
                 print("Could not parse JWT Header")
                 return None
 
-            kid = unverified_header.get('kid')
+            kid = unverified_header.get("kid")
             if not kid:
                 print("JWT does not have kid (Key ID)")
                 return None
-
 
             # Get the correct key
             rsa_key = None
@@ -139,7 +148,7 @@ class OIDCClient:
                 jwk_obj,
                 algorithms=["RS256"],  # Adjust if your algorithm is different
                 audience=self.client_id,
-                issuer=self.discovery_document['issuer'],
+                issuer=self.discovery_document["issuer"],
             )
             return decoded_token
 
@@ -148,31 +157,31 @@ class OIDCClient:
             return None
         except Exception as e:
             print(f"Unexpected error: {e}")
-    
+
         return None
-    
+
     async def async_complete_token_flow(self, redirect_uri: str, code: str, state: str):
         if state not in self.flows:
             return None
 
         flow = self.flows[state]
-        code_verifier = flow['code_verifier']
+        code_verifier = flow["code_verifier"]
 
-        if not hasattr(self, 'discovery_document'):
+        if not hasattr(self, "discovery_document"):
             self.discovery_document = await self._fetch_discovery_document()
 
         if not self.discovery_document:
             return None
 
-        token_endpoint = self.discovery_document['token_endpoint']
+        token_endpoint = self.discovery_document["token_endpoint"]
 
         # Construct the params
         query_params = {
-            'grant_type': 'authorization_code',
-            'client_id': self.client_id,
-            'code': code,
-            'redirect_uri': redirect_uri,
-            'code_verifier': code_verifier,
+            "grant_type": "authorization_code",
+            "client_id": self.client_id,
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "code_verifier": code_verifier,
         }
 
         _LOGGER.debug(f"Token request params: {query_params}")
@@ -182,8 +191,8 @@ class OIDCClient:
         if not token_response:
             return None
 
-        access_token = token_response.get('access_token')
-        id_token = token_response.get('id_token')
+        access_token = token_response.get("access_token")
+        id_token = token_response.get("id_token")
         _LOGGER.debug(f"Access Token: {access_token}")
         _LOGGER.debug(f"ID Token: {id_token}")
 
@@ -191,10 +200,10 @@ class OIDCClient:
         id_token = await self._parse_id_token(id_token)
 
         # Verify nonce
-        if id_token.get('nonce') != flow['nonce']:
-            _LOGGER.warning(f"Nonce mismatch!")
+        if id_token.get("nonce") != flow["nonce"]:
+            _LOGGER.warning("Nonce mismatch!")
             return None
-        
+
         return {
             "name": id_token.get("name"),
             "username": id_token.get("preferred_username"),

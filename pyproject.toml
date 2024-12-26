@@ -28,3 +28,12 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["custom_components/auth_oidc"]
+
+[tool.rye.scripts]
+check = { chain = ["check-lint", "check-fmt", "check-pylint" ] }
+"check-lint" = "rye lint"
+"check-fmt" = "rye fmt --check"
+"check-pylint" = "pylint custom_components"
+fix = { chain = ["fix-lint", "fix-fmt" ] }
+"fix-lint" = "rye lint --fix"
+"fix-fmt" = "rye fmt"

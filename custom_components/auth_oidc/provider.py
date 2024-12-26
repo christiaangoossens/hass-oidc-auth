@@ -1,6 +1,7 @@
 """OIDC Authentication provider.
 Allow access to users based on login with an external OpenID Connect Identity Provider (IdP).
 """
+
 import logging
 from typing import Dict, Optional
 from homeassistant.auth.providers import (
@@ -21,8 +22,10 @@ from .stores.code_store import CodeStore
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class InvalidAuthError(HomeAssistantError):
     """Raised when submitting invalid authentication."""
+
 
 @AUTH_PROVIDERS.register("oidc")
 class OpenIDAuthProvider(AuthProvider):
@@ -59,13 +62,13 @@ class OpenIDAuthProvider(AuthProvider):
             await store.async_load()
             self._codeStore = store
             self._user_meta = {}
-    
+
     async def async_retrieve_username(self, code: str) -> Optional[str]:
         """Retrieve user from the code, return username and save meta for later use with this provider instance."""
         if self._codeStore is None:
             await self.async_initialize()
             assert self._codeStore is not None
-        
+
         user_data = await self._codeStore.receive_userinfo_for_code(code)
         if user_data is None:
             return None
@@ -73,15 +76,15 @@ class OpenIDAuthProvider(AuthProvider):
         username = user_data["username"]
         self._user_meta[username] = user_data
         return username
-    
-    async def async_save_user_info(self, user_info: dict[str, dict|str]) -> str:
+
+    async def async_save_user_info(self, user_info: dict[str, dict | str]) -> str:
         """Save user info and return a code."""
         if self._codeStore is None:
             await self.async_initialize()
             assert self._codeStore is not None
 
         return await self._codeStore.async_generate_code_for_userinfo(user_info)
-        
+
     # ====
     # Required functions for Home Assistant Auth Providers
     # ====
@@ -119,7 +122,7 @@ class OpenIDAuthProvider(AuthProvider):
             group=group,
             local_only="true",
         )
-      
+
 
 class OpenIdLoginFlow(LoginFlow):
     """Handler for the login flow."""
@@ -128,12 +131,14 @@ class OpenIdLoginFlow(LoginFlow):
         username = await self._auth_provider.async_retrieve_username(code)
         if username:
             _LOGGER.info("Logged in user: %s", username)
-            return await self.async_finish({
-                "username": username,
-            })
-    
+            return await self.async_finish(
+                {
+                    "username": username,
+                }
+            )
+
         raise InvalidAuthError
-    
+
     def _show_login_form(self, errors: dict[str, str] = {}) -> AuthFlowResult:
         # Show the login form
         # Currently, this form looks bad because the frontend gives no options to make it look better
@@ -141,9 +146,9 @@ class OpenIdLoginFlow(LoginFlow):
         return self.async_show_form(
             step_id="mfa",
             data_schema=vol.Schema(
-            {
-                vol.Required("code"): str,
-            }
+                {
+                    vol.Required("code"): str,
+                }
             ),
             errors=errors,
         )
@@ -158,7 +163,7 @@ class OpenIdLoginFlow(LoginFlow):
             try:
                 return await self._finalize_user(user_input["code"])
             except InvalidAuthError:
-                return self._show_login_form({"base": "invalid_auth"})       
+                return self._show_login_form({"base": "invalid_auth"})
 
         # If not available, check the cookie
         req = http.current_request.get()
@@ -173,7 +178,7 @@ class OpenIdLoginFlow(LoginFlow):
 
         # If none are available, just show the form
         return self._show_login_form()
-    
+
     async def async_step_mfa(
         self, user_input: dict[str, str] | None = None
     ) -> AuthFlowResult:

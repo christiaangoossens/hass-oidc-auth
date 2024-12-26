@@ -9,6 +9,7 @@ PATH = "/auth/oidc/callback"
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class OIDCCallbackView(HomeAssistantView):
     """OIDC Plugin Callback View."""
 
@@ -38,7 +39,9 @@ class OIDCCallbackView(HomeAssistantView):
             )
 
         redirect_uri = get_url("/auth/oidc/callback")
-        user_details = await self.oidc_client.async_complete_token_flow(redirect_uri, code, state)
+        user_details = await self.oidc_client.async_complete_token_flow(
+            redirect_uri, code, state
+        )
         if user_details is None:
             return web.Response(
                 headers={"content-type": "text/html"},

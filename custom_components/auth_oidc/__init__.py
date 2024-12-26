@@ -10,11 +10,10 @@ from .endpoints.finish import OIDCFinishView
 from .endpoints.callback import OIDCCallbackView
 
 from .oidc_client import OIDCClient
+from .provider import OpenIDAuthProvider
 
 DOMAIN = "auth_oidc"
 _LOGGER = logging.getLogger(__name__)
-
-from .provider import OpenIDAuthProvider
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -28,6 +27,7 @@ CONFIG_SCHEMA = vol.Schema(
     },
     extra=vol.ALLOW_EXTRA,
 )
+
 
 async def async_setup(hass: HomeAssistant, config):
     """Add the OIDC Auth Provider to the providers in Home Assistant"""

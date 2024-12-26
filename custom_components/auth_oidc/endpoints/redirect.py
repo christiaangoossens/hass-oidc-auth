@@ -9,6 +9,7 @@ PATH = "/auth/oidc/redirect"
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class OIDCRedirectView(HomeAssistantView):
     """OIDC Plugin Redirect View."""
 
@@ -16,16 +17,13 @@ class OIDCRedirectView(HomeAssistantView):
     url = PATH
     name = "auth:oidc:redirect"
 
-    def __init__(
-        self, oidc_client: OIDCClient
-    ) -> None:
+    def __init__(self, oidc_client: OIDCClient) -> None:
         self.oidc_client = oidc_client
 
     async def get(self, request: web.Request) -> web.Response:
         """Receive response."""
 
         _LOGGER.debug("Redirect view accessed")
-
 
         redirect_uri = get_url("/auth/oidc/callback")
         auth_url = await self.oidc_client.async_get_authorization_url(redirect_uri)
@@ -34,9 +32,9 @@ class OIDCRedirectView(HomeAssistantView):
             return web.HTTPFound(auth_url)
         else:
             return web.Response(
-            headers={"content-type": "text/html"},
-            text="<h1>Plugin is misconfigured, discovery could not be obtained</h1>",
-        )
+                headers={"content-type": "text/html"},
+                text="<h1>Plugin is misconfigured, discovery could not be obtained</h1>",
+            )
 
     async def post(self, request: web.Request) -> web.Response:
         """POST"""

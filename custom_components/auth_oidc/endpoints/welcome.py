@@ -6,6 +6,7 @@ PATH = "/auth/oidc/welcome"
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class OIDCWelcomeView(HomeAssistantView):
     """OIDC Plugin Welcome View."""
 
