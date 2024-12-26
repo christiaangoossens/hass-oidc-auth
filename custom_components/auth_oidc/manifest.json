@@ -1,14 +1,20 @@
 {
   "domain": "auth_oidc",
   "name": "OIDC Authentication",
-  "documentation": "",
-  "requirements": [],
-  "ssdp": [],
-  "zeroconf": [],
-  "homekit": {},
-  "dependencies": [
-    "auth"
+  "codeowners": [
+    "@christiaangoossens"
   ],
-  "codeowners": ["@christiaangoossens"],
-  "version": "0.1"
+  "version": "0.1",
+  "config_flow": false,
+  "dependencies": [
+    "auth",
+    "http"
+  ],
+  "documentation": "https://github.com/christiaangoossens/hass-oidc-auth",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/christiaangoossens/hass-oidc-auth/issues",
+  "requirements": [
+    "python-jose>=3.3.0"
+  ]
 }
