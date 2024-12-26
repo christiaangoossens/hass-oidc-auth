@@ -10,7 +10,7 @@ dependencies = [
     "python-jose>=3.3.0",
 ]
 readme = "README.md"
-requires-python = ">= 3.8"
+requires-python = ">= 3.13"
 
 [build-system]
 requires = ["hatchling"]

@@ -4,7 +4,6 @@
   "codeowners": [
     "@christiaangoossens"
   ],
-  "version": "0.1",
   "config_flow": false,
   "dependencies": [
     "auth",
@@ -16,5 +15,6 @@
   "issue_tracker": "https://github.com/christiaangoossens/hass-oidc-auth/issues",
   "requirements": [
     "python-jose>=3.3.0"
-  ]
+  ],
+  "version": "0.1"
 }
