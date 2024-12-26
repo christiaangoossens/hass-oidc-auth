@@ -3,7 +3,9 @@ Allow access to users based on login with an external OpenID Connect Identity Pr
 """
 
 import logging
+
 from typing import Dict, Optional
+import asyncio
 from homeassistant.auth.providers import (
     AUTH_PROVIDERS,
     AuthProvider,
@@ -12,13 +14,11 @@ from homeassistant.auth.providers import (
     Credentials,
     UserMeta,
 )
+from homeassistant.components import http
 from homeassistant.exceptions import HomeAssistantError
 import voluptuous as vol
 
-from collections.abc import Mapping
-from homeassistant.components import http
-import asyncio
-from .stores.code_store import CodeStore
+from auth_oidc.stores.code_store import CodeStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,7 +29,8 @@ class InvalidAuthError(HomeAssistantError):
 
 @AUTH_PROVIDERS.register("oidc")
 class OpenIDAuthProvider(AuthProvider):
-    """Allow access to users based on login with an external OpenID Connect Identity Provider (IdP)."""
+    """Allow access to users based on login with an external
+    OpenID Connect Identity Provider (IdP)."""
 
     DEFAULT_TITLE = "OpenID Connect (SSO)"
 
@@ -45,7 +46,7 @@ class OpenIDAuthProvider(AuthProvider):
         """Initialize the OpenIDAuthProvider."""
         super().__init__(*args, **kwargs)
         self._user_meta = {}
-        self._codeStore: CodeStore | None = None
+        self._code_store: CodeStore | None = None
         self._init_lock = asyncio.Lock()
 
     async def async_initialize(self) -> None:
@@ -53,23 +54,24 @@ class OpenIDAuthProvider(AuthProvider):
 
         # Init the code store first
         # Use the same technique as the HomeAssistant auth provider for storage
-        # (https://github.com/home-assistant/core/blob/dev/homeassistant/auth/providers/homeassistant.py#L392)
+        # (/auth/providers/homeassistant.py#L392)
         async with self._init_lock:
-            if self._codeStore is not None:
+            if self._code_store is not None:
                 return
 
             store = CodeStore(self.hass)
             await store.async_load()
-            self._codeStore = store
+            self._code_store = store
             self._user_meta = {}
 
     async def async_retrieve_username(self, code: str) -> Optional[str]:
-        """Retrieve user from the code, return username and save meta for later use with this provider instance."""
-        if self._codeStore is None:
+        """Retrieve user from the code, return username and save meta
+        for later use with this provider instance."""
+        if self._code_store is None:
             await self.async_initialize()
-            assert self._codeStore is not None
+            assert self._code_store is not None
 
-        user_data = await self._codeStore.receive_userinfo_for_code(code)
+        user_data = await self._code_store.receive_userinfo_for_code(code)
         if user_data is None:
             return None
 
@@ -79,11 +81,11 @@ class OpenIDAuthProvider(AuthProvider):
 
     async def async_save_user_info(self, user_info: dict[str, dict | str]) -> str:
         """Save user info and return a code."""
-        if self._codeStore is None:
+        if self._code_store is None:
             await self.async_initialize()
-            assert self._codeStore is not None
+            assert self._code_store is not None
 
-        return await self._codeStore.async_generate_code_for_userinfo(user_info)
+        return await self._code_store.async_generate_code_for_userinfo(user_info)
 
     # ====
     # Required functions for Home Assistant Auth Providers
@@ -94,7 +96,7 @@ class OpenIDAuthProvider(AuthProvider):
         return OpenIdLoginFlow(self)
 
     async def async_get_or_create_credentials(
-        self, flow_result: Mapping[str, str]
+        self, flow_result: dict[str, str]
     ) -> Credentials:
         """Get credentials based on the flow result."""
         username = flow_result["username"]
@@ -139,10 +141,15 @@ class OpenIdLoginFlow(LoginFlow):
 
         raise InvalidAuthError
 
-    def _show_login_form(self, errors: dict[str, str] = {}) -> AuthFlowResult:
+    def _show_login_form(
+        self, errors: Optional[dict[str, str]] = None
+    ) -> AuthFlowResult:
+        if errors is None:
+            errors = {}
+
         # Show the login form
-        # Currently, this form looks bad because the frontend gives no options to make it look better
-        # We will investigate options to make it look better in the future
+        # Abuses the MFA form, as it works better for our usecase
+        # UI suggestions are welcome (make a PR!)
         return self.async_show_form(
             step_id="mfa",
             data_schema=vol.Schema(
@@ -167,12 +174,12 @@ class OpenIdLoginFlow(LoginFlow):
 
         # If not available, check the cookie
         req = http.current_request.get()
-        codeCookie = req.cookies.get("auth_oidc_code")
+        code_cookie = req.cookies.get("auth_oidc_code")
 
-        if codeCookie:
-            _LOGGER.debug("Code cookie found on login: %s", codeCookie)
+        if code_cookie:
+            _LOGGER.debug("Code cookie found on login: %s", code_cookie)
             try:
-                return await self._finalize_user(codeCookie)
+                return await self._finalize_user(code_cookie)
             except InvalidAuthError:
                 pass
 

@@ -1,10 +1,9 @@
+"""Welcome route to show the user the OIDC login button and give instructions."""
+
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
-import logging
 
 PATH = "/auth/oidc/welcome"
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class OIDCWelcomeView(HomeAssistantView):
@@ -14,12 +13,10 @@ class OIDCWelcomeView(HomeAssistantView):
     url = PATH
     name = "auth:oidc:welcome"
 
-    async def get(self, request: web.Request) -> web.Response:
+    async def get(self) -> web.Response:
         """Receive response."""
-
-        _LOGGER.debug("Welcome view accessed")
 
         return web.Response(
             headers={"content-type": "text/html"},
-            text="<h1>OIDC Login (beta)</h1><p><a href='/auth/oidc/redirect'>Login with OIDC</a></p>",
+            text="<h1>OIDC Login</h1><p><a href='/auth/oidc/redirect'>Login with OIDC</a></p>",
         )

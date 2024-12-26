@@ -1,12 +1,11 @@
-from aiohttp import web
-from homeassistant.components.http import HomeAssistantView
-import logging
+"""Finish route to allow the user to view their code."""
 
-from ..helpers import get_url
+from homeassistant.components.http import HomeAssistantView
+from aiohttp import web
+
+from auth_oidc.helpers import get_url
 
 PATH = "/auth/oidc/finish"
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class OIDCFinishView(HomeAssistantView):
@@ -29,7 +28,11 @@ class OIDCFinishView(HomeAssistantView):
                 + code
                 + "; Path=/auth/login_flow; SameSite=Strict; HttpOnly; Max-Age=300",
             },
-            text=f"<h1>Done!</h1><p>Your code is: <b>{code}</b></p><p>Please return to the Home Assistant login screen (or your mobile app) and fill in this code into the single login field. It should be visible if you select 'Login with OpenID Connect (SSO)'.</p><p><a href='"
+            text=f"<h1>Done!</h1><p>Your code is: <b>{code}</b></p>"
+            + "<p>Please return to the Home Assistant login "
+            + "screen (or your mobile app) and fill in this code into the single login field. "
+            + "It should be visible if you "
+            + "select 'Login with OpenID Connect (SSO)'.</p><p><a href='"
             + link
             + "'>Click here to login automatically (on desktop).</a></p>",
         )

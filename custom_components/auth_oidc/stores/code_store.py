@@ -1,9 +1,12 @@
-from homeassistant.helpers.storage import Store
-from homeassistant.core import HomeAssistant
+"""Code Store, stores the codes and their associated authenticated user temporarily."""
+
 import random
 import string
+
 from datetime import datetime, timedelta
 from typing import cast, Optional
+from homeassistant.helpers.storage import Store
+from homeassistant.core import HomeAssistant
 
 STORAGE_VERSION = 1
 STORAGE_KEY = "auth_provider.auth_oidc.codes"

@@ -1,13 +1,12 @@
-from aiohttp import web
+"""Callback route to return the user to after external OIDC interaction."""
+
 from homeassistant.components.http import HomeAssistantView
-import logging
-from ..oidc_client import OIDCClient
-from ..provider import OpenIDAuthProvider
-from ..helpers import get_url
+from aiohttp import web
+from auth_oidc.oidc_client import OIDCClient
+from auth_oidc.provider import OpenIDAuthProvider
+from auth_oidc.helpers import get_url
 
 PATH = "/auth/oidc/callback"
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class OIDCCallbackView(HomeAssistantView):
@@ -25,8 +24,6 @@ class OIDCCallbackView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         """Receive response."""
-
-        _LOGGER.debug("Callback view accessed")
 
         params = request.rel_url.query
         code = params.get("code")

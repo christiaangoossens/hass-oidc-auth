@@ -1,3 +1,5 @@
+"""Helper functions for the integration."""
+
 from homeassistant.components import http
 
 
