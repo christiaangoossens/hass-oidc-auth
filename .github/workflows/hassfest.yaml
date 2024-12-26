@@ -3,10 +3,9 @@ name: hassfest
 
 on:
   push:
-    - main
-  pull_request:
     branches:
       - main
+  pull_request:
   schedule:
     - cron: "0 0 * * *"
 
