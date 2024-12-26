@@ -1,6 +1,6 @@
 [project]
-name = "hass-oidc"
-version = "0.1.0"
+name = "hass-auth-oidc"
+version = "0.2.0"
 description = "OIDC component for Home Assistant"
 authors = [
     { name = "Christiaan Goossens", email = "contact@christiaangoossens.nl" }
@@ -10,7 +10,7 @@ dependencies = [
     "python-jose>=3.3.0",
 ]
 readme = "README.md"
-requires-python = ">= 3.8"
+requires-python = ">= 3.13"
 
 [build-system]
 requires = ["hatchling"]
@@ -28,3 +28,12 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["custom_components/auth_oidc"]
+
+[tool.rye.scripts]
+check = { chain = ["check-lint", "check-fmt", "check-pylint" ] }
+"check-lint" = "rye lint"
+"check-fmt" = "rye fmt --check"
+"check-pylint" = "pylint custom_components"
+fix = { chain = ["fix-lint", "fix-fmt" ] }
+"fix-lint" = "rye lint --fix"
+"fix-fmt" = "rye fmt"
