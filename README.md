@@ -65,9 +65,9 @@ Currently, this is a pre-alpha, so I welcome issues but I cannot guarantee I can
 - [X] Configure Github Actions to automatically lint and build the package
 - [ ] Configure Dependabot for automatic updates
 - [ ] Configure tests
-- [ ] Consider use of setup UI instead of YAML
+- [ ] Consider use of setup UI instead of YAML (see https://github.com/christiaangoossens/hass-oidc-auth/discussions/6)
 
-Currently impossible TODOs (waiting for assistance from HA devs, not possible without forking HA frontend & apps right now):
+Currently waiting on HA feature additions:
 
 - [ ] Update the HA frontend code to allow a redirection to be requested from an auth provider instead of manually opening welcome page (possibly after https://github.com/home-assistant/frontend/pull/23204)
 - [ ] Implement this redirection logic to open a new tab on desktop (#23204 uses popup)
