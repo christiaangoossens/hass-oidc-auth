@@ -1,7 +1,7 @@
 # OIDC Auth for Home Assistant
 
 > [!CAUTION]
-> This is a pre-alpha release. I give no guarantees about code quality, error handling or security at this stage. Please treat this repo as a proof of concept for now and only use it on development HA installs.
+> This is an alpha release. I give no guarantees about code quality, error handling or security at this stage. Please treat this repo as a proof of concept for now and only use it on development HA installs.
 
 Provides an OIDC implementation for Home Assistant.
 
@@ -37,7 +37,11 @@ Afterwards, restart Home Assistant.
 ### Login
 You should now be able to see a second option on your login screen ("OpenID Connect (SSO)"). It provides you with a single input field.
 
-Sadly, the user experience is pretty poor right now. Go to `/auth/oidc/welcome` (for example `https://hass.io/auth/oidc/welcome`, replace the URL with your Home Assistant URL) and follow the prompts provided to login, then copy the code into the input field from before. You should now login automatically with your username from SSO.
+To start, go to one of to one of these URLs (you may also set these as application URLs in your OIDC Provider):
+- `/auth/oidc/welcome` (if you would like a nice welcome screen for your users)
+- `/auth/oidc/redirect` (if you would like to just redirect them without a welcome screen)
+
+So, for example, you may start at http://homeassistant.local:8123/auth/oidc/welcome.
 
 > [!TIP]
 > You can use a different device to login instead. Open the `/auth/oidc/welcome` link on device A and then type the obtained code into the normal HA login on device B (can also be the mobile app) to login.
