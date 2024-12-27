@@ -2,6 +2,7 @@
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
+from ..helpers import get_view
 
 PATH = "/auth/oidc/welcome"
 
@@ -15,8 +16,5 @@ class OIDCWelcomeView(HomeAssistantView):
 
     async def get(self, _: web.Request) -> web.Response:
         """Receive response."""
-
-        return web.Response(
-            headers={"content-type": "text/html"},
-            text="<h1>OIDC Login</h1><p><a href='/auth/oidc/redirect'>Login with OIDC</a></p>",
-        )
+        view_html = await get_view("welcome")
+        return web.Response(text=view_html, content_type="text/html")

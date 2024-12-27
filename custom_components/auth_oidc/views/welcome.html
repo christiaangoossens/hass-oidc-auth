@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}OIDC Login{% endblock %}
+{% block head %}
+{{ super() }}
+{% endblock %}
+{% block content %}
+<h1 class="text-3xl font-bold underline">
+    Hello world!
+</h1>
+<h1>OIDC Login</h1>
+<p><a href='/auth/oidc/redirect'>Login with OIDC</a></p>
+{% endblock %}

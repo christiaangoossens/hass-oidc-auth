@@ -2,8 +2,7 @@
 
 from homeassistant.components.http import HomeAssistantView
 from aiohttp import web
-
-from ..helpers import get_url
+from ..helpers import get_view, get_url
 
 PATH = "/auth/oidc/finish"
 
@@ -21,18 +20,16 @@ class OIDCFinishView(HomeAssistantView):
         code = request.query.get("code", "FAIL")
         link = get_url("/")
 
+        view_html = await get_view("finish", {"code": code, "link": link})
         return web.Response(
             headers={
                 "content-type": "text/html",
+                # Set a cookie to enable autologin on only the specific path used
+                # for the POST request, with all strict parameters set
+                # This cookie should not be read by any Javascript or any other paths.
                 "set-cookie": "auth_oidc_code="
                 + code
                 + "; Path=/auth/login_flow; SameSite=Strict; HttpOnly; Max-Age=300",
             },
-            text=f"<h1>Done!</h1><p>Your code is: <b>{code}</b></p>"
-            + "<p>Please return to the Home Assistant login "
-            + "screen (or your mobile app) and fill in this code into the single login field. "
-            + "It should be visible if you "
-            + "select 'Login with OpenID Connect (SSO)'.</p><p><a href='"
-            + link
-            + "'>Click here to login automatically (on desktop).</a></p>",
+            text=view_html,
         )
