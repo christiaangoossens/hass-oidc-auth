@@ -47,7 +47,8 @@ class OIDCCallbackView(HomeAssistantView):
             view_html = await get_view(
                 "error",
                 {
-                    "error": "Failed to get user details, see Home Assistant logs for more information.",
+                    "error": "Failed to get user details, "
+                    + "see Home Assistant logs for more information.",
                     "link": get_url("/auth/oidc/redirect"),
                 },
             )

@@ -18,7 +18,7 @@ class AsyncTemplateRenderer:
     def __init__(self, template_dir: str = None):
         self.template_dir = template_dir or path.dirname(path.abspath(__file__))
 
-    async def _fetch_templates(self) -> None:
+    async def fetch_templates(self) -> None:
         """Fetches all HTML files from the template directory."""
         templates.clear()
 
@@ -45,7 +45,9 @@ class AsyncTemplateRenderer:
         """Renders a template with the given parameters."""
 
         if not templates:
-            await self._fetch_templates()  # If the templates haven't been fetched, fetch them
+            await (
+                self.fetch_templates()
+            )  # If the templates haven't been fetched, fetch them
 
         if template_name not in templates:
             raise ValueError(f"Template '{template_name}' not found.")
