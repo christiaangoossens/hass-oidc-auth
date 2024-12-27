@@ -55,8 +55,8 @@ Currently, this is a pre-alpha, so I welcome issues but I cannot guarantee I can
 
 - [X] Basic flow
 - [X] Implement a final link back to the main page from the finish page
-- [ ] Improve welcome screen UI, should render a simple centered Tailwind UI instructing users that you should login externally to obtain a code.
-- [ ] Improve finish screen UI, showing the code clearly with a copy button and instructions to paste it into Home Assistant.
+- [X] Improve welcome screen UI, should render a simple centered Tailwind UI instructing users that you should login externally to obtain a code.
+- [X] Improve finish screen UI, showing the code clearly with instructions to paste it into Home Assistant.
 - [ ] Implement error handling on top of this proof of concept (discovery, JWKS, OIDC)
 - [ ] Make id_token claim used for the group (admin/user) configurable
 - [ ] Make id_token claim used for the username configurable

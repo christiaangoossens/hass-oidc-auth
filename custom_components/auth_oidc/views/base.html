@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full min-h-full max-h-full">
+
+<head>
+    {% block head %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% endblock %}
+</head>
+
+<body class="bg-gray-200 flex items-center justify-center h-full">
+    <div class="bg-white p-6 rounded-lg shadow-lg max-w-md">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+
+</html>
