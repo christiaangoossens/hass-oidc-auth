@@ -4,9 +4,26 @@
 {{ super() }}
 {% endblock %}
 {% block content %}
-<h1 class="text-3xl font-bold underline">
-    Hello world!
-</h1>
-<h1>OIDC Login</h1>
-<p><a href='/auth/oidc/redirect'>Login with OIDC</a></p>
+<div class="text-center">
+    <h1 class="text-2xl font-bold mb-4">Home Assistant</h1>
+    <p class="mb-4">You have been invited to login to Home Assistant.<br />Start the login process below.</p>
+
+    <button id="oidc-login-btn"
+        class="w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75">
+        Login with OpenID Connect (SSO)
+    </button>
+
+
+    <p class="mt-6 text-sm">After login, you will be granted a one-time code to login to any device. You may complete
+        this login on your desktop or any mobile browser and then use the token for any desktop or the Home Assistant
+        app.</p>
+</div>
+<script>
+    document.getElementById('oidc-login-btn').addEventListener('click', function () {
+        this.innerHTML = 'Redirecting...';
+        this.disabled = true;
+        this.classList.add('bg-gray-500');
+        window.location.href = '/auth/oidc/redirect';
+    });
+</script>
 {% endblock %}
