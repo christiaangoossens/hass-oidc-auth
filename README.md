@@ -1,7 +1,7 @@
 # OIDC Auth for Home Assistant
 
 > [!CAUTION]
-> This is an alpha release. I give no guarantees about code quality, error handling or security at this stage. Please treat this repo as a proof of concept for now and only use it on development HA installs.
+> This is an alpha release. I give no guarantees about code quality, error handling or security at this stage. Use at your own risk.
 
 Provides an OIDC implementation for Home Assistant.
 
@@ -28,11 +28,11 @@ Register your client with your OIDC Provider (e.g. Authentik/Authelia) as a publ
 For example:
 ```yaml
 auth_oidc:
-   client_id: "someValueForTheClientId"
-   discovery_url: "https://example.com/application/o/application/.well-known/openid-configuration"
+    client_id: "someValueForTheClientId"
+    discovery_url: "https://example.com/application/o/application/.well-known/openid-configuration"
 ```
 
-Afterwards, restart Home Assistant.
+Afterwards, restart Home Assistant. You can find all possible configuration options below.
 
 ### Login
 You should now be able to see a second option on your login screen ("OpenID Connect (SSO)"). It provides you with a single input field.
@@ -45,6 +45,42 @@ So, for example, you may start at http://homeassistant.local:8123/auth/oidc/welc
 
 > [!TIP]
 > You can use a different device to login instead. Open the `/auth/oidc/welcome` link on device A and then type the obtained code into the normal HA login on device B (can also be the mobile app) to login.
+
+With the default configuration, a person entry will be created for every new OIDC user logging in. New OIDC users will get their own fresh user, linked to their persistent ID (subject) at the OpenID Connect provider. You may change your name, username or email at the provider and still have the same Home Assistant user profile.
+
+### Configuration Options
+
+| Option                      | Type     | Required | Default             | Description                                                                                             |
+|-----------------------------|----------|----------|----------------------|---------------------------------------------------------------------------------------------------------|
+| `client_id`                 | `string` | Yes      |                      | The Client ID as registered with your OpenID Connect provider.                                        |
+| `client_secret`            | `string` | No       |                      | The Client Secret for enabling confidential client mode.                                             |
+| `discovery_url`            | `string` | Yes      |                      | The OIDC well-known configuration URL.                                                                |
+| `display_name`              | `string` | No       | `"OpenID Connect (SSO)"` | The name to display on the login screen.                                                                |
+| `id_token_signing_alg`       | `string` | No       | `RS256`              | The signing algorithm to enforce on ID tokens. Defaults to `RS256`.                                   |
+| `features`                  | `object` | No       | `{}`                 |  Object containing optional feature flags.                                                              |
+| `features.automatic_user_linking`   | `boolean`| No       | `false`          | Automatically links users to existing Home Assistant users based on the OIDC username claim.      |
+| `features.automatic_person_creation` | `boolean` | No       | `true`          | Automatically creates a person entry for new OIDC users.                                             |
+| `features.disable_rfc7636`  | `boolean`| No       | `false`         | Disables PKCE (RFC 7636) for OIDC providers that don't support it. You should not need this with most providers.                                    |
+| `claims`                    | `object` | No       | `{}`                 | Object to configure which claims to use from the ID token.                                              |
+| `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name from OIDC.                                                  |
+| `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username from OIDC.                                                      |
+| `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s) from OIDC.                                            |
+
+#### Example: Migrating from HA username/password users to OIDC users
+If you already have users created within Home Assistant and would like to re-use the current user profile for your OIDC login, you can (temporarily) enable `features.automatic_user_linking`, with the following config (example):
+
+```yaml
+auth_oidc:
+    client_id: "someValueForTheClientId"
+    discovery_url: "https://example.com/application/o/application/.well-known/openid-configuration"
+    features:
+        automatic_user_linking: true
+```
+
+Upon login, OIDC users will then automatically be linked to the HA user with the same username.
+
+> [!IMPORTANT]
+> It's recommended to only enable this temporarily as it may pose a security risk. Any OIDC user with a username corresponding to a user in Home Assistant can get access to that user, and it's existing rights (admin), even if MFA is currently enabled for that account. After you have migrated your users (and linked OIDC to all existing accounts) you can disable the feature and keep using the linked users.
 
 ## Development
 This project uses the Rye package manager for development. You can find installation instructions here: https://rye.astral.sh/guide/installation/.
@@ -61,10 +97,10 @@ Currently, this is a pre-alpha, so I welcome issues but I cannot guarantee I can
 - [X] Implement a final link back to the main page from the finish page
 - [X] Improve welcome screen UI, should render a simple centered Tailwind UI instructing users that you should login externally to obtain a code.
 - [X] Improve finish screen UI, showing the code clearly with instructions to paste it into Home Assistant.
-- [ ] Implement error handling on top of this proof of concept (discovery, JWKS, OIDC)
-- [ ] Make id_token claim used for the group (admin/user) configurable
-- [ ] Make id_token claim used for the username configurable
-- [ ] Make id_token claim used for the name configurable
+- [X] Implement error handling on top of this proof of concept (discovery, JWKS, OIDC)
+- [X] Make id_token claim used for the group (admin/user) configurable
+- [X] Make id_token claim used for the username configurable
+- [X] Make id_token claim used for the name configurable
 - [ ] Add instructions on how to deploy this with Authentik & Authelia
 - [X] Configure Github Actions to automatically lint and build the package
 - [ ] Configure Dependabot for automatic updates
