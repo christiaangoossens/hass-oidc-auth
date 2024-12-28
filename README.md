@@ -3,7 +3,7 @@
 > [!CAUTION]
 > This is an alpha release. I give no guarantees about code quality, error handling or security at this stage. Use at your own risk.
 
-Provides an OIDC implementation for Home Assistant.
+Provides an OpenID Connect (OIDC) implementation for Home Assistant through a custom component/integration. Through this integration, you can create an SSO (single-sign-on) environment within your self-hosted application stack / homelab.
 
 ### Background
 If you would like to read the background/open letter that lead to this component, please see https://community.home-assistant.io/t/open-letter-for-improving-home-assistants-authentication-system-oidc-sso/494223. It is currently one of the most upvoted feature requests for Home Assistant.
@@ -32,7 +32,9 @@ auth_oidc:
     discovery_url: "https://example.com/application/o/application/.well-known/openid-configuration"
 ```
 
-Afterwards, restart Home Assistant. You can find all possible configuration options below.
+Afterwards, restart Home Assistant. 
+
+You can find all possible configuration options below.
 
 ### Login
 You should now be able to see a second option on your login screen ("OpenID Connect (SSO)"). It provides you with a single input field.
@@ -46,7 +48,11 @@ So, for example, you may start at http://homeassistant.local:8123/auth/oidc/welc
 > [!TIP]
 > You can use a different device to login instead. Open the `/auth/oidc/welcome` link on device A and then type the obtained code into the normal HA login on device B (can also be the mobile app) to login.
 
-With the default configuration, a person entry will be created for every new OIDC user logging in. New OIDC users will get their own fresh user, linked to their persistent ID (subject) at the OpenID Connect provider. You may change your name, username or email at the provider and still have the same Home Assistant user profile.
+> [!TIP]
+> For a seamless user experience, configure a new domain on your proxy to redirect to the `/auth/oidc/welcome` path or configure that path on your homelab dashboard or in Authentik. Users will then always start on the OIDC welcome page, which will allow them to visit the dashboard if they are already logged in.
+
+
+With the default configuration, [a person entry](https://www.home-assistant.io/integrations/person/) will be created for every new OIDC user logging in. New OIDC users will get their own fresh user, linked to their persistent ID (subject) at the OpenID Connect provider. You may change your name, username or email at the provider and still have the same Home Assistant user profile.
 
 ### Configuration Options
 
@@ -55,16 +61,14 @@ With the default configuration, a person entry will be created for every new OID
 | `client_id`                 | `string` | Yes      |                      | The Client ID as registered with your OpenID Connect provider.                                        |
 | `client_secret`            | `string` | No       |                      | The Client Secret for enabling confidential client mode.                                             |
 | `discovery_url`            | `string` | Yes      |                      | The OIDC well-known configuration URL.                                                                |
-| `display_name`              | `string` | No       | `"OpenID Connect (SSO)"` | The name to display on the login screen.                                                                |
-| `id_token_signing_alg`       | `string` | No       | `RS256`              | The signing algorithm to enforce on ID tokens. Defaults to `RS256`.                                   |
-| `features`                  | `object` | No       | `{}`                 |  Object containing optional feature flags.                                                              |
-| `features.automatic_user_linking`   | `boolean`| No       | `false`          | Automatically links users to existing Home Assistant users based on the OIDC username claim.      |
-| `features.automatic_person_creation` | `boolean` | No       | `true`          | Automatically creates a person entry for new OIDC users.                                             |
+| `display_name`              | `string` | No       | `"OpenID Connect (SSO)"` | The name to display on the login screen, both for the Home Assistant screen and the OIDC welcome screen.                                                                |
+| `id_token_signing_alg`       | `string` | No       | `RS256`              | The signing algorithm that is used for your id_tokens.
+| `features.automatic_user_linking`   | `boolean`| No       | `false`          | Automatically links users to existing Home Assistant users based on the OIDC username claim. Disabled by default for security. When disabled, OIDC users will get their own new user profile upon first login.     |
+| `features.automatic_person_creation` | `boolean` | No       | `true`          | Automatically creates a person entry for new user profiles created by this integration. Recommended if you would like to assign presence detection to OIDC users.                                            |
 | `features.disable_rfc7636`  | `boolean`| No       | `false`         | Disables PKCE (RFC 7636) for OIDC providers that don't support it. You should not need this with most providers.                                    |
-| `claims`                    | `object` | No       | `{}`                 | Object to configure which claims to use from the ID token.                                              |
-| `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name from OIDC.                                                  |
-| `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username from OIDC.                                                      |
-| `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s) from OIDC.                                            |
+| `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
+| `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.
+| `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |
 
 #### Example: Migrating from HA username/password users to OIDC users
 If you already have users created within Home Assistant and would like to re-use the current user profile for your OIDC login, you can (temporarily) enable `features.automatic_user_linking`, with the following config (example):
