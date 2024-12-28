@@ -3,8 +3,11 @@
 import logging
 from typing import OrderedDict
 
-import voluptuous as vol
 from homeassistant.core import HomeAssistant
+
+# Import and re-export config schema explictly
+# pylint: disable=useless-import-alias
+from .config import CONFIG_SCHEMA as CONFIG_SCHEMA, DOMAIN
 
 from .endpoints.welcome import OIDCWelcomeView
 from .endpoints.redirect import OIDCRedirectView
@@ -14,23 +17,7 @@ from .endpoints.callback import OIDCCallbackView
 from .oidc_client import OIDCClient
 from .provider import OpenIDAuthProvider
 
-DOMAIN = "auth_oidc"
 _LOGGER = logging.getLogger(__name__)
-
-CONFIG_SCHEMA = vol.Schema(
-    {
-        DOMAIN: vol.Schema(
-            {
-                vol.Required("client_id"): vol.Coerce(str),
-                vol.Optional("client_secret"): vol.Coerce(str),
-                vol.Required("discovery_url"): vol.Coerce(str),
-                vol.Optional("display_name"): vol.Coerce(str),
-                vol.Optional("user_linking"): vol.Coerce(bool),
-            }
-        )
-    },
-    extra=vol.ALLOW_EXTRA,
-)
 
 
 async def async_setup(hass: HomeAssistant, config):

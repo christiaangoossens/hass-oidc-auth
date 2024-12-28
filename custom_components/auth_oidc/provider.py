@@ -23,6 +23,11 @@ from homeassistant.components import http, person
 from homeassistant.exceptions import HomeAssistantError
 import voluptuous as vol
 
+from .config import (
+    FEATURES,
+    FEATURES_AUTOMATIC_USER_LINKING,
+    FEATURES_AUTOMATIC_PERSON_CREATION,
+)
 from .stores.code_store import CodeStore
 from .types import UserDetails
 
@@ -66,8 +71,20 @@ class OpenIDAuthProvider(AuthProvider):
         self._code_store: CodeStore | None = None
         self._init_lock = asyncio.Lock()
 
-        self.user_linking = config.get("user_linking", False)
-        self.create_persons = config.get("create_persons", True)
+        features = config.get(
+            FEATURES,
+            {},
+        )
+
+        # Link users automatically?
+        # False by default to always make new accounts for OIDC users
+        # Turn this on to migrate from HA accounts to OIDC
+        self.user_linking = features.get(FEATURES_AUTOMATIC_USER_LINKING, False)
+
+        # Create person entries automatically?
+        # True by default to create a person for each new user (just like normal HA)
+        # Turn this off if you don't want OIDC to interfere more than necessary
+        self.create_persons = features.get(FEATURES_AUTOMATIC_PERSON_CREATION, True)
 
     async def async_initialize(self) -> None:
         """Initialize the auth provider."""
@@ -139,6 +156,9 @@ class OpenIDAuthProvider(AuthProvider):
         user = await self.store.async_get_user(user_id)
 
         # Get the first credential, if it's not ours, return
+        if not user.credentials or len(user.credentials) == 0:
+            return
+
         credential = user.credentials[0]
         if not (
             credential.auth_provider_type == self.type
@@ -164,11 +184,18 @@ class OpenIDAuthProvider(AuthProvider):
         _LOGGER.info("Automatically creating person for new user %s", user.id)
 
         # Create a person for the user
-        await person.async_create_person(
-            hass=self.hass,
-            name=name,
-            user_id=user.id,
-        )
+        try:
+            await person.async_create_person(
+                hass=self.hass,
+                name=name,
+                user_id=user.id,
+            )
+        # Catch all, we don't want to fail here
+        # pylint: disable=broad-exception-caught
+        except Exception:
+            _LOGGER.warning(
+                "Requested automatic person creation, but person creation failed."
+            )
 
     # ====
     # Required functions for Home Assistant Auth Providers
