@@ -48,7 +48,7 @@ async def async_setup(hass: HomeAssistant, config):
     hass.auth._providers = providers
     # pylint: enable=protected-access
 
-    _LOGGER.debug("Added OIDC provider for Home Assistant")
+    _LOGGER.info("Registered OIDC provider")
 
     # Define some fields
     discovery_url: str = config[DOMAIN]["discovery_url"]
@@ -64,5 +64,7 @@ async def async_setup(hass: HomeAssistant, config):
     hass.http.register_view(OIDCRedirectView(oidc_client))
     hass.http.register_view(OIDCCallbackView(oidc_client, provider))
     hass.http.register_view(OIDCFinishView())
+
+    _LOGGER.info("Registered OIDC views")
 
     return True

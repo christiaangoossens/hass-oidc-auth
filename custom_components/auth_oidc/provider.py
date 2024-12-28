@@ -101,6 +101,12 @@ class OpenIDAuthProvider(AuthProvider):
     ) -> Credentials:
         """Get credentials based on the flow result."""
         sub = flow_result["sub"]
+        meta = self._user_meta.get(sub)
+
+        # Audit logging for the login that is about to occur
+        _LOGGER.info(
+            "Logged in user through OIDC: %s, %s", meta["sub"], meta["display_name"]
+        )
 
         # Get my own credentials (self.async_credentials())
         # and iterate over them to find one with the correct subject
@@ -114,7 +120,6 @@ class OpenIDAuthProvider(AuthProvider):
         # Create new credentials.
         # Also include the username such that Home Assistant makes a user
         # with the preferred username of the user.
-        meta = self._user_meta.get(sub)
         return self.async_create_credentials(
             {"username": meta.get("username"), "sub": sub}
         )
@@ -148,7 +153,6 @@ class OpenIdLoginFlow(LoginFlow):
     async def _finalize_user(self, code: str) -> AuthFlowResult:
         sub = await self._auth_provider.async_get_subject(code)
         if sub:
-            _LOGGER.info("Logged in user by OIDC subject: %s", sub)
             return await self.async_finish(
                 {
                     "sub": sub,

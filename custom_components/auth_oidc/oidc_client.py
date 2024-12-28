@@ -324,7 +324,13 @@ class OIDCClient:
             data: UserDetails = {
                 # Subject Identifier. A locally unique and never reassigned identifier within the
                 # Issuer for the End-User, which is intended to be consumed by the Client
-                "sub": id_token.get("sub"),
+                # Only unique per issuer, so we combine it with the issuer and hash it.
+                # This might allow multiple OIDC providers to be used with this integration.
+                "sub": hashlib.sha256(
+                    f"{self.discovery_document['issuer']}.{id_token.get('sub')}".encode(
+                        "utf-8"
+                    )
+                ).hexdigest(),
                 # Display name, configurable
                 "display_name": id_token.get(self.display_name_claim),
                 # Username, configurable
@@ -333,7 +339,13 @@ class OIDCClient:
                 "groups": id_token.get(self.group_claim),
             }
 
-            _LOGGER.debug("Obtained user details from OIDC provider: %s", data)
+            # Log which details were obtained for debugging
+            # Also log the original subject identifier such that you can look it up in your provider
+            _LOGGER.debug(
+                "Obtained user details from OIDC provider: %s (issuer subject: %s)",
+                data,
+                id_token.get("sub"),
+            )
             return data
         except OIDCClientException as e:
             _LOGGER.warning("Error completing token flow: %s", e)
