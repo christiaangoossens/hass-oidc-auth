@@ -53,8 +53,11 @@ async def async_setup(hass: HomeAssistant, config):
     # Define some fields
     discovery_url: str = config[DOMAIN]["discovery_url"]
     client_id: str = config[DOMAIN]["client_id"]
-    scope: str = "openid profile email"
 
+    # We only use openid & profile, never email
+    scope: str = "openid profile"
+
+    # TODO: Allow setting the options
     oidc_client = oidc_client = OIDCClient(discovery_url, client_id, scope)
 
     hass.http.register_view(OIDCWelcomeView())

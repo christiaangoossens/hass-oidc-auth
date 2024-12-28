@@ -16,7 +16,9 @@ class AsyncTemplateRenderer:
     """An asynchronous template renderer that caches rendered templates."""
 
     def __init__(self, template_dir: str = None):
-        self.template_dir = template_dir or path.dirname(path.abspath(__file__))
+        self.template_dir = template_dir or path.join(
+            path.dirname(path.abspath(__file__)), "templates"
+        )
 
     async def fetch_templates(self) -> None:
         """Fetches all HTML files from the template directory."""

@@ -19,6 +19,7 @@ from homeassistant.exceptions import HomeAssistantError
 import voluptuous as vol
 
 from .stores.code_store import CodeStore
+from .types import UserDetails
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ class OpenIDAuthProvider(AuthProvider):
     def __init__(self, *args, **kwargs):
         """Initialize the OpenIDAuthProvider."""
         super().__init__(*args, **kwargs)
-        self._user_meta = {}
+        self._user_meta: dict[UserDetails] = {}
         self._code_store: CodeStore | None = None
         self._init_lock = asyncio.Lock()
 
@@ -64,8 +65,8 @@ class OpenIDAuthProvider(AuthProvider):
             self._code_store = store
             self._user_meta = {}
 
-    async def async_retrieve_username(self, code: str) -> Optional[str]:
-        """Retrieve user from the code, return username and save meta
+    async def async_get_subject(self, code: str) -> Optional[str]:
+        """Retrieve user from the code, return subject and save meta
         for later use with this provider instance."""
         if self._code_store is None:
             await self.async_initialize()
@@ -75,9 +76,9 @@ class OpenIDAuthProvider(AuthProvider):
         if user_data is None:
             return None
 
-        username = user_data["username"]
-        self._user_meta[username] = user_data
-        return username
+        sub = user_data["sub"]
+        self._user_meta[sub] = user_data
+        return sub
 
     async def async_save_user_info(self, user_info: dict[str, dict | str]) -> str:
         """Save user info and return a code."""
@@ -99,13 +100,24 @@ class OpenIDAuthProvider(AuthProvider):
         self, flow_result: dict[str, str]
     ) -> Credentials:
         """Get credentials based on the flow result."""
-        username = flow_result["username"]
+        sub = flow_result["sub"]
+
+        # Get my own credentials (self.async_credentials())
+        # and iterate over them to find one with the correct subject
         for credential in await self.async_credentials():
-            if credential.data["username"] == username:
+            # When logging in again, use the subject to check if the credential exist
+            # OpenID spec says that sub is the only claim we can rely on, as username
+            # might change over time.
+            if credential.data.get("sub") == sub:
                 return credential
 
         # Create new credentials.
-        return self.async_create_credentials({"username": username})
+        # Also include the username such that Home Assistant makes a user
+        # with the preferred username of the user.
+        meta = self._user_meta.get(sub)
+        return self.async_create_credentials(
+            {"username": meta.get("username"), "sub": sub}
+        )
 
     async def async_user_meta_for_credentials(
         self, credentials: Credentials
@@ -114,15 +126,19 @@ class OpenIDAuthProvider(AuthProvider):
 
         Currently, supports name, is_active, group and local_only.
         """
-        meta = self._user_meta.get(credentials.data["username"], {})
+
+        sub = credentials.data["sub"]
+        meta = self._user_meta.get(sub, {})
+
         groups = meta.get("groups", [])
 
+        # TODO: Allow setting which group is for admins
         group = "system-admin" if "admins" in groups else "system-users"
         return UserMeta(
-            name=meta.get("name"),
+            name=meta.get("display_name"),
             is_active=True,
             group=group,
-            local_only="true",
+            local_only=False,
         )
 
 
@@ -130,12 +146,12 @@ class OpenIdLoginFlow(LoginFlow):
     """Handler for the login flow."""
 
     async def _finalize_user(self, code: str) -> AuthFlowResult:
-        username = await self._auth_provider.async_retrieve_username(code)
-        if username:
-            _LOGGER.info("Logged in user: %s", username)
+        sub = await self._auth_provider.async_get_subject(code)
+        if sub:
+            _LOGGER.info("Logged in user by OIDC subject: %s", sub)
             return await self.async_finish(
                 {
-                    "username": username,
+                    "sub": sub,
                 }
             )
 
