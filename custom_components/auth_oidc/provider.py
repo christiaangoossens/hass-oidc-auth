@@ -6,6 +6,7 @@ import logging
 
 from typing import Dict, Optional
 import asyncio
+from homeassistant.auth import EVENT_USER_ADDED
 from homeassistant.auth.providers import (
     AUTH_PROVIDERS,
     AuthProvider,
@@ -17,8 +18,8 @@ from homeassistant.auth.providers import (
     AuthStore,
 )
 from homeassistant.const import CONF_ID, CONF_NAME, CONF_TYPE
-from homeassistant.core import HomeAssistant
-from homeassistant.components import http
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.components import http, person
 from homeassistant.exceptions import HomeAssistantError
 import voluptuous as vol
 
@@ -26,6 +27,9 @@ from .stores.code_store import CodeStore
 from .types import UserDetails
 
 _LOGGER = logging.getLogger(__name__)
+
+PROVIDER_TYPE = "auth_oidc"
+HASS_PROVIDER_TYPE = "homeassistant"
 
 
 class InvalidAuthError(HomeAssistantError):
@@ -54,7 +58,7 @@ class OpenIDAuthProvider(AuthProvider):
                 # Name displayed in the UI
                 CONF_NAME: config.get("display_name", self.DEFAULT_TITLE),
                 # Type
-                CONF_TYPE: "auth_oidc",
+                CONF_TYPE: PROVIDER_TYPE,
             },
         )
 
@@ -63,6 +67,7 @@ class OpenIDAuthProvider(AuthProvider):
         self._init_lock = asyncio.Lock()
 
         self.user_linking = config.get("user_linking", False)
+        self.create_persons = config.get("create_persons", True)
 
     async def async_initialize(self) -> None:
         """Initialize the auth provider."""
@@ -78,6 +83,9 @@ class OpenIDAuthProvider(AuthProvider):
             await store.async_load()
             self._code_store = store
             self._user_meta = {}
+
+        # Listen for user creation events
+        self.hass.bus.async_listen(EVENT_USER_ADDED, self.async_user_created)
 
     async def async_get_subject(self, code: str) -> Optional[str]:
         """Retrieve user from the code, return subject and save meta
@@ -113,12 +121,54 @@ class OpenIDAuthProvider(AuthProvider):
             # Check if we have a homeassistant credential with the provided username
             for credential in user.credentials:
                 if (
-                    credential.auth_provider_type == "homeassistant"
+                    credential.auth_provider_type == HASS_PROVIDER_TYPE
                     and credential.data.get("username") == username
                 ):
                     return user
 
         return None
+
+    # ====
+    # Handler for user created and related functions (person creation)
+    # ====
+
+    @callback
+    async def async_user_created(self, event) -> None:
+        """Handle the user created event."""
+        user_id = event.data["user_id"]
+        user = await self.store.async_get_user(user_id)
+
+        # Get the first credential, if it's not ours, return
+        credential = user.credentials[0]
+        if not (
+            credential.auth_provider_type == self.type
+            and credential.auth_provider_id == self.id
+        ):
+            # Not mine, return
+            return
+
+        # Audit log the user creation
+        _LOGGER.info(
+            "User was created for first OIDC sign in: %s from subject %s",
+            user.id,
+            credential.data["sub"],
+        )
+
+        # If person creation is enabled, add a person for this user
+        if self.create_persons:
+            user_meta = await self.async_user_meta_for_credentials(credential)
+            await self.async_create_person(user, user_meta.name)
+
+    async def async_create_person(self, user: User, name: str) -> None:
+        """Create a person for the user."""
+        _LOGGER.info("Automatically creating person for new user %s", user.id)
+
+        # Create a person for the user
+        await person.async_create_person(
+            hass=self.hass,
+            name=name,
+            user_id=user.id,
+        )
 
     # ====
     # Required functions for Home Assistant Auth Providers
