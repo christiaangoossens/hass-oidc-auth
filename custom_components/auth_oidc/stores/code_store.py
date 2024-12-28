@@ -8,6 +8,8 @@ from typing import cast, Optional
 from homeassistant.helpers.storage import Store
 from homeassistant.core import HomeAssistant
 
+from ..types import UserDetails
+
 STORAGE_VERSION = 1
 STORAGE_KEY = "auth_provider.auth_oidc.codes"
 
@@ -18,7 +20,7 @@ class CodeStore:
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the user data store."""
         self.hass = hass
-        self._store = Store[dict[str, dict[str, dict | str]]](
+        self._store = Store[dict[str, UserDetails]](
             hass, STORAGE_VERSION, STORAGE_KEY, private=True, atomic_writes=True
         )
         self._data: dict[str, dict[str, dict | str]] | None = None
@@ -26,7 +28,7 @@ class CodeStore:
     async def async_load(self) -> None:
         """Load stored data."""
         if (data := await self._store.async_load()) is None:
-            data = cast(dict[str, dict[str, dict | str]], {})
+            data = cast(dict[str, UserDetails], {})
         self._data = data
 
     async def async_save(self) -> None:
@@ -38,9 +40,7 @@ class CodeStore:
         """Generate a random six-digit code."""
         return "".join(random.choices(string.digits, k=6))
 
-    async def async_generate_code_for_userinfo(
-        self, user_info: dict[str, dict | str]
-    ) -> str:
+    async def async_generate_code_for_userinfo(self, user_info: UserDetails) -> str:
         """Generates a one time code and adds it to the database for 5 minutes."""
         if self._data is None:
             raise RuntimeError("Data not loaded")
@@ -57,9 +57,7 @@ class CodeStore:
         await self.async_save()
         return code
 
-    async def receive_userinfo_for_code(
-        self, code: str
-    ) -> Optional[dict[str, dict | str]]:
+    async def receive_userinfo_for_code(self, code: str) -> Optional[UserDetails]:
         """Retrieve user info based on the code."""
         if self._data is None:
             raise RuntimeError("Data not loaded")

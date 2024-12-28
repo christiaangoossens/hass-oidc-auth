@@ -11,18 +11,18 @@
 
 -e file:.
 aiofiles==24.1.0
-    # via hass-auth-oidc
+    # via hass-oidc-auth
 ecdsa==0.19.0
     # via python-jose
 jinja2==3.1.5
-    # via hass-auth-oidc
+    # via hass-oidc-auth
 markupsafe==3.0.2
     # via jinja2
 pyasn1==0.6.1
     # via python-jose
     # via rsa
 python-jose==3.3.0
-    # via hass-auth-oidc
+    # via hass-oidc-auth
 rsa==4.9
     # via python-jose
 six==1.17.0
