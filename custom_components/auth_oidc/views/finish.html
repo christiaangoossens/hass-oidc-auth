@@ -7,9 +7,13 @@
 <div class="text-center">
     <div class="my-6">
         <h2 class="text-xl font-semibold mb-6 text-gray-800">I want to login to this browser</h2>
-        <a href='{{ link }}'
-            class="w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75">Click
-            here to login automatically</a>
+        <form method="post">
+            <input type="hidden" name="code" value="{{ code }}">
+            <button type="submit"
+                class="w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75">
+                Click here to login automatically
+            </button>
+        </form>
     </div>
 
     <hr class="my-12">
