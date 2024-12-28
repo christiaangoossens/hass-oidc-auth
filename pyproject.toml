@@ -1,5 +1,5 @@
 [project]
-name = "hass-auth-oidc"
+name = "hass-oidc-auth"
 version = "0.3.0"
 description = "OIDC component for Home Assistant"
 authors = [
