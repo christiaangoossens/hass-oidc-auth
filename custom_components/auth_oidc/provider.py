@@ -13,7 +13,11 @@ from homeassistant.auth.providers import (
     AuthFlowResult,
     Credentials,
     UserMeta,
+    User,
+    AuthStore,
 )
+from homeassistant.const import CONF_ID, CONF_NAME, CONF_TYPE
+from homeassistant.core import HomeAssistant
 from homeassistant.components import http
 from homeassistant.exceptions import HomeAssistantError
 import voluptuous as vol
@@ -36,19 +40,29 @@ class OpenIDAuthProvider(AuthProvider):
     DEFAULT_TITLE = "OpenID Connect (SSO)"
 
     @property
-    def type(self) -> str:
-        return "auth_oidc"
-
-    @property
     def support_mfa(self) -> bool:
         return False
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, hass: HomeAssistant, store: AuthStore, config: dict[str, str]):
         """Initialize the OpenIDAuthProvider."""
-        super().__init__(*args, **kwargs)
+        super().__init__(
+            hass,
+            store,
+            {
+                # Currently register as default, might be used when we have multiple OIDC providers
+                CONF_ID: "default",
+                # Name displayed in the UI
+                CONF_NAME: config.get("display_name", self.DEFAULT_TITLE),
+                # Type
+                CONF_TYPE: "auth_oidc",
+            },
+        )
+
         self._user_meta: dict[UserDetails] = {}
         self._code_store: CodeStore | None = None
         self._init_lock = asyncio.Lock()
+
+        self.user_linking = config.get("user_linking", False)
 
     async def async_initialize(self) -> None:
         """Initialize the auth provider."""
@@ -88,6 +102,24 @@ class OpenIDAuthProvider(AuthProvider):
 
         return await self._code_store.async_generate_code_for_userinfo(user_info)
 
+    async def _async_find_user_by_username(self, username: str) -> Optional[User]:
+        """Find a user by username."""
+        users = await self.store.async_get_users()
+        for user in users:
+            # System generated users don't have usernames and aren't our target here
+            if user.system_generated:
+                continue
+
+            # Check if we have a homeassistant credential with the provided username
+            for credential in user.credentials:
+                if (
+                    credential.auth_provider_type == "homeassistant"
+                    and credential.data.get("username") == username
+                ):
+                    return user
+
+        return None
+
     # ====
     # Required functions for Home Assistant Auth Providers
     # ====
@@ -108,8 +140,7 @@ class OpenIDAuthProvider(AuthProvider):
             "Logged in user through OIDC: %s, %s", meta["sub"], meta["display_name"]
         )
 
-        # Get my own credentials (self.async_credentials())
-        # and iterate over them to find one with the correct subject
+        # Iterate over previously created credentials to find one with the same sub
         for credential in await self.async_credentials():
             # When logging in again, use the subject to check if the credential exist
             # OpenID spec says that sub is the only claim we can rely on, as username
@@ -117,12 +148,27 @@ class OpenIDAuthProvider(AuthProvider):
             if credential.data.get("sub") == sub:
                 return credential
 
-        # Create new credentials.
-        # Also include the username such that Home Assistant makes a user
-        # with the preferred username of the user.
-        return self.async_create_credentials(
-            {"username": meta.get("username"), "sub": sub}
-        )
+        # If no credential was found, create a new one
+        # Username cannot be supplied here as it won't be shown by Home Assistant regardless
+        # Source: homeassistant/components/config/auth.py, line 162
+        credential = self.async_create_credentials({"sub": sub})
+
+        # If we have user linking enabled, try to link the user here
+        if self.user_linking:
+            user = await self._async_find_user_by_username(meta["username"])
+            if user is not None:
+                _LOGGER.info(
+                    "User already exists, adding credential for "
+                    + "OIDC to existing user with username '%s'.",
+                    meta["username"],
+                )
+
+                # Link the credential to the existing user
+                # Will set the credential isNew = false
+                await self.store.async_link_user(user, credential)
+
+        # If the credential is new, HA will automatically create a new user for us
+        return credential
 
     async def async_user_meta_for_credentials(
         self, credentials: Credentials

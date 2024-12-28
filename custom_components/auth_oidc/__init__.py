@@ -24,6 +24,8 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Required("client_id"): vol.Coerce(str),
                 vol.Optional("client_secret"): vol.Coerce(str),
                 vol.Required("discovery_url"): vol.Coerce(str),
+                vol.Optional("display_name"): vol.Coerce(str),
+                vol.Optional("user_linking"): vol.Coerce(bool),
             }
         )
     },
@@ -37,11 +39,7 @@ async def async_setup(hass: HomeAssistant, config):
 
     # Use private APIs until there is a real auth platform
     # pylint: disable=protected-access
-    provider = OpenIDAuthProvider(
-        hass,
-        hass.auth._store,
-        config[DOMAIN],
-    )
+    provider = OpenIDAuthProvider(hass, hass.auth._store, config[DOMAIN])
 
     providers[(provider.type, provider.id)] = provider
     providers.update(hass.auth._providers)
