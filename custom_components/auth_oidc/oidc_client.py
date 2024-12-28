@@ -10,6 +10,12 @@ import aiohttp
 from jose import jwt, jwk
 
 from .types import UserDetails
+from .config import (
+    FEATURES_DISABLE_PKCE,
+    CLAIMS_DISPLAY_NAME,
+    CLAIMS_USERNAME,
+    CLAIMS_GROUPS,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,13 +55,23 @@ class OIDCClient:
         self.discovery_url = discovery_url
         self.discovery_document = None
         self.client_id = client_id
-        self.client_secret = kwargs.get("client_secret")
-        self.disable_pkce = kwargs.get("disable_pkce") == "true"
-        self.id_token_signing_alg = kwargs.get("id_token_signing_alg", "RS256")
-        self.display_name_claim = kwargs.get("display_name_claim", "name")
-        self.username_claim = kwargs.get("username_claim", "preferred_username")
-        self.group_claim = kwargs.get("group_claim", "groups")
         self.scope = scope
+
+        # Optional parameters
+        self.client_secret = kwargs.get("client_secret")
+
+        # Default id_token_signing_alg to RS256 if not specified
+        self.id_token_signing_alg = kwargs.get("id_token_signing_alg")
+        if self.id_token_signing_alg is None:
+            self.id_token_signing_alg = "RS256"
+
+        features = kwargs.get("features")
+        claims = kwargs.get("claims")
+
+        self.disable_pkce: bool = features.get(FEATURES_DISABLE_PKCE)
+        self.display_name_claim = claims.get(CLAIMS_DISPLAY_NAME, "name")
+        self.username_claim = claims.get(CLAIMS_USERNAME, "preferred_username")
+        self.groups_claim = claims.get(CLAIMS_GROUPS, "groups")
 
     def _base64url_encode(self, value: str) -> str:
         """Uses base64url encoding on a given string"""
@@ -100,7 +116,15 @@ class OIDCClient:
                     response.raise_for_status()
                     return await response.json()
         except aiohttp.ClientResponseError as e:
-            _LOGGER.warning("Error exchanging token: %s - %s", e.status, e.message)
+            if e.status == 400:
+                _LOGGER.warning(
+                    "Error: Token could not be obtained (Bad Request), "
+                    + "did you forget the client_secret?"
+                )
+            else:
+                _LOGGER.warning(
+                    "Unexpected error exchanging token: %s - %s", e.status, e.message
+                )
             raise OIDCTokenResponseInvalid from e
 
     async def _parse_id_token(
@@ -125,7 +149,9 @@ class OIDCClient:
             if alg != self.id_token_signing_alg:
                 # Verify that it matches our requested algorithm
                 _LOGGER.warning(
-                    "ID Token received signed with the wrong algorithm: %s", alg
+                    "ID Token received signed with the wrong algorithm: %s, expected %s",
+                    alg,
+                    self.id_token_signing_alg,
                 )
                 raise OIDCIdTokenSigningAlgorithmInvalid()
 
@@ -143,14 +169,20 @@ class OIDCClient:
                     raise OIDCIdTokenSigningAlgorithmInvalid()
 
                 jwk_obj = jwk.construct(
-                    {"kty": "oct", "k": self.client_secret.encode("utf-8")}
+                    {
+                        "kty": "oct",
+                        "k": base64.urlsafe_b64encode(
+                            self.client_secret.encode()
+                        ).decode(),
+                        "alg": alg,
+                    }
                 )
             else:
                 # TODO: Deal with cases where kid is not specified (just take the first key?)
                 # Obtain the kid (Key ID) from the header of the id_token
                 kid = unverified_header.get("kid")
                 if not kid:
-                    print("JWT does not have kid (Key ID)")
+                    _LOGGER.warning("JWT does not have kid (Key ID)")
                     return None
 
                 # Get the correct key
@@ -161,7 +193,7 @@ class OIDCClient:
                         break
 
                 if not signing_key:
-                    print(f"Could not find matching key with kid:{kid}")
+                    _LOGGER.warning("Could not find matching key with kid: %s", kid)
                     return None
 
                 # Construct the JWK from the RSA key
@@ -217,7 +249,7 @@ class OIDCClient:
             return decoded_token
 
         except jwt.JWTError as e:
-            print(f"JWT Verification failed: {e}")
+            _LOGGER.warning("JWT Verification failed: %s", e)
             return None
 
     async def async_get_authorization_url(self, redirect_uri: str) -> Optional[str]:
@@ -310,6 +342,10 @@ class OIDCClient:
             # Access token is supplied to check at_hash if present
             id_token = await self._parse_id_token(id_token, access_token)
 
+            if id_token is None:
+                _LOGGER.warning("ID token could not be parsed!")
+                return None
+
             # OpenID Connect Core 1.0 Section 3.1.3.7.11
             # If a nonce value was sent in the Authentication Request,
             # a nonce Claim MUST be present and its value checked to verify
@@ -336,7 +372,7 @@ class OIDCClient:
                 # Username, configurable
                 "username": id_token.get(self.username_claim),
                 # Groups, configurable
-                "groups": id_token.get(self.group_claim),
+                "groups": id_token.get(self.groups_claim),
             }
 
             # Log which details were obtained for debugging

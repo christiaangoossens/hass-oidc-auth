@@ -7,7 +7,20 @@ from homeassistant.core import HomeAssistant
 
 # Import and re-export config schema explictly
 # pylint: disable=useless-import-alias
-from .config import CONFIG_SCHEMA as CONFIG_SCHEMA, DOMAIN
+from .config import (
+    CONFIG_SCHEMA as CONFIG_SCHEMA,
+    DOMAIN,
+    DEFAULT_TITLE,
+    CLIENT_ID,
+    CLIENT_SECRET,
+    DISCOVERY_URL,
+    DISPLAY_NAME,
+    ID_TOKEN_SIGNING_ALGORITHM,
+    FEATURES,
+    CLAIMS,
+)
+
+# pylint: enable=useless-import-alias
 
 from .endpoints.welcome import OIDCWelcomeView
 from .endpoints.redirect import OIDCRedirectView
@@ -22,11 +35,13 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config):
     """Add the OIDC Auth Provider to the providers in Home Assistant"""
+    my_config = config[DOMAIN]
+
     providers = OrderedDict()
 
     # Use private APIs until there is a real auth platform
     # pylint: disable=protected-access
-    provider = OpenIDAuthProvider(hass, hass.auth._store, config[DOMAIN])
+    provider = OpenIDAuthProvider(hass, hass.auth._store, my_config)
 
     providers[(provider.type, provider.id)] = provider
     providers.update(hass.auth._providers)
@@ -35,17 +50,23 @@ async def async_setup(hass: HomeAssistant, config):
 
     _LOGGER.info("Registered OIDC provider")
 
-    # Define some fields
-    discovery_url: str = config[DOMAIN]["discovery_url"]
-    client_id: str = config[DOMAIN]["client_id"]
-
     # We only use openid & profile, never email
-    scope: str = "openid profile"
+    scope = "openid profile"
 
-    # TODO: Allow setting the options
-    oidc_client = oidc_client = OIDCClient(discovery_url, client_id, scope)
+    oidc_client = oidc_client = OIDCClient(
+        discovery_url=my_config.get(DISCOVERY_URL),
+        client_id=my_config.get(CLIENT_ID),
+        scope=scope,
+        client_secret=my_config.get(CLIENT_SECRET),
+        id_token_signing_alg=my_config.get(ID_TOKEN_SIGNING_ALGORITHM),
+        features=my_config.get(FEATURES, {}),
+        claims=my_config.get(CLAIMS, {}),
+    )
 
-    hass.http.register_view(OIDCWelcomeView())
+    # Register the views
+    name = config[DOMAIN].get(DISPLAY_NAME, DEFAULT_TITLE)
+
+    hass.http.register_view(OIDCWelcomeView(name))
     hass.http.register_view(OIDCRedirectView(oidc_client))
     hass.http.register_view(OIDCCallbackView(oidc_client, provider))
     hass.http.register_view(OIDCFinishView())

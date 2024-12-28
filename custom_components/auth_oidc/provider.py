@@ -27,6 +27,7 @@ from .config import (
     FEATURES,
     FEATURES_AUTOMATIC_USER_LINKING,
     FEATURES_AUTOMATIC_PERSON_CREATION,
+    DEFAULT_TITLE,
 )
 from .stores.code_store import CodeStore
 from .types import UserDetails
@@ -46,8 +47,6 @@ class OpenIDAuthProvider(AuthProvider):
     """Allow access to users based on login with an external
     OpenID Connect Identity Provider (IdP)."""
 
-    DEFAULT_TITLE = "OpenID Connect (SSO)"
-
     @property
     def support_mfa(self) -> bool:
         return False
@@ -61,7 +60,7 @@ class OpenIDAuthProvider(AuthProvider):
                 # Currently register as default, might be used when we have multiple OIDC providers
                 CONF_ID: "default",
                 # Name displayed in the UI
-                CONF_NAME: config.get("display_name", self.DEFAULT_TITLE),
+                CONF_NAME: config.get("display_name", DEFAULT_TITLE),
                 # Type
                 CONF_TYPE: PROVIDER_TYPE,
             },
@@ -196,6 +195,7 @@ class OpenIDAuthProvider(AuthProvider):
             _LOGGER.warning(
                 "Requested automatic person creation, but person creation failed."
             )
+        # pylint: enable=broad-exception-caught
 
     # ====
     # Required functions for Home Assistant Auth Providers
