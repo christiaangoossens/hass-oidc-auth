@@ -34,7 +34,6 @@ class OIDCCallbackView(HomeAssistantView):
                 "error",
                 {
                     "error": "Missing code or state parameter.",
-                    "link": get_url("/auth/oidc/redirect"),
                 },
             )
             return web.Response(text=view_html, content_type="text/html")
@@ -49,7 +48,6 @@ class OIDCCallbackView(HomeAssistantView):
                 {
                     "error": "Failed to get user details, "
                     + "see Home Assistant logs for more information.",
-                    "link": get_url("/auth/oidc/redirect"),
                 },
             )
             return web.Response(text=view_html, content_type="text/html")

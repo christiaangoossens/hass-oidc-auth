@@ -31,10 +31,7 @@ class OIDCRedirectView(HomeAssistantView):
 
         view_html = await get_view(
             "error",
-            {
-                "error": "Integration is misconfigured, discovery could not be obtained.",
-                "link": get_url("/auth/oidc/redirect"),
-            },
+            {"error": "Integration is misconfigured, discovery could not be obtained."},
         )
         return web.Response(text=view_html, content_type="text/html")
 

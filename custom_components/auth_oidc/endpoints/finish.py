@@ -2,7 +2,7 @@
 
 from homeassistant.components.http import HomeAssistantView
 from aiohttp import web
-from ..helpers import get_view, get_url
+from ..helpers import get_view
 
 PATH = "/auth/oidc/finish"
 
@@ -15,21 +15,40 @@ class OIDCFinishView(HomeAssistantView):
     name = "auth:oidc:finish"
 
     async def get(self, request: web.Request) -> web.Response:
+        """Show the finish screen to allow the user to view their code."""
+
+        code = request.query.get("code")
+
+        if not code:
+            view_html = await get_view(
+                "error",
+                {"error": "Missing code to show the finish screen."},
+            )
+            return web.Response(text=view_html, content_type="text/html")
+
+        view_html = await get_view("finish", {"code": code})
+        return web.Response(text=view_html, content_type="text/html")
+
+    async def post(self, request: web.Request) -> web.Response:
         """Receive response."""
 
-        code = request.query.get("code", "FAIL")
-        link = get_url("/")
+        # Get code from the message body
+        data = await request.post()
+        code = data.get("code")
 
-        view_html = await get_view("finish", {"code": code, "link": link})
-        return web.Response(
+        if not code:
+            return web.Response(text="No code received", status=500)
+
+        # Return redirect to the main page for sign in with a cookie
+        return web.HTTPFound(
+            location="/",
             headers={
-                "content-type": "text/html",
                 # Set a cookie to enable autologin on only the specific path used
                 # for the POST request, with all strict parameters set
                 # This cookie should not be read by any Javascript or any other paths.
+                # It can be really short lifetime as we redirect immediately (15 seconds)
                 "set-cookie": "auth_oidc_code="
                 + code
-                + "; Path=/auth/login_flow; SameSite=Strict; HttpOnly; Max-Age=300",
+                + "; Path=/auth/login_flow; SameSite=Strict; HttpOnly; Max-Age=15",
             },
-            text=view_html,
         )
