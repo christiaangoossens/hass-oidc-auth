@@ -1,6 +1,6 @@
 [project]
 name = "hass-oidc-auth"
-version = "0.4.0"
+version = "0.4.1"
 description = "OIDC component for Home Assistant"
 authors = [
     { name = "Christiaan Goossens", email = "contact@christiaangoossens.nl" }
@@ -10,6 +10,7 @@ dependencies = [
     "python-jose>=3.3.0",
     "aiofiles>=24.1.0",
     "jinja2>=3.1.4",
+    "bcrypt>=4.2.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.13"

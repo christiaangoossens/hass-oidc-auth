@@ -6,6 +6,7 @@ import logging
 
 from typing import Dict, Optional
 import asyncio
+import bcrypt
 from homeassistant.auth import EVENT_USER_ADDED
 from homeassistant.auth.providers import (
     AUTH_PROVIDERS,
@@ -274,6 +275,14 @@ class OpenIdLoginFlow(LoginFlow):
     """Handler for the login flow."""
 
     async def _finalize_user(self, code: str) -> AuthFlowResult:
+        # Verify a dummy hash to make it last a bit longer
+        # as security measure (limits the amount of attempts you have in 5 min)
+        # Similar to what the HomeAssistant auth provider does
+        dummy = b"$2b$12$CiuFGszHx9eNHxPuQcwBWez4CwDTOcLTX5CbOpV6gef2nYuXkY7BO"
+        bcrypt.checkpw(b"foo", dummy)
+
+        # Actually look up the auth provider after,
+        # this doesn't take a lot of time (regardless of it's in there or not)
         sub = await self._auth_provider.async_get_subject(code)
         if sub:
             return await self.async_finish(
