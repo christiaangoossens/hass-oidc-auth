@@ -3,10 +3,10 @@ Allow access to users based on login with an external OpenID Connect Identity Pr
 """
 
 import logging
-import bcrypt
 
 from typing import Dict, Optional
 import asyncio
+import bcrypt
 from homeassistant.auth import EVENT_USER_ADDED
 from homeassistant.auth.providers import (
     AUTH_PROVIDERS,

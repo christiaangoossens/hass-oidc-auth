@@ -62,6 +62,7 @@ audioop-lts==0.2.1
 awesomeversion==24.6.0
     # via homeassistant
 bcrypt==4.2.0
+    # via hass-oidc-auth
     # via homeassistant
 bleak==0.22.3
     # via bleak-retry-connector
