@@ -50,8 +50,8 @@ async def async_setup(hass: HomeAssistant, config):
 
     _LOGGER.info("Registered OIDC provider")
 
-    # We only use openid & profile, never email
-    scope = "openid profile"
+    # We only use openid, profile & groups, never email
+    scope = "openid profile groups"
 
     oidc_client = oidc_client = OIDCClient(
         discovery_url=my_config.get(DISCOVERY_URL),
