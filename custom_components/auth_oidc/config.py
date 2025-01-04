@@ -19,6 +19,10 @@ ROLES = "roles"
 ROLE_ADMINS = "admin"
 ROLE_USERS = "user"
 
+NETWORK = "network"
+NETWORK_TLS_VERIFY = "tls_verify"
+NETWORK_TLS_CA_PATH = "tls_ca_path"
+
 DEFAULT_TITLE = "OpenID Connect (SSO)"
 
 DOMAIN = "auth_oidc"
@@ -76,6 +80,17 @@ CONFIG_SCHEMA = vol.Schema(
                         # What group name should we use to assign the admin role?
                         # Defaults to admins
                         vol.Optional(ROLE_ADMINS): vol.Coerce(str),
+                    }
+                ),
+                # Network options
+                vol.Optional(NETWORK): vol.Schema(
+                    {
+                        # Verify x509 certificates provided when starting TLS connections
+                        vol.Optional(NETWORK_TLS_VERIFY, default=True): vol.Coerce(
+                            bool
+                        ),
+                        # Load custom certificate chain for private CAs
+                        vol.Optional(NETWORK_TLS_CA_PATH): vol.Coerce(str),
                     }
                 ),
             }
