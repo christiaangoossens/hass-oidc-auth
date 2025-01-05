@@ -1,7 +1,9 @@
 """Generic data types"""
 
-
 # Dict class to give a type to the user details
+from typing import Literal
+
+
 class UserDetails(dict):
     """User details representation"""
 
@@ -12,5 +14,5 @@ class UserDetails(dict):
     # Preferred username for the user, will be used when first generating the account
     # or to link the account on first login
     username: str
-    # Groups that the user has, if any are sent from the OIDC provider
-    groups: list[str]
+    # Home Assistant role to assign to this user
+    role: Literal["system-admin", "system-users", "invalid"]

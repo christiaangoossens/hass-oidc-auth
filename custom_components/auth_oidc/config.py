@@ -15,6 +15,9 @@ CLAIMS = "claims"
 CLAIMS_DISPLAY_NAME = "display_name"
 CLAIMS_USERNAME = "username"
 CLAIMS_GROUPS = "groups"
+ROLES = "roles"
+ROLE_ADMINS = "admin"
+ROLE_USERS = "user"
 
 DEFAULT_TITLE = "OpenID Connect (SSO)"
 
@@ -61,6 +64,18 @@ CONFIG_SCHEMA = vol.Schema(
                         vol.Optional(CLAIMS_USERNAME): vol.Coerce(str),
                         # Which claim should we use to obtain the group(s) from OIDC?
                         vol.Optional(CLAIMS_GROUPS): vol.Coerce(str),
+                    }
+                ),
+                # Determine which specific group values will be mapped to which roles
+                # Optional, defaults user = null, admin = 'admins'
+                # If user role is set, users that do not have either will be rejected!
+                vol.Optional(ROLES): vol.Schema(
+                    {
+                        # Which group name should we use to assign the user role?
+                        vol.Optional(ROLE_USERS): vol.Coerce(str),
+                        # What group name should we use to assign the admin role?
+                        # Defaults to admins
+                        vol.Optional(ROLE_ADMINS): vol.Coerce(str),
                     }
                 ),
             }
