@@ -259,14 +259,11 @@ class OpenIDAuthProvider(AuthProvider):
         sub = credentials.data["sub"]
         meta = self._user_meta.get(sub, {})
 
-        groups = meta.get("groups") or []
-
-        # TODO: Allow setting which group is for admins
-        group = "system-admin" if "admins" in groups else "system-users"
+        role = meta.get("role")
         return UserMeta(
             name=meta.get("display_name"),
             is_active=True,
-            group=group,
+            group=role,
             local_only=False,
         )
 

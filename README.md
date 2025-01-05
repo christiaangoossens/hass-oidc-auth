@@ -69,6 +69,8 @@ With the default configuration, [a person entry](https://www.home-assistant.io/i
 | `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
 | `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.
 | `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |
+| `roles.admin`            | `string` | No       | `admins`                     | Group name to require for users to get the 'admin' role in Home Assistant. Defaults to 'admins', the default group name for admins in Authentik. Doesn't do anything if no groups claim is found in your token. |
+| `roles.user`            | `string` | No       |                     | Group name to require for users to get the 'user' role in Home Assistant. Defaults to giving all users this role, unless configured. |
 
 #### Example: Migrating from HA username/password users to OIDC users
 If you already have users created within Home Assistant and would like to re-use the current user profile for your OIDC login, you can (temporarily) enable `features.automatic_user_linking`, with the following config (example):

@@ -46,9 +46,9 @@ class OIDCFinishView(HomeAssistantView):
                 # Set a cookie to enable autologin on only the specific path used
                 # for the POST request, with all strict parameters set
                 # This cookie should not be read by any Javascript or any other paths.
-                # It can be really short lifetime as we redirect immediately (15 seconds)
+                # It can be really short lifetime as we redirect immediately (5 seconds)
                 "set-cookie": "auth_oidc_code="
                 + code
-                + "; Path=/auth/login_flow; SameSite=Strict; HttpOnly; Max-Age=15",
+                + "; Path=/auth/login_flow; SameSite=Strict; HttpOnly; Max-Age=5",
             },
         )

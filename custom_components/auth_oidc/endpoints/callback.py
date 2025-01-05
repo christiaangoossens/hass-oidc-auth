@@ -52,5 +52,15 @@ class OIDCCallbackView(HomeAssistantView):
             )
             return web.Response(text=view_html, content_type="text/html")
 
+        if user_details.get("role") == "invalid":
+            view_html = await get_view(
+                "error",
+                {
+                    "error": "User is not in the correct group to access Home Assistant, "
+                    + "contact your administrator!",
+                },
+            )
+            return web.Response(text=view_html, content_type="text/html")
+
         code = await self.oidc_provider.async_save_user_info(user_details)
         return web.HTTPFound(get_url("/auth/oidc/finish?code=" + code))

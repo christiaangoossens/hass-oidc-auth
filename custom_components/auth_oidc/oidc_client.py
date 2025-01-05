@@ -15,6 +15,8 @@ from .config import (
     CLAIMS_DISPLAY_NAME,
     CLAIMS_USERNAME,
     CLAIMS_GROUPS,
+    ROLE_ADMINS,
+    ROLE_USERS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,11 +69,14 @@ class OIDCClient:
 
         features = kwargs.get("features")
         claims = kwargs.get("claims")
+        roles = kwargs.get("roles")
 
         self.disable_pkce: bool = features.get(FEATURES_DISABLE_PKCE)
         self.display_name_claim = claims.get(CLAIMS_DISPLAY_NAME, "name")
         self.username_claim = claims.get(CLAIMS_USERNAME, "preferred_username")
         self.groups_claim = claims.get(CLAIMS_GROUPS, "groups")
+        self.user_role = roles.get(ROLE_USERS, None)
+        self.admin_role = roles.get(ROLE_ADMINS, "admins")
 
     def _base64url_encode(self, value: str) -> str:
         """Uses base64url encoding on a given string"""
@@ -356,6 +361,20 @@ class OIDCClient:
 
             # TODO: If the configured claims are not present in id_token, we should fetch userinfo
 
+            # Get and parse groups (to check if it's an array)
+            groups = id_token.get(self.groups_claim, [])
+            if not isinstance(groups, list):
+                _LOGGER.warning("Groups claim is not a list, using empty list instead.")
+                groups = []
+
+            # Assign role if user has the required groups
+            role = "invalid"
+            if self.user_role in groups or self.user_role is None:
+                role = "system-users"
+
+            if self.admin_role in groups:
+                role = "system-admin"
+
             # Create a user details dict based on the contents of the id_token & userinfo
             data: UserDetails = {
                 # Subject Identifier. A locally unique and never reassigned identifier within the
@@ -371,8 +390,8 @@ class OIDCClient:
                 "display_name": id_token.get(self.display_name_claim),
                 # Username, configurable
                 "username": id_token.get(self.username_claim),
-                # Groups, configurable
-                "groups": id_token.get(self.groups_claim),
+                # Role
+                "role": role,
             }
 
             # Log which details were obtained for debugging

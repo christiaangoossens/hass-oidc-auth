@@ -18,6 +18,7 @@ from .config import (
     ID_TOKEN_SIGNING_ALGORITHM,
     FEATURES,
     CLAIMS,
+    ROLES,
 )
 
 # pylint: enable=useless-import-alias
@@ -61,6 +62,7 @@ async def async_setup(hass: HomeAssistant, config):
         id_token_signing_alg=my_config.get(ID_TOKEN_SIGNING_ALGORITHM),
         features=my_config.get(FEATURES, {}),
         claims=my_config.get(CLAIMS, {}),
+        roles=my_config.get(ROLES, {}),
     )
 
     # Register the views
