@@ -71,6 +71,8 @@ With the default configuration, [a person entry](https://www.home-assistant.io/i
 | `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |
 | `roles.admin`            | `string` | No       | `admins`                     | Group name to require for users to get the 'admin' role in Home Assistant. Defaults to 'admins', the default group name for admins in Authentik. Doesn't do anything if no groups claim is found in your token. |
 | `roles.user`            | `string` | No       |                     | Group name to require for users to get the 'user' role in Home Assistant. Defaults to giving all users this role, unless configured. |
+| `network.tls_verify`         | `boolean` | No       | `true`                     | Verify TLS certificate. You may want to set this set to `false` when testing locally. |
+| `network.tls_ca_path`            | `string` | No       |                       | Path to file containing a private certificate authority chain. |
 
 #### Example: Migrating from HA username/password users to OIDC users
 If you already have users created within Home Assistant and would like to re-use the current user profile for your OIDC login, you can (temporarily) enable `features.automatic_user_linking`, with the following config (example):
@@ -87,6 +89,26 @@ Upon login, OIDC users will then automatically be linked to the HA user with the
 
 > [!IMPORTANT]
 > It's recommended to only enable this temporarily as it may pose a security risk. Any OIDC user with a username corresponding to a user in Home Assistant can get access to that user, and it's existing rights (admin), even if MFA is currently enabled for that account. After you have migrated your users (and linked OIDC to all existing accounts) you can disable the feature and keep using the linked users.
+
+#### Example: Using a private certificate authority
+If you use a private certificate authority to secure your OIDC provider (e.g. Keycloak), your CA must be able to be used by this component. Otherwise you will receive a certificate error (`[SSL: CERTIFICATE_VERIFY_FAILED]`) when connecting to the OIDC provider.
+You can either make the CA known to the entire operating system or configure only this component to use the CA. If you only want to let this component know your CA, you can specify it via `network.tls_ca_path`:
+
+```yaml
+auth_oidc:
+    network:
+        tls_ca_path: /path/to/private-ca.pem
+```
+
+If you want to deactivate the validation of the certificates for test purposes, you can do this via `network.tls_verify: false`:
+
+```yaml
+auth_oidc:
+    network:
+        tls_verify: false
+```
+
+In productive use, however, you should set `network.tls_verify` to `true`.
 
 ## Development
 This project uses the Rye package manager for development. You can find installation instructions here: https://rye.astral.sh/guide/installation/.

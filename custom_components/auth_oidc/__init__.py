@@ -19,6 +19,7 @@ from .config import (
     FEATURES,
     CLAIMS,
     ROLES,
+    NETWORK,
 )
 
 # pylint: enable=useless-import-alias
@@ -55,6 +56,7 @@ async def async_setup(hass: HomeAssistant, config):
     scope = "openid profile groups"
 
     oidc_client = oidc_client = OIDCClient(
+        hass=hass,
         discovery_url=my_config.get(DISCOVERY_URL),
         client_id=my_config.get(CLIENT_ID),
         scope=scope,
@@ -63,6 +65,7 @@ async def async_setup(hass: HomeAssistant, config):
         features=my_config.get(FEATURES, {}),
         claims=my_config.get(CLAIMS, {}),
         roles=my_config.get(ROLES, {}),
+        network=my_config.get(NETWORK, {}),
     )
 
     # Register the views
