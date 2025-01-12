@@ -1,4 +1,4 @@
-# Configuration
+# YAML Configuration
 For now, this integration is configured using YAML in your `configuration.yaml` file. By default, only two fields are required:
 
 ```yaml
@@ -7,31 +7,63 @@ auth_oidc:
     discovery_url: ""
 ```
 
-All other fields have sensible, secure defaults set, or are only required in specific configurations.
+The default settings assume that you configure Home Assistant as a public client, without a client secret. If so, you should only need to provide the `client_id` from your OIDC provider and it's discovery URL (ending in `.well-known/openid-configuration`).
+You don't have to configure other settings in most cases, as they have secure defaults set.
 
-## Configuration Options
+## Provider Configurations
+Here are some documentation links for specific providers that you may want to follow:
 
-Here's a table of all options that you can set:
+| <img src="https://goauthentik.io/img/icon_top_brand_colour.svg" width="100"> | <img src="https://www.authelia.com/images/branding/logo-cropped.png" width="100"> | <img src="https://github.com/user-attachments/assets/4ceb2708-9f29-4694-b797-be833efce17d" width="100"> |
+|:-----------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------:|
+| [Authentik](./provider-configurations/authentik.md)                                       | [Authelia](./provider-configurations/authelia.md)                                     | [Pocket ID](./provider-configurations/pocket-id.md)                                     |
 
-| Option                      | Type     | Required | Default             | Description                                                                                             |
-|-----------------------------|----------|----------|----------------------|---------------------------------------------------------------------------------------------------------|
-| `client_id`                 | `string` | Yes      |                      | The Client ID as registered with your OpenID Connect provider.                                        |
-| `client_secret`            | `string` | No       |                      | The Client Secret for enabling confidential client mode.                                             |
-| `discovery_url`            | `string` | Yes      |                      | The OIDC well-known configuration URL.                                                                |
-| `display_name`              | `string` | No       | `"OpenID Connect (SSO)"` | The name to display on the login screen, both for the Home Assistant screen and the OIDC welcome screen.                                                                |
-| `id_token_signing_alg`       | `string` | No       | `RS256`              | The signing algorithm that is used for your id_tokens.
-| `features.automatic_user_linking`   | `boolean`| No       | `false`          | Automatically links users to existing Home Assistant users based on the OIDC username claim. Disabled by default for security. When disabled, OIDC users will get their own new user profile upon first login.     |
-| `features.automatic_person_creation` | `boolean` | No       | `true`          | Automatically creates a person entry for new user profiles created by this integration. Recommended if you would like to assign presence detection to OIDC users.                                            |
-| `features.disable_rfc7636`  | `boolean`| No       | `false`         | Disables PKCE (RFC 7636) for OIDC providers that don't support it. You should not need this with most providers.                                    |
-| `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
-| `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.
-| `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |
-| `roles.admin`            | `string` | No       | `admins`                     | Group name to require for users to get the 'admin' role in Home Assistant. Defaults to 'admins', the default group name for admins in Authentik. Doesn't do anything if no groups claim is found in your token. |
-| `roles.user`            | `string` | No       |                     | Group name to require for users to get the 'user' role in Home Assistant. Defaults to giving all users this role, unless configured. |
-| `network.tls_verify`         | `boolean` | No       | `true`                     | Verify TLS certificate. You may want to set this set to `false` when testing locally. |
-| `network.tls_ca_path`            | `string` | No       |                       | Path to file containing a private certificate authority chain. |
+
+Are you using another provider? Another user might have added configuration instructions here: [Other providers](./provider-configurations/other.md)
 
 ## Common Configurations
+### Configuring Client Secret
+If you want to configure Home Assistant as a confidential client, you should provide the client secret as well. An example configuration might look like this:
+
+```yaml
+auth_oidc:
+    client_id: ""
+    client_secret: !secret oidc_client_secret
+    discovery_url: ""
+```
+
+You should use the Home Assistant secrets helper (`!secret`) to make sure you store secrets securely. See https://www.home-assistant.io/docs/configuration/secrets/ for more information.
+
+### Configuring roles & scopes or OIDC settings
+
+If your provider isn't listed above, you might want to configure OIDC settings yourself. Here's an example configuration for that use case:
+
+```yaml
+auth_oidc:
+    client_id: ""
+    discovery_url: ""
+    id_token_signing_alg: <HS256 or RS256>
+    claims:
+        display_name: <display name claim from your provider>
+        username: <username claim from your provider>
+        groups: <groups claim from your provider>
+    roles:
+        admin: <group name to use for admins>
+        user: <group name to use for users>
+```
+
+If you configure the user role, OIDC users that have neither configured group name will be rejected! If you configure the admin role, users with that role will receive administrator rights in Home Assistant automatically upon login.
+
+### Configuring a display name for your OIDC provider
+If you would like to change the default name on the OIDC welcome screen and Home Assistant login screens from `OpenID Connect (SSO)` to your own display name, you can set the `display_name` configuration property.
+
+```yaml
+auth_oidc:
+    client_id: ""
+    discovery_url: ""
+    display_name: "Example"
+```
+
+This will show the provider on the login screen as: "Login with Example".
 
 ### Migrating from HA username/password users to OIDC users
 If you already have users created within Home Assistant and would like to re-use the current user profile for your OIDC login, you can (temporarily) enable `features.automatic_user_linking`, with the following config (example):
@@ -73,3 +105,25 @@ auth_oidc:
 
 > [!CAUTION]
 > Do not disable `tls_verify` in a production setting or when your Home Assistant installation is exposed outside of your network. If disabled, man-in-the-middle attacks can be used to change the provider configuration to allow fake tokens to be used.
+
+## All configuration Options
+
+Here's a table of all options that you can set:
+
+| Option                      | Type     | Required | Default             | Description                                                                                             |
+|-----------------------------|----------|----------|----------------------|---------------------------------------------------------------------------------------------------------|
+| `client_id`                 | `string` | Yes      |                      | The Client ID as registered with your OpenID Connect provider.                                        |
+| `client_secret`            | `string` | No       |                      | The Client Secret for enabling confidential client mode.                                             |
+| `discovery_url`            | `string` | Yes      |                      | The OIDC well-known configuration URL.                                                                |
+| `display_name`              | `string` | No       | `"OpenID Connect (SSO)"` | The name to display on the login screen, both for the Home Assistant screen and the OIDC welcome screen.                                                                |
+| `id_token_signing_alg`       | `string` | No       | `RS256`              | The signing algorithm that is used for your id_tokens.
+| `features.automatic_user_linking`   | `boolean`| No       | `false`          | Automatically links users to existing Home Assistant users based on the OIDC username claim. Disabled by default for security. When disabled, OIDC users will get their own new user profile upon first login.     |
+| `features.automatic_person_creation` | `boolean` | No       | `true`          | Automatically creates a person entry for new user profiles created by this integration. Recommended if you would like to assign presence detection to OIDC users.                                            |
+| `features.disable_rfc7636`  | `boolean`| No       | `false`         | Disables PKCE (RFC 7636) for OIDC providers that don't support it. You should not need this with most providers.                                    |
+| `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
+| `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.
+| `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |
+| `roles.admin`            | `string` | No       | `admins`                     | Group name to require for users to get the 'admin' role in Home Assistant. Defaults to 'admins', the default group name for admins in Authentik. Doesn't do anything if no groups claim is found in your token. |
+| `roles.user`            | `string` | No       |                     | Group name to require for users to get the 'user' role in Home Assistant. Defaults to giving all users this role, unless configured. |
+| `network.tls_verify`         | `boolean` | No       | `true`                     | Verify TLS certificate. You may want to set this set to `false` when testing locally. |
+| `network.tls_ca_path`            | `string` | No       |                       | Path to file containing a private certificate authority chain. |
