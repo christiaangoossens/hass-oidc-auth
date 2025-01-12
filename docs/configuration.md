@@ -1,3 +1,8 @@
+# Configuration methods
+
+Currently, the only available configuration method is YAML in your `configuration.yaml` file.
+You can vote on your favorite configuration method over at: https://github.com/christiaangoossens/hass-oidc-auth/discussions/6
+
 # YAML Configuration
 For now, this integration is configured using YAML in your `configuration.yaml` file. By default, only two fields are required:
 
