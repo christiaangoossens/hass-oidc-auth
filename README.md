@@ -23,21 +23,16 @@
   <p align="center">
     OpenID Connect (OIDC) implementation for Home Assistant through a custom component/integration
     <br />
-    <a href="https://github.com/christiaangoossens/hass-oidc-auth"><strong>Explore the docs »</strong></a>
     <br />
-    <br />
-    <a href="https://github.com/christiaangoossens/hass-oidc-auth">View Demo</a>
+    <a href="./docs/usage.md">Usage Guide</a>
     &middot;
-    <a href="https://github.com/christiaangoossens/hass-oidc-auth/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+    <a href="./docs/configuration.md">Configuration Guide</a>
     &middot;
-    <a href="https://github.com/christiaangoossens/hass-oidc-auth/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth/discussions">Questions</a>
   </p>
 </div>
 
-
-
-
-# 
+---
 
 > [!CAUTION]
 > This is an alpha release. I give no guarantees about code quality, error handling or security at this stage. Use at your own risk.
