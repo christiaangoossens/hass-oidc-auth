@@ -40,7 +40,7 @@ Provides an OpenID Connect (OIDC) implementation for Home Assistant through a cu
 ### Background
 If you would like to read the background/open letter that lead to this component, please see https://community.home-assistant.io/t/open-letter-for-improving-home-assistants-authentication-system-oidc-sso/494223. It is currently one of the most upvoted feature requests for Home Assistant.
 
-# Installation guide
+## Installation guide
 
 1. Add this repository to [HACS](https://hacs.xyz/).
 
@@ -66,19 +66,19 @@ If you would like to read the background/open letter that lead to this component
 
 More (detailed) usage instructions can be found in the [Usage Guide](./docs/usage.md).
 
-# Contributions
+## Contributions
 Contibutions are very welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for more information.
 
-## Non-code contributions
-Please contribute to the discussion over at https://github.com/christiaangoossens/hass-oidc-auth/discussions if you have a question, feature idea or a setup you would like to show off.
+#### Non-code contributions
+Please contribute to the discussion over at [the Discussions page](https://github.com/christiaangoossens/hass-oidc-auth/discussions) if you have a question, feature idea or a setup you would like to show off.
 
-## Code contributions
+#### Code contributions
 You may also submit Pull Requests (PRs) to add features yourself! You can find a list that we are currently working on in [CONTRIBUTING.md](./CONTRIBUTING.md). Please note that workflows will be run on your pull request and a pull request will only be merged when all checks pass and a review has been conducted (together with a manual test).
 
-## Found a security issue?
-Please see [SECURITY.md](./SECURITY.md) for more information on how to submit your security issue securely.
+### Found a security issue?
+Please see [SECURITY.md](./SECURITY.md) for more information on how to submit your security issue securely. You can find previously found vulnerablities and their corresponding security advisories at [the Security Advisories page](https://github.com/christiaangoossens/hass-oidc-auth/security/advisories).
 
-# License
+## License
 Distributed under the MIT license with no warranty. You are fully liable for configuring this integration correctly to keep your Home Assistant installation secure. Use at your own risk. The full license can be found in [LICENSE.md](./LICENSE.md)
 
 
