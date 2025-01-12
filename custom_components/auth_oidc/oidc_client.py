@@ -58,6 +58,9 @@ class OIDCClient:
     # Flows stores the state, code_verifier and nonce of all current flows.
     flows = {}
 
+    # HTTP session to be used
+    http_session: aiohttp.ClientSession = None
+
     def __init__(
         self,
         hass: HomeAssistant,
@@ -94,11 +97,13 @@ class OIDCClient:
         self.tls_verify = network.get(NETWORK_TLS_VERIFY, True)
         self.tls_ca_path = network.get(NETWORK_TLS_CA_PATH)
 
-        _LOGGER.debug(
-            "OIDC provider network options (verify certificates: %r, custom CA file: %s)",
-            self.tls_verify,
-            self.tls_ca_path,
-        )
+    def __del__(self):
+        """Cleanup the HTTP session."""
+
+        # HA never seems to run this, but it's good practice to close the session
+        if self.http_session:
+            _LOGGER.debug("Closing HTTP session")
+            self.http_session.close()
 
     def _base64url_encode(self, value: str) -> str:
         """Uses base64url encoding on a given string"""
@@ -108,8 +113,18 @@ class OIDCClient:
         """Generates a random URL safe string (base64_url encoded)"""
         return self._base64url_encode(os.urandom(length))
 
-    async def _create_session(self):
-        """Create a new client session with custom networking/TLS options"""
+    async def _get_http_session(self) -> aiohttp.ClientSession:
+        """Create or get the existing client session with custom networking/TLS options"""
+        if self.http_session is not None:
+            return self.http_session
+
+        _LOGGER.debug(
+            "Creating HTTP session provider with options: "
+            + "verify certificates: %r, custom CA file: %s",
+            self.tls_verify,
+            self.tls_ca_path,
+        )
+
         tcp_connector_args = {"verify_ssl": self.tls_verify}
 
         if self.tls_ca_path:
@@ -119,14 +134,15 @@ class OIDCClient:
             )
             tcp_connector_args["ssl"] = ssl_context
 
-        return aiohttp.ClientSession(
+        self.http_session = aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(**tcp_connector_args)
         )
+        return self.http_session
 
     async def _fetch_discovery_document(self):
         """Fetches discovery document from the given URL."""
         try:
-            session = await self._create_session()
+            session = await self._get_http_session()
 
             async with session.get(self.discovery_url) as response:
                 response.raise_for_status()
@@ -143,7 +159,7 @@ class OIDCClient:
     async def _get_jwks(self, jwks_uri):
         """Fetches JWKS from the given URL."""
         try:
-            session = await self._create_session()
+            session = await self._get_http_session()
 
             async with session.get(jwks_uri) as response:
                 response.raise_for_status()
@@ -155,7 +171,7 @@ class OIDCClient:
     async def _make_token_request(self, token_endpoint, query_params):
         """Performs the token POST call"""
         try:
-            session = await self._create_session()
+            session = await self._get_http_session()
 
             async with session.post(token_endpoint, data=query_params) as response:
                 response.raise_for_status()
