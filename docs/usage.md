@@ -13,7 +13,7 @@ The integration is currently configurable through YAML only. See the [Configurat
 
 | <img src="https://goauthentik.io/img/icon_top_brand_colour.svg" width="100"> | <img src="https://www.authelia.com/images/branding/logo-cropped.png" width="100"> | <img src="https://github.com/user-attachments/assets/4ceb2708-9f29-4694-b797-be833efce17d" width="100"> |
 |:-----------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------:|
-| [Authentik](./docs/provider-configurations/authentik.md)                                       | [Authelia](./docs/provider-configurations/authelia.md)                                     | [Pocket ID](./docs/provider-configurations/pocket-id.md)                                     |
+| [Authentik](./provider-configurations/authentik.md)                                       | [Authelia](./provider-configurations/authelia.md)                                     | [Pocket ID](./provider-configurations/pocket-id.md)                                     |
 
 By default, the integration assumes you configure Home Assistant as a **public client** and thus only specify the `client_id` and no `client_secret`. For example, your configuration might look like:
 
