@@ -32,8 +32,6 @@
   </p>
 </div>
 
----
-
 > [!CAUTION]
 > This is an alpha release. I give no guarantees about code quality, error handling or security at this stage. Use at your own risk.
 
@@ -42,37 +40,47 @@ Provides an OpenID Connect (OIDC) implementation for Home Assistant through a cu
 ### Background
 If you would like to read the background/open letter that lead to this component, please see https://community.home-assistant.io/t/open-letter-for-improving-home-assistants-authentication-system-oidc-sso/494223. It is currently one of the most upvoted feature requests for Home Assistant.
 
----
-
-## Quick installation guide
-
-> [!TIP]
-> For the full usage guide, see [Usage Guide](./docs/usage.md)
-
+# Installation guide
 
 1. Add this repository to [HACS](https://hacs.xyz/).
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=christiaangoossens&repository=hass-oidc-auth&category=Integration)
 
-2. Add the YAML configuration that matches your OIDC provider to `configuration.yaml`. By default, the integration assumes you configure Home Assistant as a **public client** and thus only specify the `client_id` and no `client_secret`. See the [Configuration Guide](./docs/configuration.md) for more details.
+2. Add the YAML configuration that matches your OIDC provider to `configuration.yaml`. See the [Configuration Guide](./docs/configuration.md) for more details or pick your OIDC provider below:
 
-The following OIDC providers also have their own setup guides:
+    | <img src="https://goauthentik.io/img/icon_top_brand_colour.svg" width="100"> | <img src="https://www.authelia.com/images/branding/logo-cropped.png" width="100"> | <img src="https://github.com/user-attachments/assets/4ceb2708-9f29-4694-b797-be833efce17d" width="100"> |
+    |:-----------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------:|
+    | [Authentik](./docs/provider-configurations/authentik.md)                                       | [Authelia](./docs/provider-configurations/authelia.md)                                     | [Pocket ID](./docs/provider-configurations/pocket-id.md)                                     |
 
-| <img src="https://goauthentik.io/img/icon_top_brand_colour.svg" width="100"> | <img src="https://www.authelia.com/images/branding/logo-cropped.png" width="100"> | <img src="https://github.com/user-attachments/assets/4ceb2708-9f29-4694-b797-be833efce17d" width="100"> |
-|:-----------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------:|
-| [Authentik](./docs/provider-configurations/authentik.md)                                       | [Authelia](./docs/provider-configurations/authelia.md)                                     | [Pocket ID](./docs/provider-configurations/pocket-id.md)                                     |
+    By default, the integration assumes you configure Home Assistant as a **public client** and thus only specify the `client_id` and no `client_secret`. For example, your configuration might look like:
 
-For example, your configuration might look like:
+    ```yaml
+    auth_oidc:
+        client_id: "example"
+        discovery_url: "https://example.com/.well-known/openid-configuration"
+    ```
 
-```yaml
-auth_oidc:
-    client_id: "example"
-    discovery_url: "https://example.com/.well-known/openid-configuration"
-```
+3. Restart Home Assistant
 
-3. Restart Home Assistant (either on your own, or from the Repairs tab where HACS will popup a note to restart after installing the integration)
+4. Login through the OIDC Welcome URL at `<your HA URL>/auth/oidc/welcome`. You will have to go there manually for now. For example, it might be located at http://homeassistant.local:8123/auth/oidc/welcome.
 
-4. Login through the OIDC Welcome URL at `<your HA URL>/auth/oidc/welcome`. You will have to go there manually. For example, it might be located at http://homeassistant.local:8123/auth/oidc/welcome. More usage instructions can be found in the [Usage Guide](./docs/usage.md).
+More (detailed) usage instructions can be found in the [Usage Guide](./docs/usage.md).
+
+# Contributions
+Contibutions are very welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for more information.
+
+## Non-code contributions
+Please contribute to the discussion over at https://github.com/christiaangoossens/hass-oidc-auth/discussions if you have a question, feature idea or a setup you would like to show off.
+
+## Code contributions
+You may also submit Pull Requests (PRs) to add features yourself! You can find a list that we are currently working on in [CONTRIBUTING.md](./CONTRIBUTING.md). Please note that workflows will be run on your pull request and a pull request will only be merged when all checks pass and a review has been conducted (together with a manual test).
+
+## Found a security issue?
+Please see [SECURITY.md](./SECURITY.md) for more information on how to submit your security issue securely.
+
+# License
+Distributed under the MIT license with no warranty. You are fully liable for configuring this integration correctly to keep your Home Assistant installation secure. Use at your own risk. The full license can be found in [LICENSE.md](./LICENSE.md)
+
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
