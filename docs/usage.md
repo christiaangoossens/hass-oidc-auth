@@ -78,3 +78,5 @@ You can link the user directly to one of these following URLs:
 - `/auth/oidc/redirect` (if you would like to just redirect them without a welcome screen)
 
 For a seamless user experience, configure a new domain on your proxy to redirect to the `/auth/oidc/welcome` path or configure that path on your homelab dashboard or in your OIDC provider (such as in the app settings in Authentik). Users will then always start on the OIDC welcome page, which will allow them to visit the dashboard if they are already logged in.
+
+*Note: do not replace the standard path with a redirect to the OIDC screen. This breaks login with code.*
