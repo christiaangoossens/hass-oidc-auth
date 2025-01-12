@@ -10,7 +10,7 @@
         "groupName": "vulnerabilityAlerts",
         "enabled": true,
         "schedule": [
-            "every 2 hours"
+            "after 6am and before 6pm"
         ],
         "prCreation": "immediate"
     },
