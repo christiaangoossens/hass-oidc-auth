@@ -1,0 +1,44 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": [
+        "config:recommended"
+    ],
+    "schedule": [
+        "every weekend"
+    ],
+    "vulnerabilityAlerts": {
+        "groupName": "vulnerabilityAlerts",
+        "enabled": true,
+        "schedule": [
+            "after 6am and before 6pm"
+        ],
+        "prCreation": "immediate"
+    },
+    "packageRules": [
+        {
+            "description": "Group all GitHub Actions updates",
+            "matchDatasources": [
+                "github-actions"
+            ],
+            "groupName": "Github Actions Updates",
+            "automerge": true
+        },
+        {
+            "description": "Version updates for Home Assistant packages",
+            "groupName": "Home Assistant Update",
+            "matchPackageNames": [
+                "homeassistant",
+                "jinja2",
+                "bcrypt"
+            ],
+            "automerge": false
+        },
+        {
+            "description": "Version updates for other pip packages",
+            "matchDatasources": [
+                "pypi"
+            ],
+            "automerge": false
+        }
+    ]
+}
