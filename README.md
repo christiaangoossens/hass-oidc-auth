@@ -27,8 +27,15 @@
     <a href="./docs/usage.md">Usage Guide</a>
     &middot;
     <a href="./docs/configuration.md">Configuration Guide</a>
+    <br />
+    <br />
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth/discussions/categories/announcements">Announcements & Polls</a>
     &middot;
-    <a href="https://github.com/christiaangoossens/hass-oidc-auth/discussions">Questions</a>
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth/issues">Issues</a>
+    &middot;
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth/discussions/categories/q-a">Questions</a>
+    &middot;
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth/discussions/categories/ideas">Feature Requests</a>
   </p>
 </div>
 
