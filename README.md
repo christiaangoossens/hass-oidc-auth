@@ -1,4 +1,4 @@
-<!-- Based on the Best-README-template from https://github.com/othneildrew/Best-README-Template -->
+<!-- Based on the Best-README-template from https://github.com/christiaangoossens/hass-oidc-auth -->
 <a id="readme-top"></a>
 
 [![Contributors][contributors-shield]][contributors-url]
@@ -19,14 +19,14 @@
   <p align="center">
     OpenID Connect (OIDC) implementation for Home Assistant through a custom component/integration
     <br />
-    <a href="https://github.com/othneildrew/Best-README-Template"><strong>Explore the docs »</strong></a>
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth"><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/othneildrew/Best-README-Template">View Demo</a>
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth">View Demo</a>
     &middot;
-    <a href="https://github.com/othneildrew/Best-README-Template/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     &middot;
-    <a href="https://github.com/othneildrew/Best-README-Template/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
   </p>
 </div>
 
@@ -122,3 +122,17 @@ Currently waiting on HA feature additions:
 - [ ] Update the HA frontend code to allow a redirection to be requested from an auth provider instead of manually opening welcome page (possibly after https://github.com/home-assistant/frontend/pull/23204)
 - [ ] Implement this redirection logic to open a new tab on desktop (#23204 uses popup)
 - [ ] Implement this redirection logic to open a Android Custom Tab (Android) / SFSafariViewController (iOS), instead of opening the link in the HA webview
+
+
+<!-- MARKDOWN LINKS & IMAGES -->
+<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
+[contributors-shield]: https://img.shields.io/github/contributors/christiaangoossens/hass-oidc-auth.svg?style=for-the-badge
+[contributors-url]: https://github.com/christiaangoossens/hass-oidc-auth/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/christiaangoossens/hass-oidc-auth.svg?style=for-the-badge
+[forks-url]: https://github.com/christiaangoossens/hass-oidc-auth/network/members
+[stars-shield]: https://img.shields.io/github/stars/christiaangoossens/hass-oidc-auth.svg?style=for-the-badge
+[stars-url]: https://github.com/christiaangoossens/hass-oidc-auth/stargazers
+[issues-shield]: https://img.shields.io/github/issues/christiaangoossens/hass-oidc-auth.svg?style=for-the-badge
+[issues-url]: https://github.com/christiaangoossens/hass-oidc-auth/issues
+[license-shield]: https://img.shields.io/github/license/christiaangoossens/hass-oidc-auth.svg?style=for-the-badge
+[license-url]: https://github.com/christiaangoossens/hass-oidc-auth/blob/master/LICENSE.txt
