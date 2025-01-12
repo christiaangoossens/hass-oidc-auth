@@ -4,12 +4,14 @@
         "config:recommended"
     ],
     "schedule": [
-        "every saturday at 00:00"
+        "every weekend"
     ],
     "vulnerabilityAlerts": {
         "groupName": "vulnerabilityAlerts",
         "enabled": true,
-        "schedule": [],
+        "schedule": [
+            "every 2 hours"
+        ],
         "prCreation": "immediate"
     },
     "packageRules": [
@@ -19,10 +21,7 @@
                 "github-actions"
             ],
             "groupName": "Github Actions Updates",
-            "automerge": true,
-            "schedule": [
-                "every other saturday at 00:00"
-            ]
+            "automerge": true
         },
         {
             "description": "Version updates for Home Assistant packages",
