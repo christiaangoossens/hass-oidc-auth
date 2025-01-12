@@ -44,10 +44,10 @@ auth_oidc:
         automatic_user_linking: true
 ```
 
-Upon login, OIDC users will then automatically be linked to the HA user with the same username.
+Upon login, OIDC users will then automatically be linked to the HA user with the same username. It's recommended to **only enable this temporarily** as it may pose a security risk. You should disable it after linking all your users, as existing links will still work if you disable it, but no new links will be created.
 
-> [!IMPORTANT]
-> It's recommended to only enable this temporarily as it may pose a security risk. Any OIDC user with a username corresponding to a user in Home Assistant can get access to that user and all its rights/configuration. After you have migrated your users (and linked OIDC to all existing accounts) you should disable the feature. You will still be able to use linked accounts, but no more links will be created or updated.
+> [!CAUTION]
+> Any OIDC user with a username corresponding to a user in Home Assistant can get access to that user and all its rights/configuration.
 
 > [!CAUTION]
 > MFA is ignored when using this setting, thus bypassing any MFA configuration the user has originally configured, as long as the username is an exact match. This is dangerous if you are not aware of it!
