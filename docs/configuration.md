@@ -49,7 +49,7 @@ Upon login, OIDC users will then automatically be linked to the HA user with the
 > [!IMPORTANT]
 > It's recommended to only enable this temporarily as it may pose a security risk. Any OIDC user with a username corresponding to a user in Home Assistant can get access to that user and all its rights/configuration. After you have migrated your users (and linked OIDC to all existing accounts) you should disable the feature. You will still be able to use linked accounts, but no more links will be created or updated.
 
-> [!DANGER]
+> [!CAUTION]
 > MFA is ignored when using this setting, thus bypassing any MFA configuration the user has originally configured, as long as the username is an exact match. This is dangerous if you are not aware of it!
 
 ### Using a private certificate authority
@@ -71,5 +71,5 @@ auth_oidc:
         tls_verify: false
 ```
 
-> [!DANGER]
+> [!CAUTION]
 > Do not disable `tls_verify` in a production setting or when your Home Assistant installation is exposed outside of your network. If disabled, man-in-the-middle attacks can be used to change the provider configuration to allow fake tokens to be used.
