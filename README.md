@@ -27,9 +27,11 @@
     <a href="./docs/usage.md">Usage Guide</a>
     &middot;
     <a href="./docs/configuration.md">Configuration Guide</a>
+    &middot;
+    <a href="./CONTRIBUTING.md">Contribution Guide</a>
     <br />
     <br />
-    <a href="https://github.com/christiaangoossens/hass-oidc-auth/discussions/categories/announcements">Announcements & Polls</a>
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth/discussions?discussions_q=is%3Aopen+category%3AAnnouncements+category%3APolls">Announcements & Polls</a>
     &middot;
     <a href="https://github.com/christiaangoossens/hass-oidc-auth/issues">Issues</a>
     &middot;
@@ -74,20 +76,15 @@ If you would like to read the background/open letter that lead to this component
 More (detailed) usage instructions can be found in the [Usage Guide](./docs/usage.md).
 
 ## Contributions
-Contibutions are very welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for more information.
+Contibutions are very welcome! If you program in Python or have worked with Home Assistant integrations before, please try to contribute. A list of requested contributions/future goals is in the [Contribution Guide](./CONTRIBUTING.md).
 
-#### Non-code contributions
-Please contribute to the discussion over at [the Discussions page](https://github.com/christiaangoossens/hass-oidc-auth/discussions) if you have a question, feature idea or a setup you would like to show off.
-
-#### Code contributions
-You may also submit Pull Requests (PRs) to add features yourself! You can find a list that we are currently working on in [CONTRIBUTING.md](./CONTRIBUTING.md). Please note that workflows will be run on your pull request and a pull request will only be merged when all checks pass and a review has been conducted (together with a manual test).
+Please see the [Contribution Guide](./CONTRIBUTING.md) for more information.
 
 ### Found a security issue?
-Please see [SECURITY.md](./SECURITY.md) for more information on how to submit your security issue securely. You can find previously found vulnerablities and their corresponding security advisories at [the Security Advisories page](https://github.com/christiaangoossens/hass-oidc-auth/security/advisories).
+Please see [SECURITY.md](./SECURITY.md) for more information on how to submit your security issue securely. You can find previously found vulnerablities and their corresponding security advisories at the [Security Advisories page](https://github.com/christiaangoossens/hass-oidc-auth/security/advisories).
 
 ## License
 Distributed under the MIT license with no warranty. You are fully liable for configuring this integration correctly to keep your Home Assistant installation secure. Use at your own risk. The full license can be found in [LICENSE.md](./LICENSE.md)
-
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
