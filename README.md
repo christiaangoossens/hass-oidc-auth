@@ -1,4 +1,39 @@
-# OIDC Auth for Home Assistant
+<!-- Based on the Best-README-template from https://github.com/othneildrew/Best-README-Template -->
+<a id="readme-top"></a>
+
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+[![MIT License][license-shield]][license-url]
+
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a href="https://github.com/christiaangoossens/hass-oidc-auth/">
+    <img src="logo.png" alt="Logo" width="80" height="80">
+  </a>
+
+  <h3 align="center">OpenID Connect for Home Assistant</h3>
+
+  <p align="center">
+    OpenID Connect (OIDC) implementation for Home Assistant through a custom component/integration
+    <br />
+    <a href="https://github.com/othneildrew/Best-README-Template"><strong>Explore the docs »</strong></a>
+    <br />
+    <br />
+    <a href="https://github.com/othneildrew/Best-README-Template">View Demo</a>
+    &middot;
+    <a href="https://github.com/othneildrew/Best-README-Template/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+    &middot;
+    <a href="https://github.com/othneildrew/Best-README-Template/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+  </p>
+</div>
+
+
+
+
+# 
 
 > [!CAUTION]
 > This is an alpha release. I give no guarantees about code quality, error handling or security at this stage. Use at your own risk.
@@ -9,7 +44,7 @@ Provides an OpenID Connect (OIDC) implementation for Home Assistant through a cu
 If you would like to read the background/open letter that lead to this component, please see https://community.home-assistant.io/t/open-letter-for-improving-home-assistants-authentication-system-oidc-sso/494223. It is currently one of the most upvoted feature requests for Home Assistant.
 
 ## How to use
-### Installation
+### Quick installation guide
 
 Add this repository to [HACS](https://hacs.xyz/).
 
