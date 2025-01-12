@@ -76,13 +76,18 @@ Preferably, we run all tests on every PR to make manual testing unnecessary.
 ## Better configuration experience
 While the configuration poll is still open (https://github.com/christiaangoossens/hass-oidc-auth/discussions/6), it seems that the best option would be to keep the current YAML configuration for advanced uses and add a UI configuration for the common providers.
 
-You are welcome to contribute the following:
+I planned for the following user flow:
 
-- UI configuration process which allows selection of an OIDC provider (or manual if you want as well), input of the client id & discovery URL (and optional secret) and then checks that these parameters entered are correct by performing a discovery and authorization call (prompt=none) in the setup process.
-  - This allows for rejecting invalid parameters if they are wrong before saving.
-- You may get the claim configuration from the provider selector or allow a manual provider override.
-- You may allow users to input their group names to have role mapping.
-- You may offer automatic user linking as an option, provided that you warn users and allow disabling it later.
-- You should not offer the other feature flags as options or the network advanced config to prevent novice users from misconfiguring the integration by accident. You may refer to the YAML config to do so.
+1. Add integration in the HA UI
+2. Get config dialog with a selector for which OIDC provider you are using
+3. Preconfigure claim configuration using the chosen provider
+4. Have user input client id & discovery URL with an instruction to configure as public client
+5. (Optionally) allow users to choose confidential client and input client secret
+6. Check these fields by requesting the discovery, JWKS
+7. Ask user if they want to enable groups and allow them to input the correct group name for both roles
+8. (Optionally) allow users to enable user linking, explain the issues to them with leaving it enabled and allow disabling later
+9. Inform users that advanced options are only available in YAML, such as networking settings or specific claim configurations
+10. Have the user perform one login to check that all the fields are correct, just as any OAuth2 integration would, preferably using our oidc_provider
+11. Save the integration and request restart to enable it (if necessary)
 
-While I welcome adding configuration by UI, it's not at the top of my priority list. Ask me in the PR if you have any other suggestions and don't forget to add tests for this too.
+While I welcome adding configuration by UI, it's not at the top of my priority list. Ask me in the PR if you have any other suggestions and don't forget to add tests for this too. Existing YAML configuration should also remain unaffected, whenever possible.
