@@ -58,7 +58,9 @@ CONFIG_SCHEMA = vol.Schema(
                         # allow additional parameters and don't support RFC 7636
                         vol.Optional(FEATURES_DISABLE_PKCE): vol.Coerce(bool),
                         # Make a bool which activates and deactivates scope 'groups'
-                        vol.Optional(FEATURES_INCLUDE_GROUPS_SCOPE, default=True): vol.Coerce(bool),
+                        vol.Optional(
+                            FEATURES_INCLUDE_GROUPS_SCOPE, default=True
+                        ): vol.Coerce(bool),
                     }
                 ),
                 # Determine which specific claims will be used from the id_token
