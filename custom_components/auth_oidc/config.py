@@ -11,6 +11,7 @@ FEATURES = "features"
 FEATURES_AUTOMATIC_USER_LINKING = "automatic_user_linking"
 FEATURES_AUTOMATIC_PERSON_CREATION = "automatic_person_creation"
 FEATURES_DISABLE_PKCE = "disable_rfc7636"
+FEATURES_INCLUDE_GROUPS_SCOPE = "include_groups_scope"
 CLAIMS = "claims"
 CLAIMS_DISPLAY_NAME = "display_name"
 CLAIMS_USERNAME = "username"
@@ -56,6 +57,10 @@ CONFIG_SCHEMA = vol.Schema(
                         # Feature flag to disable PKCE to support OIDC servers that do not
                         # allow additional parameters and don't support RFC 7636
                         vol.Optional(FEATURES_DISABLE_PKCE): vol.Coerce(bool),
+                        # Make a bool which activates and deactivates scope 'groups'
+                        vol.Optional(
+                            FEATURES_INCLUDE_GROUPS_SCOPE, default=True
+                        ): vol.Coerce(bool),
                     }
                 ),
                 # Determine which specific claims will be used from the id_token

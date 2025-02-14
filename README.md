@@ -66,6 +66,7 @@ With the default configuration, [a person entry](https://www.home-assistant.io/i
 | `features.automatic_user_linking`   | `boolean`| No       | `false`          | Automatically links users to existing Home Assistant users based on the OIDC username claim. Disabled by default for security. When disabled, OIDC users will get their own new user profile upon first login.     |
 | `features.automatic_person_creation` | `boolean` | No       | `true`          | Automatically creates a person entry for new user profiles created by this integration. Recommended if you would like to assign presence detection to OIDC users.                                            |
 | `features.disable_rfc7636`  | `boolean`| No       | `false`         | Disables PKCE (RFC 7636) for OIDC providers that don't support it. You should not need this with most providers.                                    |
+| `features.include_groups_scope`  | `boolean` | No       | `true`           | Include the 'groups' scope in the OIDC request. Set to `false` to exclude it. |
 | `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
 | `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.
 | `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |
@@ -134,6 +135,8 @@ Currently, this is a pre-alpha, so I welcome issues but I cannot guarantee I can
 - [ ] Configure Dependabot for automatic updates
 - [ ] Configure tests
 - [ ] Consider use of setup UI instead of YAML (see https://github.com/christiaangoossens/hass-oidc-auth/discussions/6)
+- [ ] Create a configurable bool for scope "groups" to activate/deactivate
+- [ ] Make scope "groups" a configurable custom scope
 
 Currently waiting on HA feature additions:
 
