@@ -20,6 +20,7 @@ from .config import (
     CLAIMS,
     ROLES,
     NETWORK,
+    FEATURES_INCLUDE_GROUPS_SCOPE,
 )
 
 # pylint: enable=useless-import-alias
@@ -53,7 +54,10 @@ async def async_setup(hass: HomeAssistant, config):
     _LOGGER.info("Registered OIDC provider")
 
     # We only use openid, profile & groups, never email
-    scope = "openid profile groups"
+    include_groups_scope = my_config[FEATURES].get(FEATURES_INCLUDE_GROUPS_SCOPE, True)
+    scope = "openid profile"
+    if include_groups_scope:
+        scope += " groups"
 
     oidc_client = oidc_client = OIDCClient(
         hass=hass,
