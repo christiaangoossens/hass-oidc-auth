@@ -65,7 +65,6 @@ With the default configuration, [a person entry](https://www.home-assistant.io/i
 | `id_token_signing_alg`       | `string` | No       | `RS256`              | The signing algorithm that is used for your id_tokens.
 | `features.automatic_user_linking`   | `boolean`| No       | `false`          | Automatically links users to existing Home Assistant users based on the OIDC username claim. Disabled by default for security. When disabled, OIDC users will get their own new user profile upon first login.     |
 | `features.automatic_person_creation` | `boolean` | No       | `true`          | Automatically creates a person entry for new user profiles created by this integration. Recommended if you would like to assign presence detection to OIDC users.                                            |
-| `features.include_groups_scope`  | `boolean` | No       | `true`           | Include the 'groups' scope in the OIDC request. Set to `false` to exclude it. |
 | `features.disable_rfc7636`  | `boolean`| No       | `false`         | Disables PKCE (RFC 7636) for OIDC providers that don't support it. You should not need this with most providers.                                    |
 | `features.include_groups_scope`  | `boolean` | No       | `true`           | Include the 'groups' scope in the OIDC request. Set to `false` to exclude it. |
 | `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
