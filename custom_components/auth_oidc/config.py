@@ -19,6 +19,24 @@ ROLES = "roles"
 ROLE_ADMINS = "admin"
 ROLE_USERS = "user"
 
+FEATURES_INCLUDE_GROUPS_SCOPE = "include_groups_scope"
+
+CONFIG_SCHEMA = vol.Schema(
+    {
+        DOMAIN: vol.Schema(
+            {
+                # Other configurations...
+                vol.Optional(FEATURES): vol.Schema(
+                    {
+                        # Other features...
+                        vol.Optional(FEATURES_INCLUDE_GROUPS_SCOPE, default=True): vol.Coerce(bool),
+                    }
+                ),
+            }
+        )
+    }
+)
+
 NETWORK = "network"
 NETWORK_TLS_VERIFY = "tls_verify"
 NETWORK_TLS_CA_PATH = "tls_ca_path"
