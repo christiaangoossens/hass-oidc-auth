@@ -134,6 +134,8 @@ Currently, this is a pre-alpha, so I welcome issues but I cannot guarantee I can
 - [ ] Configure Dependabot for automatic updates
 - [ ] Configure tests
 - [ ] Consider use of setup UI instead of YAML (see https://github.com/christiaangoossens/hass-oidc-auth/discussions/6)
+- [ ] Create a configurable bool for scope "groups" to activate/deactivate
+- [ ] Make scope "groups" a configurable custom scope
 
 Currently waiting on HA feature additions:
 
