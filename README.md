@@ -1,4 +1,45 @@
-# OIDC Auth for Home Assistant
+<!-- Based on the Best-README-template from https://github.com/christiaangoossens/hass-oidc-auth -->
+<a id="readme-top"></a>
+
+<div align="center">
+
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![MIT License][license-shield]][license-url]
+
+</div>
+
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a href="https://github.com/christiaangoossens/hass-oidc-auth/">
+    <img src="logo.png" alt="Logo" width="80" height="80">
+  </a>
+
+  <h3 align="center">OpenID Connect for Home Assistant</h3>
+
+  <p align="center">
+    OpenID Connect (OIDC) implementation for Home Assistant through a custom component/integration
+    <br />
+    <br />
+    <a href="./docs/usage.md">Usage Guide</a>
+    &middot;
+    <a href="./docs/configuration.md">Configuration Guide</a>
+    &middot;
+    <a href="./CONTRIBUTING.md">Contribution Guide</a>
+    <br />
+    <br />
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth/discussions?discussions_q=is%3Aopen+category%3AAnnouncements+category%3APolls">Announcements & Polls</a>
+    &middot;
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth/issues">Issues</a>
+    &middot;
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth/discussions/categories/q-a">Questions</a>
+    &middot;
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth/discussions/categories/ideas">Feature Requests</a>
+  </p>
+</div>
 
 > [!CAUTION]
 > This is an alpha release. I give no guarantees about code quality, error handling or security at this stage. Use at your own risk.
@@ -8,139 +49,55 @@ Provides an OpenID Connect (OIDC) implementation for Home Assistant through a cu
 ### Background
 If you would like to read the background/open letter that lead to this component, please see https://community.home-assistant.io/t/open-letter-for-improving-home-assistants-authentication-system-oidc-sso/494223. It is currently one of the most upvoted feature requests for Home Assistant.
 
-## How to use
-### Installation
+## Installation guide
 
-Add this repository to [HACS](https://hacs.xyz/).
+1. Add this repository to [HACS](https://hacs.xyz/).
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=christiaangoossens&repository=hass-oidc-auth&category=Integration)
 
-Update your `configuration.yaml` file with
+2. Add the YAML configuration that matches your OIDC provider to `configuration.yaml`. See the [Configuration Guide](./docs/configuration.md) for more details or pick your OIDC provider below:
 
-```yaml
-auth_oidc:
-    client_id: ""
-    discovery_url: ""
-```
+    | <img src="https://goauthentik.io/img/icon_top_brand_colour.svg" width="100"> | <img src="https://www.authelia.com/images/branding/logo-cropped.png" width="100"> | <img src="https://github.com/user-attachments/assets/4ceb2708-9f29-4694-b797-be833efce17d" width="100"> |
+    |:-----------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------:|
+    | [Authentik](./docs/provider-configurations/authentik.md)                                       | [Authelia](./docs/provider-configurations/authelia.md)                                     | [Pocket ID](./docs/provider-configurations/pocket-id.md)                                     |
 
-Register your client with your OIDC Provider (e.g. Authentik/Authelia) as a public client and get the client_id. Then, use the obtained client_id and discovery URLs to fill the fields in `configuration.yaml`.
+    By default, the integration assumes you configure Home Assistant as a **public client** and thus only specify the `client_id` and no `client_secret`. For example, your configuration might look like:
 
-For example:
-```yaml
-auth_oidc:
-    client_id: "someValueForTheClientId"
-    discovery_url: "https://example.com/application/o/application/.well-known/openid-configuration"
-```
+    ```yaml
+    auth_oidc:
+        client_id: "example"
+        discovery_url: "https://example.com/.well-known/openid-configuration"
+    ```
 
-Afterwards, restart Home Assistant. 
+    When registering Home Assistant at your OIDC provider, use `<your HA URL>/auth/oidc/callback` as the callback URL and select 'public client'. You should now get the `client_id` and `issuer_url` or `discovery_url` to fill in.
 
-You can find all possible configuration options below.
+3. Restart Home Assistant
 
-### Login
-You should now be able to see a second option on your login screen ("OpenID Connect (SSO)"). It provides you with a single input field.
+4. Login through the OIDC Welcome URL at `<your HA URL>/auth/oidc/welcome`. You will have to go there manually for now. For example, it might be located at http://homeassistant.local:8123/auth/oidc/welcome.
 
-To start, go to one of to one of these URLs (you may also set these as application URLs in your OIDC Provider):
-- `/auth/oidc/welcome` (if you would like a nice welcome screen for your users)
-- `/auth/oidc/redirect` (if you would like to just redirect them without a welcome screen)
+More (detailed) usage instructions can be found in the [Usage Guide](./docs/usage.md).
 
-So, for example, you may start at http://homeassistant.local:8123/auth/oidc/welcome.
+## Contributions
+Contibutions are very welcome! If you program in Python or have worked with Home Assistant integrations before, please try to contribute. A list of requested contributions/future goals is in the [Contribution Guide](./CONTRIBUTING.md).
 
-> [!TIP]
-> You can use a different device to login instead. Open the `/auth/oidc/welcome` link on device A and then type the obtained code into the normal HA login on device B (can also be the mobile app) to login.
+Please see the [Contribution Guide](./CONTRIBUTING.md) for more information.
 
-> [!TIP]
-> For a seamless user experience, configure a new domain on your proxy to redirect to the `/auth/oidc/welcome` path or configure that path on your homelab dashboard or in Authentik. Users will then always start on the OIDC welcome page, which will allow them to visit the dashboard if they are already logged in.
+### Found a security issue?
+Please see [SECURITY.md](./SECURITY.md) for more information on how to submit your security issue securely. You can find previously found vulnerablities and their corresponding security advisories at the [Security Advisories page](https://github.com/christiaangoossens/hass-oidc-auth/security/advisories).
+
+## License
+Distributed under the MIT license with no warranty. You are fully liable for configuring this integration correctly to keep your Home Assistant installation secure. Use at your own risk. The full license can be found in [LICENSE.md](./LICENSE.md)
 
 
-With the default configuration, [a person entry](https://www.home-assistant.io/integrations/person/) will be created for every new OIDC user logging in. New OIDC users will get their own fresh user, linked to their persistent ID (subject) at the OpenID Connect provider. You may change your name, username or email at the provider and still have the same Home Assistant user profile.
-
-### Configuration Options
-
-| Option                      | Type     | Required | Default             | Description                                                                                             |
-|-----------------------------|----------|----------|----------------------|---------------------------------------------------------------------------------------------------------|
-| `client_id`                 | `string` | Yes      |                      | The Client ID as registered with your OpenID Connect provider.                                        |
-| `client_secret`            | `string` | No       |                      | The Client Secret for enabling confidential client mode.                                             |
-| `discovery_url`            | `string` | Yes      |                      | The OIDC well-known configuration URL.                                                                |
-| `display_name`              | `string` | No       | `"OpenID Connect (SSO)"` | The name to display on the login screen, both for the Home Assistant screen and the OIDC welcome screen.                                                                |
-| `id_token_signing_alg`       | `string` | No       | `RS256`              | The signing algorithm that is used for your id_tokens.
-| `groups_scope`  | `string` | No       | `groups`           | Override the default grups scope with another scope of your choice. |
-| `features.automatic_user_linking`   | `boolean`| No       | `false`          | Automatically links users to existing Home Assistant users based on the OIDC username claim. Disabled by default for security. When disabled, OIDC users will get their own new user profile upon first login.     |
-| `features.automatic_person_creation` | `boolean` | No       | `true`          | Automatically creates a person entry for new user profiles created by this integration. Recommended if you would like to assign presence detection to OIDC users.                                            |
-| `features.disable_rfc7636`  | `boolean`| No       | `false`         | Disables PKCE (RFC 7636) for OIDC providers that don't support it. You should not need this with most providers.                                    |
-| `features.include_groups_scope`  | `boolean` | No       | `true`           | Include the 'groups' scope in the OIDC request. Set to `false` to exclude it. |
-| `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
-| `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.
-| `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |
-| `roles.admin`            | `string` | No       | `admins`                     | Group name to require for users to get the 'admin' role in Home Assistant. Defaults to 'admins', the default group name for admins in Authentik. Doesn't do anything if no groups claim is found in your token. |
-| `roles.user`            | `string` | No       |                     | Group name to require for users to get the 'user' role in Home Assistant. Defaults to giving all users this role, unless configured. |
-| `network.tls_verify`         | `boolean` | No       | `true`                     | Verify TLS certificate. You may want to set this set to `false` when testing locally. |
-| `network.tls_ca_path`            | `string` | No       |                       | Path to file containing a private certificate authority chain. |
-
-#### Example: Migrating from HA username/password users to OIDC users
-If you already have users created within Home Assistant and would like to re-use the current user profile for your OIDC login, you can (temporarily) enable `features.automatic_user_linking`, with the following config (example):
-
-```yaml
-auth_oidc:
-    client_id: "someValueForTheClientId"
-    discovery_url: "https://example.com/application/o/application/.well-known/openid-configuration"
-    features:
-        automatic_user_linking: true
-```
-
-Upon login, OIDC users will then automatically be linked to the HA user with the same username.
-
-> [!IMPORTANT]
-> It's recommended to only enable this temporarily as it may pose a security risk. Any OIDC user with a username corresponding to a user in Home Assistant can get access to that user, and it's existing rights (admin), even if MFA is currently enabled for that account. After you have migrated your users (and linked OIDC to all existing accounts) you can disable the feature and keep using the linked users.
-
-#### Example: Using a private certificate authority
-If you use a private certificate authority to secure your OIDC provider (e.g. Keycloak), your CA must be able to be used by this component. Otherwise you will receive a certificate error (`[SSL: CERTIFICATE_VERIFY_FAILED]`) when connecting to the OIDC provider.
-You can either make the CA known to the entire operating system or configure only this component to use the CA. If you only want to let this component know your CA, you can specify it via `network.tls_ca_path`:
-
-```yaml
-auth_oidc:
-    network:
-        tls_ca_path: /path/to/private-ca.pem
-```
-
-If you want to deactivate the validation of the certificates for test purposes, you can do this via `network.tls_verify: false`:
-
-```yaml
-auth_oidc:
-    network:
-        tls_verify: false
-```
-
-In productive use, however, you should set `network.tls_verify` to `true`.
-
-## Development
-This project uses the Rye package manager for development. You can find installation instructions here: https://rye.astral.sh/guide/installation/.
-Start by installing the dependencies using `rye sync` and then point your editor towards the environment created in the `.venv` directory.
-
-### Help wanted
-If you have any tips or would like to contribute, send me a message. You are also welcome to contribute a PR to fix any of the TODOs.
-
-Currently, this is a pre-alpha, so I welcome issues but I cannot guarantee I can fix them (at least within a reasonable time). Please turn on watch for this repository to remain updated. When the component is in a beta stage, issues will likely get fixed more frequently.
-
-### TODOs
-
-- [X] Basic flow
-- [X] Implement a final link back to the main page from the finish page
-- [X] Improve welcome screen UI, should render a simple centered Tailwind UI instructing users that you should login externally to obtain a code.
-- [X] Improve finish screen UI, showing the code clearly with instructions to paste it into Home Assistant.
-- [X] Implement error handling on top of this proof of concept (discovery, JWKS, OIDC)
-- [X] Make id_token claim used for the group (admin/user) configurable
-- [X] Make id_token claim used for the username configurable
-- [X] Make id_token claim used for the name configurable
-- [ ] Add instructions on how to deploy this with Authentik & Authelia
-- [X] Configure Github Actions to automatically lint and build the package
-- [ ] Configure Dependabot for automatic updates
-- [ ] Configure tests
-- [ ] Consider use of setup UI instead of YAML (see https://github.com/christiaangoossens/hass-oidc-auth/discussions/6)
-- [ ] Create a configurable bool for scope "groups" to activate/deactivate
-- [ ] Make scope "groups" a configurable custom scope
-
-Currently waiting on HA feature additions:
-
-- [ ] Update the HA frontend code to allow a redirection to be requested from an auth provider instead of manually opening welcome page (possibly after https://github.com/home-assistant/frontend/pull/23204)
-- [ ] Implement this redirection logic to open a new tab on desktop (#23204 uses popup)
-- [ ] Implement this redirection logic to open a Android Custom Tab (Android) / SFSafariViewController (iOS), instead of opening the link in the HA webview
+<!-- MARKDOWN LINKS & IMAGES -->
+<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
+[contributors-shield]: https://img.shields.io/github/contributors/christiaangoossens/hass-oidc-auth.svg?style=for-the-badge
+[contributors-url]: https://github.com/christiaangoossens/hass-oidc-auth/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/christiaangoossens/hass-oidc-auth.svg?style=for-the-badge
+[forks-url]: https://github.com/christiaangoossens/hass-oidc-auth/network/members
+[stars-shield]: https://img.shields.io/github/stars/christiaangoossens/hass-oidc-auth.svg?style=for-the-badge
+[stars-url]: https://github.com/christiaangoossens/hass-oidc-auth/stargazers
+[issues-shield]: https://img.shields.io/github/issues/christiaangoossens/hass-oidc-auth.svg?style=for-the-badge
+[issues-url]: https://github.com/christiaangoossens/hass-oidc-auth/issues
+[license-shield]: https://img.shields.io/github/license/christiaangoossens/hass-oidc-auth.svg?style=for-the-badge
+[license-url]: https://github.com/christiaangoossens/hass-oidc-auth/blob/master/LICENSE.txt
