@@ -69,6 +69,8 @@ If you would like to read the background/open letter that lead to this component
         discovery_url: "https://example.com/.well-known/openid-configuration"
     ```
 
+    When registering Home Assistant at your OIDC provider, use `<your HA URL>/auth/oidc/callback` as the callback URL and select 'public client'. You should now get the `client_id` and `issuer_url` or `discovery_url` to fill in.
+
 3. Restart Home Assistant
 
 4. Login through the OIDC Welcome URL at `<your HA URL>/auth/oidc/welcome`. You will have to go there manually for now. For example, it might be located at http://homeassistant.local:8123/auth/oidc/welcome.

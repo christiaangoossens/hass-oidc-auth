@@ -23,6 +23,8 @@ auth_oidc:
     discovery_url: "https://example.com/.well-known/openid-configuration"
 ```
 
+When registering Home Assistant at your OIDC provider, use `<your HA URL>/auth/oidc/callback` as the callback URL and select 'public client'. You should now get the `client_id` and `issuer_url` or `discovery_url` to fill in.
+
 ### Step 3: Restart
 Restart Home Assistant. You can do so by going to the Reparations/Update section in Home Assistant.
 

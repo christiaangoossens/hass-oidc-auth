@@ -1,6 +1,9 @@
 # Authentik
 
-## Authentik configuration
+## Public client configuration
+Under construction.
+
+## Confidential client configuration
 
 1. From the admin interface, go to `Applications > Providers` and click on `Create`
 2. Select `OAuth2/OpenID Provider` and click `Next`
@@ -23,7 +26,8 @@
 
 ## Home Assistant configuration
 
-**Important note**: For HTTPS configuration make sure to have a public valid SSL certificate (i.e. LetsEncrypt), if not, use HTTP instead (more insecure) or add your Authentik CA certificate to your Home Assistant installation OS (more complicated).
+> [!IMPORTANT]  
+> For HTTPS configuration make sure to have a public valid SSL certificate (i.e. LetsEncrypt), if not, use HTTP instead (more insecure) or add your Authentik CA certificate to `network.tls_ca_path`.
 
 After installing this HACS addon, edit your `configuration.yaml` file and add:
 ```yaml
@@ -31,8 +35,6 @@ auth_oidc:
   client_id: "homeassistant"
   client_secret: "client_secret"
   discovery_url: "https://auth.example.com/application/o/home-assistant/.well-known/openid-configuration"
-  features:
-    automatic_user_linking: true
 ```
 
 Restart Home Assistant and go to https://hass.example.com/auth/oidc/welcome

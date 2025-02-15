@@ -2,7 +2,8 @@
 
 ## Public client configuration
 
-Note: This configuration strictly requires a https redirect uri.
+> [!NOTE]  
+> This configuration strictly requires a HTTPS redirect uri.
 
 Authelia `configuration.yml`
 ```yaml

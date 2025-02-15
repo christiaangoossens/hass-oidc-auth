@@ -1,7 +1,6 @@
 # Configuration methods
 
-Currently, the only available configuration method is YAML in your `configuration.yaml` file.
-You can vote on your favorite configuration method over at: https://github.com/christiaangoossens/hass-oidc-auth/discussions/6
+Currently, the only available configuration method is YAML in your `configuration.yaml` file. In the future, we will also add limited UI configuration for the most common configurations (Authentik, Authelia and Pocket-ID). Advanced users will need to use the YAML configuration in any case.
 
 # YAML Configuration
 For now, this integration is configured using YAML in your `configuration.yaml` file. By default, only two fields are required:
@@ -12,8 +11,8 @@ auth_oidc:
     discovery_url: ""
 ```
 
-The default settings assume that you configure Home Assistant as a public client, without a client secret. If so, you should only need to provide the `client_id` from your OIDC provider and it's discovery URL (ending in `.well-known/openid-configuration`).
-You don't have to configure other settings in most cases, as they have secure defaults set.
+The default settings assume that you configure Home Assistant as a **public client**, without a client secret. If so, you should only need to provide the `client_id` from your OIDC provider and it's discovery URL (ending in `.well-known/openid-configuration`).
+You don't have to configure other settings in most cases, as they have secure defaults set. If your provider requires manually configuring the callback URL, use `<your HA URL>/auth/oidc/callback`.
 
 ## Provider Configurations
 Here are some documentation links for specific providers that you may want to follow:
@@ -27,7 +26,7 @@ Are you using another provider? Another user might have added configuration inst
 
 ## Common Configurations
 ### Configuring Client Secret
-If you want to configure Home Assistant as a confidential client, you should provide the client secret as well. An example configuration might look like this:
+If you want to configure Home Assistant as a **confidential client**, you should provide the client secret as well. An example configuration might look like this:
 
 ```yaml
 auth_oidc:
@@ -38,6 +37,9 @@ auth_oidc:
 
 You should use the Home Assistant secrets helper (`!secret`) to make sure you store secrets securely. See https://www.home-assistant.io/docs/configuration/secrets/ for more information.
 
+> [!IMPORTANT]  
+> Most users will not experience any benefits from using a confidential client, as using properly configured redirect URLs + PKCE already provides enough security in a home setting and using a client secret introduces the risk of it getting lost/stolen/put on the internet. Do not use a confidential setup if you don't know what you are doing.
+
 ### Configuring roles & scopes or OIDC settings
 
 If your provider isn't listed above, you might want to configure OIDC settings yourself. Here's an example configuration for that use case:
@@ -47,6 +49,7 @@ auth_oidc:
     client_id: ""
     discovery_url: ""
     id_token_signing_alg: <HS256 or RS256>
+    groups_scope: <groups scope>
     claims:
         display_name: <display name claim from your provider>
         username: <username claim from your provider>
@@ -122,9 +125,11 @@ Here's a table of all options that you can set:
 | `discovery_url`            | `string` | Yes      |                      | The OIDC well-known configuration URL.                                                                |
 | `display_name`              | `string` | No       | `"OpenID Connect (SSO)"` | The name to display on the login screen, both for the Home Assistant screen and the OIDC welcome screen.                                                                |
 | `id_token_signing_alg`       | `string` | No       | `RS256`              | The signing algorithm that is used for your id_tokens.
+| `groups_scope`  | `string` | No       | `groups`           | Override the default grups scope with another scope of your choice. |
 | `features.automatic_user_linking`   | `boolean`| No       | `false`          | Automatically links users to existing Home Assistant users based on the OIDC username claim. Disabled by default for security. When disabled, OIDC users will get their own new user profile upon first login.     |
 | `features.automatic_person_creation` | `boolean` | No       | `true`          | Automatically creates a person entry for new user profiles created by this integration. Recommended if you would like to assign presence detection to OIDC users.                                            |
 | `features.disable_rfc7636`  | `boolean`| No       | `false`         | Disables PKCE (RFC 7636) for OIDC providers that don't support it. You should not need this with most providers.                                    |
+| `features.include_groups_scope`  | `boolean` | No       | `true`           | Include the 'groups' scope in the OIDC request. Set to `false` to exclude it. |
 | `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
 | `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.
 | `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |
