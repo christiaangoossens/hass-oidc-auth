@@ -16,10 +16,12 @@ from .config import (
     DISCOVERY_URL,
     DISPLAY_NAME,
     ID_TOKEN_SIGNING_ALGORITHM,
+    GROUPS_SCOPE,
     FEATURES,
     CLAIMS,
     ROLES,
     NETWORK,
+    FEATURES_INCLUDE_GROUPS_SCOPE,
 )
 
 # pylint: enable=useless-import-alias
@@ -52,9 +54,20 @@ async def async_setup(hass: HomeAssistant, config):
 
     _LOGGER.info("Registered OIDC provider")
 
-    # We only use openid, profile & groups, never email
-    scope = "openid profile groups"
+    # Set the correct scopes
+    # Always use 'openid' & 'profile' as they are specified in the OIDC spec
+    # All servers should support this
+    scope = "openid profile"
 
+    # Include groups if requested (default is to include 'groups'
+    # as a scope for Authelia & Authentik)
+    features_config = my_config.get(FEATURES, {})
+    include_groups_scope = features_config.get(FEATURES_INCLUDE_GROUPS_SCOPE, True)
+    groups_scope = my_config.get(GROUPS_SCOPE, "groups")
+    if include_groups_scope:
+        scope += " " + groups_scope
+
+    # Create the OIDC client
     oidc_client = oidc_client = OIDCClient(
         hass=hass,
         discovery_url=my_config.get(DISCOVERY_URL),
