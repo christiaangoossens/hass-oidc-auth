@@ -4,17 +4,16 @@ Contibutions are very welcome!
 ## Non-code contributions
 If you are not a programmer, you can still contribute by:
 
-    - Adding discussion items over at the [Discussions page](https://github.com/christiaangoossens/hass-oidc-auth/discussions) if you have a question, feature idea or a setup you would like to show off.
-    - Helping others in issues and discussion posts.
-    - Voting on polls and providing input.
+- Adding discussion items over at the [Discussions page](https://github.com/christiaangoossens/hass-oidc-auth/discussions) if you have a question, feature idea or a setup you would like to show off.
+- Helping others in issues and discussion posts.
+- Voting on polls and providing input.
+- If you want to, contributing financially through [Github Sponsors](https://github.com/sponsors/christiaangoossens)
 
 ## Code contributions
 You may also submit Pull Requests (PRs) to add features yourself! You can find a list that we are currently working on below. Please note that workflows will be run on your pull request and a pull request will only be merged when all checks pass and a review has been conducted (together with a manual test).
 
 ### Development
-
 This project uses the Rye package manager for development. You can find installation instructions here: https://rye.astral.sh/guide/installation/. Start by installing the dependencies using rye sync and then point your editor towards the environment created in the .venv directory.
-
 You can then run Home Assistant and put the `custom_components/auth_oidc` directory in your HA `config` folder.
 
 ### Docker Compose Development Environment
@@ -74,7 +73,7 @@ Together, these should test the following:
 Preferably, we run all tests on every PR to make manual testing unnecessary.
 
 ## Better configuration experience
-While the configuration poll is still open (https://github.com/christiaangoossens/hass-oidc-auth/discussions/6), it seems that the best option would be to keep the current YAML configuration for advanced uses and add a UI configuration for the common providers.
+As a conclusion to the poll (https://github.com/christiaangoossens/hass-oidc-auth/discussions/6), it seems that the best option would be to keep the current YAML configuration for advanced uses and add a UI configuration for the common providers.
 
 I planned for the following user flow:
 
