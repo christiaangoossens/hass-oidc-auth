@@ -56,8 +56,8 @@ class HTTPClientError(aiohttp.ClientResponseError):
     body: str
 
     def __init__(self, *args, **kwargs):
+        self.body = kwargs.pop("body")
         super().__init__(*args, **kwargs)
-        self.body = kwargs.get("body")
 
     def __str__(self):
         return f"{self.status} ({self.message}) with response body: {self.body}"
@@ -117,6 +117,23 @@ class OIDCClient:
             _LOGGER.debug("Closing HTTP session")
             self.http_session.close()
 
+    async def http_raise_for_status(self, response: aiohttp.ClientResponse) -> None:
+        """Raises an exception if the response is not OK."""
+        if not response.ok:
+            # reason should always be not None for a started response
+            assert response.reason is not None
+
+            body = await response.text()
+
+            raise HTTPClientError(
+                response.request_info,
+                response.history,
+                status=response.status,
+                message=response.reason,
+                headers=response.headers,
+                body=body,
+            )
+
     def _base64url_encode(self, value: str) -> str:
         """Uses base64url encoding on a given string"""
         return base64.urlsafe_b64encode(value).rstrip(b"=").decode("utf-8")
@@ -150,23 +167,6 @@ class OIDCClient:
             connector=aiohttp.TCPConnector(**tcp_connector_args)
         )
         return self.http_session
-
-    async def http_raise_for_status(self, response: aiohttp.ClientResponse) -> None:
-        """Raises an exception if the response is not OK."""
-        if not response.ok:
-            # reason should always be not None for a started response
-            assert response.reason is not None
-
-            body = await response.text()
-
-            raise HTTPClientError(
-                response.request_info,
-                response.history,
-                status=response.status,
-                message=response.reason,
-                headers=response.headers,
-                body=body,
-            )
 
     async def _fetch_discovery_document(self):
         """Fetches discovery document from the given URL."""
@@ -494,5 +494,5 @@ class OIDCClient:
             )
             return data
         except OIDCClientException as e:
-            _LOGGER.warning("Error completing token flow: %s", e)
+            _LOGGER.warning("Failed to complete token flow, returning None. (%s)", e)
             return None
