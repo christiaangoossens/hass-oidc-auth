@@ -53,6 +53,7 @@ class OIDCIdTokenSigningAlgorithmInvalid(OIDCTokenResponseInvalid):
 
 class HTTPClientError(aiohttp.ClientResponseError):
     "Raised when the HTTP client encounters not OK (200) status code."
+
     body: str
 
     def __init__(self, *args, **kwargs):
