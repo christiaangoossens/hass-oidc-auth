@@ -467,11 +467,14 @@ class OIDCClient:
                 _LOGGER.warning("Nonce mismatch!")
                 return None
 
-            # fetch userinfo if username not present in id_token
-            if not self.username_claim in id_token:
+            # fetch userinfo if there is an userinfo_endpoint available
+            # and use the data to supply the missing values in id_token
+            if "userinfo_endpoint" in self.discovery_document:
                 userinfo_endpoint = self.discovery_document["userinfo_endpoint"]
                 userinfo = await self._get_userinfo(userinfo_endpoint, access_token)
-                id_token.update(userinfo)
+                for claim in (self.groups_claim, self.display_name_claim, self.username_claim):
+                    if claim not in id_token and claim in userinfo:
+                        id_token[claim]=userinfo[claim]
 
             # Get and parse groups (to check if it's an array)
             groups = id_token.get(self.groups_claim, [])
