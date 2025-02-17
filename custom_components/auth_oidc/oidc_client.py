@@ -50,6 +50,7 @@ class OIDCStateInvalid(OIDCClientException):
 class OIDCUserinfoInvalid(OIDCClientException):
     "Raised when the user info is invalid or cannot be obtained."
 
+
 class OIDCIdTokenSigningAlgorithmInvalid(OIDCTokenResponseInvalid):
     "Raised when the id_token is signed with the wrong algorithm, adjust your config accordingly."
 
@@ -227,9 +228,9 @@ class OIDCClient:
         """Fetches userinfo from the given URL."""
         try:
             session = await self._get_http_session()
-            headers = {'Authorization': 'Bearer '+access_token }
+            headers = {"Authorization": "Bearer " + access_token}
 
-            async with session.get(userinfo_uri,headers=headers) as response:
+            async with session.get(userinfo_uri, headers=headers) as response:
                 await self.http_raise_for_status(response)
                 return await response.json()
         except HTTPClientError as e:
@@ -472,7 +473,11 @@ class OIDCClient:
             if "userinfo_endpoint" in self.discovery_document:
                 userinfo_endpoint = self.discovery_document["userinfo_endpoint"]
                 userinfo = await self._get_userinfo(userinfo_endpoint, access_token)
-                for claim in (self.groups_claim, self.display_name_claim, self.username_claim):
+                for claim in (
+                    self.groups_claim,
+                    self.display_name_claim,
+                    self.username_claim,
+                ):
                     if claim not in id_token and claim in userinfo:
                         id_token[claim] = userinfo[claim]
 
