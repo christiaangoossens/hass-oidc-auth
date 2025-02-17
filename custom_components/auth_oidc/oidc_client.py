@@ -47,6 +47,9 @@ class OIDCStateInvalid(OIDCClientException):
     "Raised when the state for your request cannot be matched against a stored state."
 
 
+class OIDCUserinfoInvalid(OIDCClientException):
+    "Raised when the user info is invalid or cannot be obtained."
+
 class OIDCIdTokenSigningAlgorithmInvalid(OIDCTokenResponseInvalid):
     "Raised when the id_token is signed with the wrong algorithm, adjust your config accordingly."
 
@@ -219,6 +222,19 @@ class OIDCClient:
                 _LOGGER.warning("Unexpected error exchanging token: %s", e)
 
             raise OIDCTokenResponseInvalid from e
+
+    async def _get_userinfo(self, userinfo_uri, access_token):
+        """Fetches userinfo from the given URL."""
+        try:
+            session = await self._get_http_session()
+            headers = {'Authorization': 'Bearer '+access_token }
+
+            async with session.get(userinfo_uri,headers=headers) as response:
+                await self.http_raise_for_status(response)
+                return await response.json()
+        except HTTPClientError as e:
+            _LOGGER.warning("Error fetching userinfo: %s", e)
+            raise OIDCUserinfoInvalid from e
 
     async def _parse_id_token(
         self, id_token: str, access_token: str | None
@@ -410,6 +426,7 @@ class OIDCClient:
                 self.discovery_document = await self._fetch_discovery_document()
 
             token_endpoint = self.discovery_document["token_endpoint"]
+            userinfo_endpoint = self.discovery_document["userinfo_endpoint"]
 
             # Construct the params
             query_params = {
@@ -451,10 +468,11 @@ class OIDCClient:
                 _LOGGER.warning("Nonce mismatch!")
                 return None
 
-            # TODO: If the configured claims are not present in id_token, we should fetch userinfo
+            # fetch userinfo
+            userinfo = await self._get_userinfo(userinfo_endpoint, access_token)
 
             # Get and parse groups (to check if it's an array)
-            groups = id_token.get(self.groups_claim, [])
+            groups = userinfo.get(self.groups_claim, [])
             if not isinstance(groups, list):
                 _LOGGER.warning("Groups claim is not a list, using empty list instead.")
                 groups = []
@@ -479,9 +497,9 @@ class OIDCClient:
                     )
                 ).hexdigest(),
                 # Display name, configurable
-                "display_name": id_token.get(self.display_name_claim),
+                "display_name": userinfo.get(self.display_name_claim),
                 # Username, configurable
-                "username": id_token.get(self.username_claim),
+                "username": userinfo.get(self.username_claim),
                 # Role
                 "role": role,
             }
