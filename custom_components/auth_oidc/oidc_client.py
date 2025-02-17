@@ -474,7 +474,7 @@ class OIDCClient:
                 userinfo = await self._get_userinfo(userinfo_endpoint, access_token)
                 for claim in (self.groups_claim, self.display_name_claim, self.username_claim):
                     if claim not in id_token and claim in userinfo:
-                        id_token[claim]=userinfo[claim]
+                        id_token[claim] = userinfo[claim]
 
             # Get and parse groups (to check if it's an array)
             groups = id_token.get(self.groups_claim, [])
