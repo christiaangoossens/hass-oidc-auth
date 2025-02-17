@@ -426,7 +426,6 @@ class OIDCClient:
                 self.discovery_document = await self._fetch_discovery_document()
 
             token_endpoint = self.discovery_document["token_endpoint"]
-            userinfo_endpoint = self.discovery_document["userinfo_endpoint"]
 
             # Construct the params
             query_params = {
@@ -468,11 +467,14 @@ class OIDCClient:
                 _LOGGER.warning("Nonce mismatch!")
                 return None
 
-            # fetch userinfo
-            userinfo = await self._get_userinfo(userinfo_endpoint, access_token)
+            # fetch userinfo if username not present in id_token
+            if not self.username_claim in id_token:
+                userinfo_endpoint = self.discovery_document["userinfo_endpoint"]
+                userinfo = await self._get_userinfo(userinfo_endpoint, access_token)
+                id_token.update(userinfo)
 
             # Get and parse groups (to check if it's an array)
-            groups = userinfo.get(self.groups_claim, [])
+            groups = id_token.get(self.groups_claim, [])
             if not isinstance(groups, list):
                 _LOGGER.warning("Groups claim is not a list, using empty list instead.")
                 groups = []
@@ -497,9 +499,9 @@ class OIDCClient:
                     )
                 ).hexdigest(),
                 # Display name, configurable
-                "display_name": userinfo.get(self.display_name_claim),
+                "display_name": id_token.get(self.display_name_claim),
                 # Username, configurable
-                "username": userinfo.get(self.username_claim),
+                "username": id_token.get(self.username_claim),
                 # Role
                 "role": role,
             }
