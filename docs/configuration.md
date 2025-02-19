@@ -124,14 +124,16 @@ Here's a table of all options that you can set:
 | `client_secret`            | `string` | No       |                      | The Client Secret for enabling confidential client mode.                                             |
 | `discovery_url`            | `string` | Yes      |                      | The OIDC well-known configuration URL.                                                                |
 | `display_name`              | `string` | No       | `"OpenID Connect (SSO)"` | The name to display on the login screen, both for the Home Assistant screen and the OIDC welcome screen.                                                                |
-| `id_token_signing_alg`       | `string` | No       | `RS256`              | The signing algorithm that is used for your id_tokens.
-| `groups_scope`  | `string` | No       | `groups`           | Override the default grups scope with another scope of your choice. |
+| `id_token_signing_alg`       | `string` | No       | `RS256`              | The signing algorithm that is used for your id_tokens.                                                |
+| `groups_scope`              | `string` | No       | `groups`             | Override the default groups scope with another scope of your choice.                                   |
 | `features.automatic_user_linking`   | `boolean`| No       | `false`          | Automatically links users to existing Home Assistant users based on the OIDC username claim. Disabled by default for security. When disabled, OIDC users will get their own new user profile upon first login.     |
 | `features.automatic_person_creation` | `boolean` | No       | `true`          | Automatically creates a person entry for new user profiles created by this integration. Recommended if you would like to assign presence detection to OIDC users.                                            |
 | `features.disable_rfc7636`  | `boolean`| No       | `false`         | Disables PKCE (RFC 7636) for OIDC providers that don't support it. You should not need this with most providers.                                    |
 | `features.include_groups_scope`  | `boolean` | No       | `true`           | Include the 'groups' scope in the OIDC request. Set to `false` to exclude it. |
-| `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
-| `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.
+| `features.welcome_path`  | `string` | No       | `/auth/oidc/welcome`           | Custom path for the OIDC Welcome endpoint. |
+| `features.redirect_path`  | `string` | No       | `/auth/oidc/redirect`           | Custom path for the OIDC Redirect endpoint. |
+| `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name. |
+| `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username. |
 | `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |
 | `roles.admin`            | `string` | No       | `admins`                     | Group name to require for users to get the 'admin' role in Home Assistant. Defaults to 'admins', the default group name for admins in Authentik. Doesn't do anything if no groups claim is found in your token. |
 | `roles.user`            | `string` | No       |                     | Group name to require for users to get the 'user' role in Home Assistant. Defaults to giving all users this role, unless configured. |
