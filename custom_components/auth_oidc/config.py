@@ -13,6 +13,8 @@ FEATURES_AUTOMATIC_USER_LINKING = "automatic_user_linking"
 FEATURES_AUTOMATIC_PERSON_CREATION = "automatic_person_creation"
 FEATURES_DISABLE_PKCE = "disable_rfc7636"
 FEATURES_INCLUDE_GROUPS_SCOPE = "include_groups_scope"
+FEATURES_WELCOME_PATH = "welcome_path"
+FEATURES_REDIRECT_PATH = "redirect_path"
 CLAIMS = "claims"
 CLAIMS_DISPLAY_NAME = "display_name"
 CLAIMS_USERNAME = "username"
@@ -65,6 +67,9 @@ CONFIG_SCHEMA = vol.Schema(
                         vol.Optional(
                             FEATURES_INCLUDE_GROUPS_SCOPE, default=True
                         ): vol.Coerce(bool),
+                         # Optional paths for welcome and redirect endpoints
+                        vol.Optional(FEATURES_WELCOME_PATH, default="/auth/oidc/welcome"): vol.Coerce(str),
+                        vol.Optional(FEATURES_REDIRECT_PATH, default="/auth/oidc/redirect"): vol.Coerce(str),
                     }
                 ),
                 # Determine which specific claims will be used from the id_token

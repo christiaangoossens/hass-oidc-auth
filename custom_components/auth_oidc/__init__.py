@@ -22,7 +22,9 @@ from .config import (
     ROLES,
     NETWORK,
     FEATURES_INCLUDE_GROUPS_SCOPE,
-)
+    FEATURES_WELCOME_PATH,
+    FEATURES_REDIRECT_PATH,
+    )
 
 # pylint: enable=useless-import-alias
 
@@ -42,6 +44,10 @@ async def async_setup(hass: HomeAssistant, config):
     my_config = config[DOMAIN]
 
     providers = OrderedDict()
+
+    # Read the welcome and redirect paths from the configuration
+    welcome_path = my_config.get(FEATURES_WELCOME_PATH, "/auth/oidc/welcome")
+    redirect_path = my_config.get(FEATURES_REDIRECT_PATH, "/auth/oidc/redirect")
 
     # Use private APIs until there is a real auth platform
     # pylint: disable=protected-access
@@ -68,7 +74,7 @@ async def async_setup(hass: HomeAssistant, config):
         scope += " " + groups_scope
 
     # Create the OIDC client
-    oidc_client = oidc_client = OIDCClient(
+    oidc_client = OIDCClient(
         hass=hass,
         discovery_url=my_config.get(DISCOVERY_URL),
         client_id=my_config.get(CLIENT_ID),
@@ -81,11 +87,11 @@ async def async_setup(hass: HomeAssistant, config):
         network=my_config.get(NETWORK, {}),
     )
 
-    # Register the views
+    # Register the views with the custom paths
     name = config[DOMAIN].get(DISPLAY_NAME, DEFAULT_TITLE)
 
-    hass.http.register_view(OIDCWelcomeView(name))
-    hass.http.register_view(OIDCRedirectView(oidc_client))
+    hass.http.register_view(OIDCWelcomeView(name, welcome_path))
+    hass.http.register_view(OIDCRedirectView(oidc_client, redirect_path))
     hass.http.register_view(OIDCCallbackView(oidc_client, provider))
     hass.http.register_view(OIDCFinishView())
 

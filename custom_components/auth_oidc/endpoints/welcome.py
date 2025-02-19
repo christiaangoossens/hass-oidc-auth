@@ -4,18 +4,15 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from ..helpers import get_view
 
-PATH = "/auth/oidc/welcome"
-
-
 class OIDCWelcomeView(HomeAssistantView):
     """OIDC Plugin Welcome View."""
 
     requires_auth = False
-    url = PATH
-    name = "auth:oidc:welcome"
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, path: str) -> None:
         self.name = name
+        self.url = path
+        self.name = "auth:oidc:welcome"
 
     async def get(self, _: web.Request) -> web.Response:
         """Receive response."""

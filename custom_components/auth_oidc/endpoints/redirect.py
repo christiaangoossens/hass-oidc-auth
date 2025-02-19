@@ -7,18 +7,15 @@ from homeassistant.components.http import HomeAssistantView
 from ..oidc_client import OIDCClient
 from ..helpers import get_url, get_view
 
-PATH = "/auth/oidc/redirect"
-
-
 class OIDCRedirectView(HomeAssistantView):
     """OIDC Plugin Redirect View."""
 
     requires_auth = False
-    url = PATH
-    name = "auth:oidc:redirect"
 
-    def __init__(self, oidc_client: OIDCClient) -> None:
+    def __init__(self, oidc_client: OIDCClient, path: str) -> None:
         self.oidc_client = oidc_client
+        self.url = path
+        self.name = "auth:oidc:redirect"
 
     async def get(self, _: web.Request) -> web.Response:
         """Receive response."""
