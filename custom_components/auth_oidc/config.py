@@ -67,9 +67,13 @@ CONFIG_SCHEMA = vol.Schema(
                         vol.Optional(
                             FEATURES_INCLUDE_GROUPS_SCOPE, default=True
                         ): vol.Coerce(bool),
-                         # Optional paths for welcome and redirect endpoints
-                        vol.Optional(FEATURES_WELCOME_PATH, default="/auth/oidc/welcome"): vol.Coerce(str),
-                        vol.Optional(FEATURES_REDIRECT_PATH, default="/auth/oidc/redirect"): vol.Coerce(str),
+                        # Optional paths for welcome and redirect endpoints
+                        vol.Optional(
+                            FEATURES_WELCOME_PATH, default="/auth/oidc/welcome"
+                        ): vol.Coerce(str),
+                        vol.Optional(
+                            FEATURES_REDIRECT_PATH, default="/auth/oidc/redirect"
+                        ): vol.Coerce(str),
                     }
                 ),
                 # Determine which specific claims will be used from the id_token

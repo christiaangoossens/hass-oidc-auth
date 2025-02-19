@@ -4,6 +4,7 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from ..helpers import get_view
 
+
 class OIDCWelcomeView(HomeAssistantView):
     """OIDC Plugin Welcome View."""
 

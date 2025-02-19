@@ -24,7 +24,7 @@ from .config import (
     FEATURES_INCLUDE_GROUPS_SCOPE,
     FEATURES_WELCOME_PATH,
     FEATURES_REDIRECT_PATH,
-    )
+)
 
 # pylint: enable=useless-import-alias
 

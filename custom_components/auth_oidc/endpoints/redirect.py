@@ -7,6 +7,7 @@ from homeassistant.components.http import HomeAssistantView
 from ..oidc_client import OIDCClient
 from ..helpers import get_url, get_view
 
+
 class OIDCRedirectView(HomeAssistantView):
     """OIDC Plugin Redirect View."""
 
