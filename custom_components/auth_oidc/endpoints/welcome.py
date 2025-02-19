@@ -32,6 +32,7 @@ class OIDCWelcomeView(HomeAssistantView):
         Returns:
             web.Response: The response to be sent back to the client.
         """
+
         try:
             view_html = await get_view(
                 "welcome", {"name": self.name, "redirect_url": self.redirect_url}
