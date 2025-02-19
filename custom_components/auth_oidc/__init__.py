@@ -39,6 +39,13 @@ from .provider import OpenIDAuthProvider
 _LOGGER = logging.getLogger(__name__)
 
 
+def validate_path(path: str) -> str:
+    """Ensure the path is within /auth/oidc."""
+    if not path.startswith("/auth/oidc"):
+        raise ValueError("Path must be within /auth/oidc")
+    return path
+
+
 async def async_setup(hass: HomeAssistant, config):
     """Add the OIDC Auth Provider to the providers in Home Assistant"""
     my_config = config[DOMAIN]
@@ -46,8 +53,12 @@ async def async_setup(hass: HomeAssistant, config):
     providers = OrderedDict()
 
     # Read the welcome and redirect paths from the configuration
-    welcome_path = my_config.get(FEATURES_WELCOME_PATH, "/auth/oidc/welcome")
-    redirect_path = my_config.get(FEATURES_REDIRECT_PATH, "/auth/oidc/redirect")
+    welcome_path = validate_path(
+        my_config.get(FEATURES_WELCOME_PATH, "/auth/oidc/welcome")
+    )
+    redirect_path = validate_path(
+        my_config.get(FEATURES_REDIRECT_PATH, "/auth/oidc/redirect")
+    )
 
     # Use private APIs until there is a real auth platform
     # pylint: disable=protected-access
@@ -90,7 +101,7 @@ async def async_setup(hass: HomeAssistant, config):
     # Register the views with the custom paths
     name = config[DOMAIN].get(DISPLAY_NAME, DEFAULT_TITLE)
 
-    hass.http.register_view(OIDCWelcomeView(name, welcome_path))
+    hass.http.register_view(OIDCWelcomeView(name, welcome_path, redirect_path))
     hass.http.register_view(OIDCRedirectView(oidc_client, redirect_path))
     hass.http.register_view(OIDCCallbackView(oidc_client, provider))
     hass.http.register_view(OIDCFinishView())
