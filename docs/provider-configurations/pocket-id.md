@@ -10,8 +10,8 @@ Click on "Add OIDC Client"
 Select OAuth2/OpenID Provider and click Next
 
 Fill the following details:
-    - Name: Home Assistant
-    - Callback URLs: <your-homeassistant-url>/auth/oidc/callback (for example: https://hass.example.com/auth/oidc/callback)
+    - Name: `Home Assistant`
+    - Callback URLs: `<your-homeassistant-url>/auth/oidc/callback` (for example: https://hass.example.com/auth/oidc/callback)
     - Click on "Public Client" (PKCE will be automatically marked when doing this)
 Click on "Save"
 
