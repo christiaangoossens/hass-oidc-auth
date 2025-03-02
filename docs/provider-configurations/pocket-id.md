@@ -3,18 +3,18 @@
 ## Public client configuration
 
 ### Pocket ID configuration
-1. Login to Pocket ID and go to OIDC Clients
+1. Login to Pocket ID and go to `OIDC Clients`
 
-2. Click on "Add OIDC Client"
+2. Click on `Add OIDC Client`
 
 3. Fill the following details:
     - Name: `Home Assistant`
     - Callback URLs: `<your-homeassistant-url>/auth/oidc/callback` (for example: https://hass.example.com/auth/oidc/callback)
     - Click on `Public Client` (PKCE will be automatically marked when doing this)
       
-4. Click on "Save"
+4. Click on `Save`
 
-5. Click on "Show more details" and note down your "Client ID" and OIDC Discovery URL since you will need them later.
+5. Click on `Show more details` and note down your `Client ID` and `OIDC Discovery URL` since you will need them later.
 
 ### Home Assistant configuration
 1. Add following configuration in Home Assistant's configuration.yaml:
@@ -29,17 +29,17 @@ auth_oidc:
 ## Confidential client configuration
 
 ### Pocket ID configuration
-1. Login to Pocket ID and go to OIDC Clients
+1. Login to Pocket ID and go to `OIDC Clients`
 
-2. Click on "Add OIDC Client"
+2. Click on `Add OIDC Client`
 
 3. Fill the following details:
     - Name: `Home Assistant`
     - Callback URLs: `<your-homeassistant-url>/auth/oidc/callback` (for example: https://hass.example.com/auth/oidc/callback)
       
-4. Click on "Save"
+4. Click on `Save`
 
-5. Click on "Show more details" and note down your:
+5. Click on `Show more details` and note down your:
     - `Client ID`
     - `Client secret`
     - `OIDC Discovery URL`
