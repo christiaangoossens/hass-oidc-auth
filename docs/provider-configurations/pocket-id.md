@@ -1,5 +1,8 @@
 # Pocket ID
-Public client configuration
+
+## Public client configuration
+
+## Pocket ID configuration
 Login to Pocket ID and go to OIDC Clients
 
 Click on "Add OIDC Client"
@@ -15,7 +18,7 @@ Click on "Save"
 
 Click on "Show more details" and note down your "Client ID" and OIDC Discovery URL since you will need them later.
 
-
+## Home Assistant configuration
 Add following configuration in Home Assistant's configuration.yaml:
 
 auth_oidc:
