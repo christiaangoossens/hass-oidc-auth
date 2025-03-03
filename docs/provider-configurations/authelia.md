@@ -24,7 +24,7 @@ identity_providers:
           - 'openid'
           - 'profile'
           - 'groups'
-        userinfo_signed_response_alg: 'RS256'
+        id_token_signed_response_alg: 'RS256'
 ```
 
 Home Assistant `configuration.yaml`
@@ -56,7 +56,7 @@ identity_providers:
           - 'openid'
           - 'profile'
           - 'groups'
-        userinfo_signed_response_alg: 'RS256'
+        id_token_signed_response_alg: 'RS256'
         token_endpoint_auth_method: 'client_secret_post'
 ```
 
