@@ -19,8 +19,8 @@ By default, the integration assumes you configure Home Assistant as a **public c
 
 ```yaml
 auth_oidc:
-    client_id: "example"
-    discovery_url: "https://example.com/.well-known/openid-configuration"
+  client_id: "example"
+  discovery_url: "https://example.com/.well-known/openid-configuration"
 ```
 
 When registering Home Assistant at your OIDC provider, use `<your HA URL>/auth/oidc/callback` as the callback URL and select 'public client'. You should now get the `client_id` and `issuer_url` or `discovery_url` to fill in.

@@ -7,8 +7,8 @@ For now, this integration is configured using YAML in your `configuration.yaml` 
 
 ```yaml
 auth_oidc:
-    client_id: ""
-    discovery_url: ""
+  client_id: ""
+  discovery_url: ""
 ```
 
 The default settings assume that you configure Home Assistant as a **public client**, without a client secret. If so, you should only need to provide the `client_id` from your OIDC provider and it's discovery URL (ending in `.well-known/openid-configuration`).
@@ -30,9 +30,9 @@ If you want to configure Home Assistant as a **confidential client**, you should
 
 ```yaml
 auth_oidc:
-    client_id: ""
-    client_secret: !secret oidc_client_secret
-    discovery_url: ""
+  client_id: ""
+  client_secret: !secret oidc_client_secret
+  discovery_url: ""
 ```
 
 You should use the Home Assistant secrets helper (`!secret`) to make sure you store secrets securely. See https://www.home-assistant.io/docs/configuration/secrets/ for more information.
@@ -46,17 +46,17 @@ If your provider isn't listed above, you might want to configure OIDC settings y
 
 ```yaml
 auth_oidc:
-    client_id: ""
-    discovery_url: ""
-    id_token_signing_alg: <HS256 or RS256>
-    groups_scope: <groups scope>
-    claims:
-        display_name: <display name claim from your provider>
-        username: <username claim from your provider>
-        groups: <groups claim from your provider>
-    roles:
-        admin: <group name to use for admins>
-        user: <group name to use for users>
+  client_id: ""
+  discovery_url: ""
+  id_token_signing_alg: <HS256, RS256, ES256, ...>
+  groups_scope: <groups scope>
+  claims:
+    display_name: <display name claim from your provider>
+    username: <username claim from your provider>
+    groups: <groups claim from your provider>
+  roles:
+    admin: <group name to use for admins>
+    user: <group name to use for users>
 ```
 
 If you configure the user role, OIDC users that have neither configured group name will be rejected! If you configure the admin role, users with that role will receive administrator rights in Home Assistant automatically upon login.
@@ -66,9 +66,9 @@ If you would like to change the default name on the OIDC welcome screen and Home
 
 ```yaml
 auth_oidc:
-    client_id: ""
-    discovery_url: ""
-    display_name: "Example"
+  client_id: ""
+  discovery_url: ""
+  display_name: "Example"
 ```
 
 This will show the provider on the login screen as: "Login with Example".
@@ -78,10 +78,10 @@ If you already have users created within Home Assistant and would like to re-use
 
 ```yaml
 auth_oidc:
-    client_id: "someValueForTheClientId"
-    discovery_url: "https://example.com/application/o/application/.well-known/openid-configuration"
-    features:
-        automatic_user_linking: true
+  client_id: "someValueForTheClientId"
+  discovery_url: "https://example.com/application/o/application/.well-known/openid-configuration"
+  features:
+    automatic_user_linking: true
 ```
 
 Upon login, OIDC users will then automatically be linked to the HA user with the same username. It's recommended to **only enable this temporarily** as it may pose a security risk. You should disable it after linking all your users, as existing links will still work if you disable it, but no new links will be created.
@@ -99,16 +99,16 @@ You can either make the CA known to the entire operating system or configure onl
 
 ```yaml
 auth_oidc:
-    network:
-        tls_ca_path: /path/to/private-ca.pem
+  network:
+    tls_ca_path: /path/to/private-ca.pem
 ```
 
 If you want to deactivate the validation of all TLS certificates for test purposes, you can do this via `network.tls_verify: false`:
 
 ```yaml
 auth_oidc:
-    network:
-        tls_verify: false
+  network:
+    tls_verify: false
 ```
 
 > [!CAUTION]
