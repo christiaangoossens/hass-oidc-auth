@@ -17,9 +17,9 @@ You don't have to configure other settings in most cases, as they have secure de
 ## Provider Configurations
 Here are some documentation links for specific providers that you may want to follow:
 
-| <img src="https://goauthentik.io/img/icon_top_brand_colour.svg" width="100"> | <img src="https://www.authelia.com/images/branding/logo-cropped.png" width="100"> | <img src="https://github.com/user-attachments/assets/4ceb2708-9f29-4694-b797-be833efce17d" width="100"> |
-|:-----------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------:|
-| [Authentik](./provider-configurations/authentik.md)                                       | [Authelia](./provider-configurations/authelia.md)                                     | [Pocket ID](./provider-configurations/pocket-id.md)                                     |
+| <img src="https://goauthentik.io/img/icon_top_brand_colour.svg" width="100">  | <img src="https://www.authelia.com/images/branding/logo-cropped.png" width="100">  | <img src="https://raw.githubusercontent.com/kanidm/kanidm/refs/heads/master/artwork/logo.svg" width="100"> | <img src="https://github.com/user-attachments/assets/4ceb2708-9f29-4694-b797-be833efce17d" width="100"> |
+|:-----------------------------------------------------------------------------:|:----------------------------------------------------------------------------------:|:----------------------------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------------------------:|
+| [Authentik](./provider-configurations/authentik.md)                           | [Authelia](./provider-configurations/authelia.md)                                  | [Kanidm](./provider-configurations/kanidm.md)                                                              | [Pocket ID](./provider-configurations/pocket-id.md)                                                     |
 
 
 Are you using another provider? Another user might have added configuration instructions here: [Other providers](./provider-configurations/other.md)
