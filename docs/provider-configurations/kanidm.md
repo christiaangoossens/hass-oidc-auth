@@ -35,10 +35,10 @@ kanidm system oauth2 update-scope-map "homeassistant" "homeassistant_users" "ema
 {
   "groups": {
     "homeassistant_admins": {
-      "members": ["test"]
+      "members": ["testaccount"]
     },
     "homeassistant_users": {
-      "members": ["test"]
+      "members": ["testaccount"]
     },
   },
   "persons": {
