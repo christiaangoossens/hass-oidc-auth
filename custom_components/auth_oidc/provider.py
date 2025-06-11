@@ -139,7 +139,7 @@ class OpenIDAuthProvider(AuthProvider):
             for credential in user.credentials:
                 if (
                     credential.auth_provider_type == HASS_PROVIDER_TYPE
-                    and credential.data.get("username") == username
+                    and credential.data.get("username") == username.lower()
                 ):
                     return user
 
