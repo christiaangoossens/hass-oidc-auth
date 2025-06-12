@@ -26,7 +26,7 @@ kanidm group add-members "homeassistant_users" "testaccount" --name "idm_admin"
 kanidm system oauth2 create-public "homeassistant" "Home Assistant" "https://hass.example.org/auth/oidc/welcome" --name "idm_admin"
 kanidm system oauth2 add-redirect-url "homeassistant" "https://hass.example.org/auth/oidc/callback" --name "idm_admin"
 kanidm system oauth2 set-image "homeassistant" "/var/www/html/images/homeassistant.svg" --name "idm_admin"
-kanidm system oauth2 update-scope-map "homeassistant" "homeassistant_users" "email" "openid" "profile" "groups" --name "idm_admin"
+kanidm system oauth2 update-scope-map "homeassistant" "homeassistant_users" "email" "groups" "openid" "profile" --name "idm_admin"
 ```
 
 [Kanidm Provision](https://github.com/oddlama/kanidm-provision) `state.json`
@@ -91,7 +91,7 @@ kanidm group add-members "homeassistant_users" "testaccount" --name "idm_admin"
 kanidm system oauth2 create "homeassistant" "Home Assistant" "https://hass.example.org/auth/oidc/welcome" --name "idm_admin"
 kanidm system oauth2 add-redirect-url "homeassistant" "https://hass.example.org/auth/oidc/callback" --name "idm_admin"
 kanidm system oauth2 set-image "homeassistant" "/var/www/html/images/homeassistant.svg" --name "idm_admin"
-kanidm system oauth2 update-scope-map "homeassistant" "homeassistant_users" "email" "openid" "profile" "groups" --name "idm_admin"
+kanidm system oauth2 update-scope-map "homeassistant" "homeassistant_users" "email" "groups" "openid" "profile" --name "idm_admin"
 kanidm system oauth2 show-basic-secret "homeassistant" --name "idm_admin" | xargs echo 'oidc_client_secret: {}' | tee --append "/var/lib/hass/secrets.yaml"
 ```
 
