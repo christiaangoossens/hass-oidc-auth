@@ -36,7 +36,6 @@ kanidm group add-members "homeassistant_admins" "your_username" --name "idm_admi
 ```shell
 kanidm system oauth2 create-public "homeassistant" "Home Assistant" "https://hass.example.org/auth/oidc/welcome" --name "idm_admin"
 kanidm system oauth2 add-redirect-url "homeassistant" "https://hass.example.org/auth/oidc/callback" --name "idm_admin"
-kanidm system oauth2 set-image "homeassistant" "/var/www/html/images/homeassistant.svg" --name "idm_admin"
 kanidm system oauth2 update-scope-map "homeassistant" "homeassistant_users" "email" "groups" "openid" "profile" --name "idm_admin"
 ```
 
@@ -58,7 +57,6 @@ kanidm system oauth2 update-scope-map "homeassistant" "homeassistant_users" "ema
     "oauth2": {
       "homeassistant": {
         "displayName": "Home Assistant",
-        "imageFile": "/var/www/html/images/homeassistant.svg",
         "originLanding": "https://hass.example.org/auth/oidc/welcome",
         "originUrl": "https://hass.example.org/auth/oidc/callback",
         "public": true,
@@ -108,7 +106,6 @@ kanidm group add-members "homeassistant_admins" "your_username" --name "idm_admi
 ```shell
 kanidm system oauth2 create "homeassistant" "Home Assistant" "https://hass.example.org/auth/oidc/welcome" --name "idm_admin"
 kanidm system oauth2 add-redirect-url "homeassistant" "https://hass.example.org/auth/oidc/callback" --name "idm_admin"
-kanidm system oauth2 set-image "homeassistant" "/var/www/html/images/homeassistant.svg" --name "idm_admin"
 kanidm system oauth2 update-scope-map "homeassistant" "homeassistant_users" "email" "groups" "openid" "profile" --name "idm_admin"
 ```
 
@@ -136,7 +133,6 @@ kanidm system oauth2 show-basic-secret "homeassistant" --name "idm_admin" | xarg
     "oauth2": {
       "homeassistant": {
         "displayName": "Home Assistant",
-        "imageFile": "/var/www/html/images/homeassistant.svg",
         "originLanding": "https://hass.example.org/auth/oidc/welcome",
         "originUrl": "https://hass.example.org/auth/oidc/callback",
         "scopeMaps": {
