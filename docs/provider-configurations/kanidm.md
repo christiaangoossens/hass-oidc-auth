@@ -19,9 +19,9 @@ auth_oidc:
 [Kanidm](https://github.com/kanidm/kanidm)
 
 ```shell
-kanidm person create "testaccount" "Test Account" --name idm_admin
+kanidm person create "your_username" "Your Username" --name "idm_admin"
 kanidm group create "homeassistant_admins" --name "idm_admin"
-kanidm group add-members "homeassistant_admins" "testaccount" --name "idm_admin"
+kanidm group add-members "homeassistant_admins" "your_username" --name "idm_admin"
 kanidm system oauth2 create-public "homeassistant" "Home Assistant" "https://hass.example.org/auth/oidc/welcome" --name "idm_admin"
 kanidm system oauth2 add-redirect-url "homeassistant" "https://hass.example.org/auth/oidc/callback" --name "idm_admin"
 kanidm system oauth2 set-image "homeassistant" "/var/www/html/images/homeassistant.svg" --name "idm_admin"
@@ -34,12 +34,12 @@ kanidm system oauth2 update-scope-map "homeassistant" "homeassistant_users" "ema
 {
   "groups": {
     "homeassistant_admins": {
-      "members": ["testaccount"]
+      "members": ["your_username"]
     }
   },
   "persons": {
-    "testaccount": {
-      "displayName": "Test Account"
+    "your_username": {
+      "displayName": "Your Username"
     },
   },
   "systems": {
@@ -79,9 +79,9 @@ auth_oidc:
 [Kanidm](https://github.com/kanidm/kanidm)
 
 ```shell
-kanidm person create "testaccount" "Test Account" --name idm_admin
+kanidm person create "your_username" "Your Username" --name "idm_admin"
 kanidm group create "homeassistant_admins" --name "idm_admin"
-kanidm group add-members "homeassistant_admins" "testaccount" --name "idm_admin"
+kanidm group add-members "homeassistant_admins" "your_username" --name "idm_admin"
 kanidm system oauth2 create "homeassistant" "Home Assistant" "https://hass.example.org/auth/oidc/welcome" --name "idm_admin"
 kanidm system oauth2 add-redirect-url "homeassistant" "https://hass.example.org/auth/oidc/callback" --name "idm_admin"
 kanidm system oauth2 set-image "homeassistant" "/var/www/html/images/homeassistant.svg" --name "idm_admin"
@@ -95,12 +95,12 @@ kanidm system oauth2 show-basic-secret "homeassistant" --name "idm_admin" | xarg
 {
   "groups": {
     "homeassistant_admins": {
-      "members": ["testaccount"]
+      "members": ["your_username"]
     }
   },
   "persons": {
-    "testaccount": {
-      "displayName": "Test Account"
+    "your_username": {
+      "displayName": "Your Username"
     },
   },
   "systems": {
