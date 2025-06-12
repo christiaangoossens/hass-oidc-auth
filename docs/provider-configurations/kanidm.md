@@ -18,10 +18,22 @@ auth_oidc:
 
 [Kanidm](https://github.com/kanidm/kanidm)
 
+1. Create your Kanidm account, if you don't have one already:
+
 ```shell
 kanidm person create "your_username" "Your Username" --name "idm_admin"
+```
+
+2. Create a new Kanidm group for your HomeAssistant administrators (`homeassistant_admins`), and add your regular account to it:
+
+```shell
 kanidm group create "homeassistant_admins" --name "idm_admin"
 kanidm group add-members "homeassistant_admins" "your_username" --name "idm_admin"
+```
+
+3. Create a new OAuth2 application configuration in Kanidm (`homeassistant`), configure the redirect URL, and scope access:
+
+```shell
 kanidm system oauth2 create-public "homeassistant" "Home Assistant" "https://hass.example.org/auth/oidc/welcome" --name "idm_admin"
 kanidm system oauth2 add-redirect-url "homeassistant" "https://hass.example.org/auth/oidc/callback" --name "idm_admin"
 kanidm system oauth2 set-image "homeassistant" "/var/www/html/images/homeassistant.svg" --name "idm_admin"
@@ -78,14 +90,31 @@ auth_oidc:
 
 [Kanidm](https://github.com/kanidm/kanidm)
 
+1. Create your Kanidm account, if you don't have one already:
+
 ```shell
 kanidm person create "your_username" "Your Username" --name "idm_admin"
+```
+
+2. Create a new Kanidm group for your HomeAssistant administrators (`homeassistant_admins`), and add your regular account to it:
+
+```shell
 kanidm group create "homeassistant_admins" --name "idm_admin"
 kanidm group add-members "homeassistant_admins" "your_username" --name "idm_admin"
+```
+
+3. Create a new OAuth2 application configuration in Kanidm (`homeassistant`), configure the redirect URL, and scope access:
+
+```shell
 kanidm system oauth2 create "homeassistant" "Home Assistant" "https://hass.example.org/auth/oidc/welcome" --name "idm_admin"
 kanidm system oauth2 add-redirect-url "homeassistant" "https://hass.example.org/auth/oidc/callback" --name "idm_admin"
 kanidm system oauth2 set-image "homeassistant" "/var/www/html/images/homeassistant.svg" --name "idm_admin"
 kanidm system oauth2 update-scope-map "homeassistant" "homeassistant_users" "email" "groups" "openid" "profile" --name "idm_admin"
+```
+
+4. Get the `homeassistant` OAuth2 client secret from Kanidm:
+
+```shell
 kanidm system oauth2 show-basic-secret "homeassistant" --name "idm_admin" | xargs echo 'oidc_client_secret: {}' | tee --append "/var/lib/hass/secrets.yaml"
 ```
 
