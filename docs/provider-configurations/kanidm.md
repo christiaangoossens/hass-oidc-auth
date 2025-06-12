@@ -19,6 +19,7 @@ auth_oidc:
 [Kanidm](https://github.com/kanidm/kanidm)
 
 ```shell
+kanidm person create "testaccount" "Test Account" --name idm_admin
 kanidm group create "homeassistant_admins" --name "idm_admin"
 kanidm group add-members "homeassistant_admins" "testaccount" --name "idm_admin"
 kanidm system oauth2 create-public "homeassistant" "Home Assistant" "https://hass.example.org/auth/oidc/welcome" --name "idm_admin"
@@ -38,8 +39,7 @@ kanidm system oauth2 update-scope-map "homeassistant" "homeassistant_users" "ema
   },
   "persons": {
     "testaccount": {
-      "displayName": "testaccount",
-      "mailAddresses": ["testaccount@example.org"]
+      "displayName": "Test Account"
     },
   },
   "systems": {
@@ -79,6 +79,7 @@ auth_oidc:
 [Kanidm](https://github.com/kanidm/kanidm)
 
 ```shell
+kanidm person create "testaccount" "Test Account" --name idm_admin
 kanidm group create "homeassistant_admins" --name "idm_admin"
 kanidm group add-members "homeassistant_admins" "testaccount" --name "idm_admin"
 kanidm system oauth2 create "homeassistant" "Home Assistant" "https://hass.example.org/auth/oidc/welcome" --name "idm_admin"
@@ -99,8 +100,7 @@ kanidm system oauth2 show-basic-secret "homeassistant" --name "idm_admin" | xarg
   },
   "persons": {
     "testaccount": {
-      "displayName": "testaccount",
-      "mailAddresses": ["testaccount@example.org"]
+      "displayName": "Test Account"
     },
   },
   "systems": {
