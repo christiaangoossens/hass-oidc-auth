@@ -13,16 +13,14 @@ auth_oidc:
   id_token_signing_alg: "ES256"
   roles:
     admin: "homeassistant_admins@idm.example.org"
-    user: "homeassistant_users@idm.example.org"
+    user: "idm_all_persons@idm.example.org"
 ```
 
 [Kanidm](https://github.com/kanidm/kanidm)
 
 ```shell
 kanidm group create "homeassistant_admins" --name "idm_admin"
-kanidm group create "homeassistant_users" --name "idm_admin"
 kanidm group add-members "homeassistant_admins" "testaccount" --name "idm_admin"
-kanidm group add-members "homeassistant_users" "testaccount" --name "idm_admin"
 kanidm system oauth2 create-public "homeassistant" "Home Assistant" "https://hass.example.org/auth/oidc/welcome" --name "idm_admin"
 kanidm system oauth2 add-redirect-url "homeassistant" "https://hass.example.org/auth/oidc/callback" --name "idm_admin"
 kanidm system oauth2 set-image "homeassistant" "/var/www/html/images/homeassistant.svg" --name "idm_admin"
@@ -36,10 +34,7 @@ kanidm system oauth2 update-scope-map "homeassistant" "homeassistant_users" "ema
   "groups": {
     "homeassistant_admins": {
       "members": ["testaccount"]
-    },
-    "homeassistant_users": {
-      "members": ["testaccount"]
-    },
+    }
   },
   "persons": {
     "testaccount": {
@@ -78,16 +73,14 @@ auth_oidc:
   id_token_signing_alg: "ES256"
   roles:
     admin: "homeassistant_admins@idm.example.org"
-    user: "homeassistant_users@idm.example.org"
+    user: "idm_all_persons@idm.example.org"
 ```
 
 [Kanidm](https://github.com/kanidm/kanidm)
 
 ```shell
 kanidm group create "homeassistant_admins" --name "idm_admin"
-kanidm group create "homeassistant_users" --name "idm_admin"
 kanidm group add-members "homeassistant_admins" "testaccount" --name "idm_admin"
-kanidm group add-members "homeassistant_users" "testaccount" --name "idm_admin"
 kanidm system oauth2 create "homeassistant" "Home Assistant" "https://hass.example.org/auth/oidc/welcome" --name "idm_admin"
 kanidm system oauth2 add-redirect-url "homeassistant" "https://hass.example.org/auth/oidc/callback" --name "idm_admin"
 kanidm system oauth2 set-image "homeassistant" "/var/www/html/images/homeassistant.svg" --name "idm_admin"
@@ -102,10 +95,7 @@ kanidm system oauth2 show-basic-secret "homeassistant" --name "idm_admin" | xarg
   "groups": {
     "homeassistant_admins": {
       "members": ["testaccount"]
-    },
-    "homeassistant_users": {
-      "members": ["testaccount"]
-    },
+    }
   },
   "persons": {
     "testaccount": {
