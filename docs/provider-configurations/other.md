@@ -1,5 +1,6 @@
 # Other providers
-Under construction.
+## Kanidm
+See the dedicated Kanidm page: [Kanidm](./kanidm.md).
 
 ## Microsoft Entra ID
 > [!WARNING]  
