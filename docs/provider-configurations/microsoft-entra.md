@@ -1,7 +1,4 @@
-# Other providers
-Under construction.
-
-## Microsoft Entra ID
+# Microsoft Entra ID
 > [!WARNING]  
 > Microsoft Entra ID does not support public clients that are not Single Page Applications (SPA's). Therefore, you will have to use a client secret.
 
