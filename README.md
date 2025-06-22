@@ -41,16 +41,16 @@
   </p>
 </div>
 
-> [!TIP]
-> If you support the addition of this feature to the Home Assistant core, please upvote https://github.com/orgs/home-assistant/discussions/48. It's the successor of the Home Assistant Community post with almost 900 upvotes.
-
 > [!CAUTION]
 > This is an alpha release. I give no guarantees about code quality, error handling or security at this stage. Use at your own risk.
 
 Provides an OpenID Connect (OIDC) implementation for Home Assistant through a custom component/integration. Through this integration, you can create an SSO (single-sign-on) environment within your self-hosted application stack / homelab.
 
 ### Background
-If you would like to read the background/open letter that lead to this component, please see https://community.home-assistant.io/t/open-letter-for-improving-home-assistants-authentication-system-oidc-sso/494223. It is currently one of the most upvoted feature requests for Home Assistant.
+If you would like to read the background/open letter that lead to this component, you can find the original post at https://community.home-assistant.io/t/open-letter-for-improving-home-assistants-authentication-system-oidc-sso/494223. It is currently one of the most upvoted feature requests for Home Assistant.
+
+> [!TIP]
+> If you support the addition of this feature to the Home Assistant core, please upvote https://github.com/orgs/home-assistant/discussions/48. It's the successor of the Home Assistant Community post mentioned above (with almost 900 upvotes).
 
 ## Installation guide
 
