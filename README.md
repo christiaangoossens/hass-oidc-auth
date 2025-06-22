@@ -41,6 +41,9 @@
   </p>
 </div>
 
+> [!TIP]
+> If you support the addition of this feature to the Home Assistant core, please upvote https://github.com/orgs/home-assistant/discussions/48. It's the successor of the Home Assistant Community post with almost 900 upvotes.
+
 > [!CAUTION]
 > This is an alpha release. I give no guarantees about code quality, error handling or security at this stage. Use at your own risk.
 
