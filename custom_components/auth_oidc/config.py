@@ -48,8 +48,7 @@ CONFIG_SCHEMA = vol.Schema(
                 # Defaults to 'groups' which is used by Authelia and Authentik
                 vol.Optional(GROUPS_SCOPE, default="groups"): vol.Coerce(str),
                 # Additional scopes to request from the OIDC provider
-                # Optional, this field is unnecessary if you only use the openid and profile scopes. 
-               .Optional volDITIONAD(AL
+                # Optional, this field is unnecessary if you only use the openid and profile scopes.
                 vol.Optional(ADDITIONAL_SCOPES): vol.Coerce(list[str], default=[]),
                 # Which features should be enabled/disabled?
                 # Optional, defaults to sane/secure defaults
