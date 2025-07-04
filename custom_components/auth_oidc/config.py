@@ -49,7 +49,7 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional(GROUPS_SCOPE, default="groups"): vol.Coerce(str),
                 # Additional scopes to request from the OIDC provider
                 # Optional, this field is unnecessary if you only use the openid and profile scopes.
-                vol.Optional(ADDITIONAL_SCOPES): vol.Coerce(list[str], default=[]),
+                vol.Optional(ADDITIONAL_SCOPES, default=[]): vol.Coerce(list[str]),
                 # Which features should be enabled/disabled?
                 # Optional, defaults to sane/secure defaults
                 vol.Optional(FEATURES): vol.Schema(
