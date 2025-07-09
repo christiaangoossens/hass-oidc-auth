@@ -17,6 +17,7 @@ from .config import (
     DISPLAY_NAME,
     ID_TOKEN_SIGNING_ALGORITHM,
     GROUPS_SCOPE,
+    ADDITIONAL_SCOPES,
     FEATURES,
     CLAIMS,
     ROLES,
@@ -66,6 +67,13 @@ async def async_setup(hass: HomeAssistant, config):
     groups_scope = my_config.get(GROUPS_SCOPE, "groups")
     if include_groups_scope:
         scope += " " + groups_scope
+    # Add additional scopes if configured
+    additional_scopes = my_config.get(ADDITIONAL_SCOPES, [])
+    if additional_scopes:
+        # Ensure we have a space before adding additional scopes
+        if scope:
+            scope += " "
+        scope += " ".join(additional_scopes)
 
     # Create the OIDC client
     oidc_client = oidc_client = OIDCClient(

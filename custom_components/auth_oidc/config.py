@@ -8,6 +8,7 @@ DISCOVERY_URL = "discovery_url"
 DISPLAY_NAME = "display_name"
 ID_TOKEN_SIGNING_ALGORITHM = "id_token_signing_alg"
 GROUPS_SCOPE = "groups_scope"
+ADDITIONAL_SCOPES = "additional_scopes"
 FEATURES = "features"
 FEATURES_AUTOMATIC_USER_LINKING = "automatic_user_linking"
 FEATURES_AUTOMATIC_PERSON_CREATION = "automatic_person_creation"
@@ -46,6 +47,9 @@ CONFIG_SCHEMA = vol.Schema(
                 # String value to allow changing the groups scope
                 # Defaults to 'groups' which is used by Authelia and Authentik
                 vol.Optional(GROUPS_SCOPE, default="groups"): vol.Coerce(str),
+                # Additional scopes to request from the OIDC provider
+                # Optional, this field is unnecessary if you only use the openid and profile scopes.
+                vol.Optional(ADDITIONAL_SCOPES, default=[]): vol.Coerce(list[str]),
                 # Which features should be enabled/disabled?
                 # Optional, defaults to sane/secure defaults
                 vol.Optional(FEATURES): vol.Schema(
