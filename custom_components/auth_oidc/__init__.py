@@ -3,10 +3,7 @@
 import logging
 from typing import OrderedDict
 
-from functools import partial
-from aiofiles import open as async_open
 from homeassistant.core import HomeAssistant
-from homeassistant.components.http import StaticPathConfig
 
 # Import and re-export config schema explictly
 # pylint: disable=useless-import-alias
@@ -34,88 +31,12 @@ from .endpoints.welcome import OIDCWelcomeView
 from .endpoints.redirect import OIDCRedirectView
 from .endpoints.finish import OIDCFinishView
 from .endpoints.callback import OIDCCallbackView
+from .endpoints.injected_auth_page import OIDCInjectedAuthPage
 
 from .oidc_client import OIDCClient
 from .provider import OpenIDAuthProvider
 
 _LOGGER = logging.getLogger(__name__)
-
-
-async def read_file(path: str) -> str:
-    """Read a file from the static path."""
-    async with async_open(path, mode="r") as f:
-        return await f.read()
-
-
-async def frontend_injection(hass: HomeAssistant) -> None:
-    """Inject new frontend code into /auth/authorize."""
-    router = hass.http.app.router
-    frontend_path = None
-
-    for resource in router.resources():
-        if resource.canonical != "/auth/authorize":
-            continue
-
-        # This path doesn't actually work, gives 404, effectively disabling the old matcher
-        resource.add_prefix("/auth/oidc/unused")
-
-        # Now get the original frontend path from this resource to obtain the GET route
-        routes = iter(resource)
-        route = next(
-            (r for r in routes if r.method == "GET"),
-            None,
-        )
-
-        if route is not None:
-            if not route.handler or not isinstance(route.handler, partial):
-                _LOGGER.warning(
-                    "Unexpected route handler type %s for /auth/authorize",
-                    type(route.handler),
-                )
-                continue
-
-            frontend_path = route.handler.args[0]
-            break
-
-    # Get the path to the original frontend resource
-    if frontend_path is None:
-        _LOGGER.info(
-            "Failed to find GET route for /auth/authorize, cannot inject OIDC frontend code"
-        )
-        return
-
-    # Inject our new script into the existing frontend code
-    # First fetch the frontend path into memory
-    frontend_code = await read_file(frontend_path)
-
-    # Inject JS
-    frontend_code = frontend_code.replace(
-        "</body>", "<script src='/auth/oidc/static/injection.js'></script></body>"
-    )
-    _LOGGER.debug(frontend_code)
-
-    await hass.http.async_register_static_paths(
-        [
-            StaticPathConfig(
-                "/auth/oidc/static/injection.js",
-                ,
-                cache_headers=False,
-            )
-        ]
-    )
-
-    await hass.http.async_register_static_paths(
-        [
-            # Mimic the old code from HASS core:
-            # StaticPathConfig("/auth/authorize", str(root_path / "authorize.html"), False)
-            StaticPathConfig(
-                "/auth/authorize",
-                frontend_path,
-                cache_headers=False,
-            )
-        ]
-    )
-    _LOGGER.info("Registered OIDC frontend injection")
 
 
 async def async_setup(hass: HomeAssistant, config):
@@ -182,6 +103,6 @@ async def async_setup(hass: HomeAssistant, config):
     # Inject OIDC code into the frontend for /auth/authorize if the user has the
     # frontend injection feature enabled
     if features_config.get("disable_frontend_changes", False) is False:
-        await frontend_injection(hass)
+        await OIDCInjectedAuthPage.inject(hass)
 
     return True
