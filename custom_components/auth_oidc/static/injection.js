@@ -22,12 +22,12 @@ let codeMessage = null
 let codeToggle = null
 let codeToggleText = null
 
-function addSSOButton() {
+function update() {
   const loginHeader = document.querySelector(".card-content > ha-auth-flow > form > h1")
   const authForm = document.querySelector("ha-auth-form")
   const codeField = document.querySelector(".mdc-text-field__input[name=code]")
   const loginButton = document.querySelector("mwc-button:not(.sso)")
-  const errorAlert = document.querySelector("ha-auth-form ha-alert[alert-type=error]")?.shadowRoot?.querySelector(".main-content")
+  const errorAlert = document.querySelector("ha-auth-form ha-alert[alert-type=error]")
   const loginOptionList = document.querySelector("ha-pick-auth-provider")?.shadowRoot?.querySelector("mwc-list")
 
   safeSetTextContent(loginHeader, "Log in to Home Assistant")
@@ -57,8 +57,8 @@ function addSSOButton() {
         }
       }
     }
-    if (errorAlert && errorAlert.textContent.trim().length < 0) {
-      errorAlert.appendChild(document.createTextNode("Invalid Code"))
+    if (errorAlert && errorAlert.textContent.trim().length === 0) {
+      errorAlert.setAttribute("title", "Invalid Code")
     }
     authForm.style.display = showCode() ? "" : "none"
     loginButton.style.display = showCode() ? "" : "none"
@@ -66,7 +66,7 @@ function addSSOButton() {
 
   if (authForm && !codeMessage) {
     codeMessage = document.createElement("p")
-    codeMessage.innerHTML = `<a target="_blank" href=${location.origin}/auth/oidc/redirect>Login</a> to Home Assistant in a web browser and enter the code you are given here`
+    codeMessage.innerText = `Login to Home Assistant in a web browser and enter the code you are given here`
     authForm.parentElement.insertBefore(codeMessage, authForm)
   }
   if (codeMessage) {
@@ -84,9 +84,13 @@ function addSSOButton() {
 
     codeToggle.addEventListener("click", () => {
       showCodeOverride = !showCode()
-      addSSOButton()
+      update()
     })
     loginOptionList.appendChild(codeToggle)
+  }
+
+  if (codeToggle) {
+    codeToggle.style.display = codeField ? "" : "none"
   }
 
   if (codeToggleText) {
@@ -104,7 +108,9 @@ function addSSOButton() {
     })
     loginButton.parentElement.prepend(ssoButton)
   }
-  ssoButton.style.display = (!showCode() && codeField) ? "" : "none"
+  if (ssoButton) {
+    ssoButton.style.display = (!showCode() && codeField) ? "" : "none"
+  }
 
   safeSetTextContent(loginButton, codeField ? "Log in with code" : "Log in")
 }
@@ -113,13 +119,20 @@ let ready = false
 document.querySelector(".content").style.display = "none"
 
 const observer = new MutationObserver((mutationsList, observer) => {
-  if (!ready) ready = Boolean(ssoButton && codeMessage && codeToggle && codeToggleText)
+  update()
 
-  addSSOButton()
-
-  if (ready) {
-    document.querySelector(".content").style.display = ""
+  if (!ready) {
+    ready = Boolean(ssoButton && codeMessage && codeToggle && codeToggleText)
+    if (ready) document.querySelector(".content").style.display = ""
   }
 })
 
 observer.observe(document.body, { childList: true, subtree: true })
+
+setTimeout(() => {
+  if (!ready) {
+    console.warn("hass-oidc-auth: Document was not ready after 500ms seconds, force displaying. This may indicate a problem with the UI injection.")
+  }
+  document.querySelector(".content").style.display = "";
+  update();
+}, 300)
