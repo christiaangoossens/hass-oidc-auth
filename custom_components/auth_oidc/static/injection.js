@@ -5,58 +5,121 @@ function safeSetTextContent(element, value) {
   textNode.textContent = value
 }
 
+const SSO_NAME = window.sso_name || "Single Sign-On"
+
 let firstFocus = true
+let showCodeOverride = null
+
+function showCode() {
+  if (showCodeOverride !== null) return showCodeOverride
+
+  const clientId = new URL(location.href).searchParams.get("client_id")
+  return clientId && clientId.startsWith("https://home-assistant.io/iOS") || clientId.startsWith("https://home-assistant.io/android")
+}
+
+let ssoButton = null
+let codeMessage = null
+let codeToggle = null
+let codeToggleText = null
 
 function addSSOButton() {
   const loginHeader = document.querySelector(".card-content > ha-auth-flow > form > h1")
+  const authForm = document.querySelector("ha-auth-form")
   const codeField = document.querySelector(".mdc-text-field__input[name=code]")
   const loginButton = document.querySelector("mwc-button:not(.sso)")
-  const ssoButton = document.querySelector("mwc-button.sso")
+  const errorAlert = document.querySelector("ha-auth-form ha-alert[alert-type=error]")?.shadowRoot?.querySelector(".main-content")
+  const loginOptionList = document.querySelector("ha-pick-auth-provider")?.shadowRoot?.querySelector("mwc-list")
 
   safeSetTextContent(loginHeader, "Log in to Home Assistant")
 
-  if (codeField && codeField.placeholder !== "One-time code") {
-    codeField.placeholder = "One-time code"
-    codeField.autofocus = false
-    codeField.autocomplete = "off"
-    if (firstFocus) {
-      firstFocus = false
-      if (document.activeElement === codeField) {
-        setTimeout(() => {
-          codeField.blur()
+  if (codeField) {
+    if (codeField.placeholder !== "One-time code") {
+      codeField.placeholder = "One-time code"
+      codeField.autofocus = false
+      codeField.autocomplete = "off"
+      if (firstFocus) {
+        firstFocus = false
+        if (document.activeElement === codeField) {
           setTimeout(() => {
-            const helperText = document.querySelector("#helper-text")
-            const invalidTextField = document.querySelector(".mdc-text-field--invalid")
-            const validationMsg = document.querySelector(".mdc-text-field-helper-text--validation-msg")
-            if (helperText) safeSetTextContent(helperText, "")
-            if (invalidTextField) invalidTextField.classList.remove("mdc-text-field--invalid")
-            if (validationMsg) validationMsg.classList.remove("mdc-text-field-helper-text--validation-msg")
+            codeField.blur()
+            let check = setInterval(() => {
+              const helperText = document.querySelector("#helper-text")
+              const invalidTextField = document.querySelector(".mdc-text-field--invalid")
+              const validationMsg = document.querySelector(".mdc-text-field-helper-text--validation-msg")
+              if (helperText && invalidTextField && validationMsg) {
+                clearInterval(check)
+                safeSetTextContent(helperText, "")
+                invalidTextField.classList.remove("mdc-text-field--invalid")
+                validationMsg.classList.remove("mdc-text-field-helper-text--validation-msg")
+              }
+            }, 1)
           }, 0)
-        }, 0)
+        }
       }
     }
+    if (errorAlert && errorAlert.textContent.trim().length < 0) {
+      errorAlert.appendChild(document.createTextNode("Invalid Code"))
+    }
+    authForm.style.display = showCode() ? "" : "none"
+    loginButton.style.display = showCode() ? "" : "none"
   }
 
-  if (!ssoButton) {
+  if (authForm && !codeMessage) {
+    codeMessage = document.createElement("p")
+    codeMessage.innerHTML = `<a target="_blank" href=${location.origin}/auth/oidc/redirect>Login</a> to Home Assistant in a web browser and enter the code you are given here`
+    authForm.parentElement.insertBefore(codeMessage, authForm)
+  }
+  if (codeMessage) {
+    codeMessage.style.display = showCode() ? "" : "none"
+  }
+
+  if (loginOptionList && !codeToggle) {
+    codeToggle = document.createElement("ha-list-item")
+    codeToggle.setAttribute("hasmeta", "")
+    codeToggleText = document.createTextNode("")
+    codeToggle.appendChild(codeToggleText)
+    const codeToggleIcon = document.createElement("ha-icon-next")
+    codeToggleIcon.setAttribute("slot", "meta")
+    codeToggle.appendChild(codeToggleIcon)
+
+    codeToggle.addEventListener("click", () => {
+      showCodeOverride = !showCode()
+      addSSOButton()
+    })
+    loginOptionList.appendChild(codeToggle)
+  }
+
+  if (codeToggleText) {
+    codeToggleText.textContent = showCode() ? SSO_NAME : "Login Code"
+  }
+
+  if (loginButton && !ssoButton) {
     ssoButton = document.createElement("mwc-button")
     ssoButton.classList.add("sso")
-    ssoButton.innerText = "Log in with " + window.sso_name
+    ssoButton.innerText = "Log in with " + SSO_NAME
     ssoButton.setAttribute("raised", "")
     ssoButton.style.marginRight = "1em"
-    ssoButton.style.display = "none"
     ssoButton.addEventListener("click", () => {
       location.href = "/auth/oidc/redirect"
     })
-    if (loginButton) loginButton.parentElement.prepend(ssoButton)
-  } else {
-    ssoButton.style.display = codeField ? "" : "none"
+    loginButton.parentElement.prepend(ssoButton)
   }
+  ssoButton.style.display = (!showCode() && codeField) ? "" : "none"
 
   safeSetTextContent(loginButton, codeField ? "Log in with code" : "Log in")
 }
 
+let ready = false
+document.querySelector(".content").style.display = "none"
+
 const observer = new MutationObserver((mutationsList, observer) => {
+  if (!ready) ready = Boolean(ssoButton && codeMessage && codeToggle && codeToggleText)
+
   addSSOButton()
+
+  if (ready) {
+    document.querySelector(".content").style.display = ""
+  }
 })
 
 observer.observe(document.body, { childList: true, subtree: true })
