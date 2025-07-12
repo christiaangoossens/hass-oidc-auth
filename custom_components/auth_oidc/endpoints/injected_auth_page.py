@@ -94,7 +94,10 @@ class OIDCInjectedAuthPage(HomeAssistantView):
     @staticmethod
     async def inject(hass: HomeAssistant) -> None:
         """Inject the OIDC auth page into the frontend."""
-        await frontend_injection(hass)
+        try:
+            await frontend_injection(hass)
+        except Exception as e:  # pylint: disable=broad-except
+            _LOGGER.error("Failed to inject OIDC auth page: %s", e)
 
     async def get(self, _) -> web.Response:
         """Return the screen"""
