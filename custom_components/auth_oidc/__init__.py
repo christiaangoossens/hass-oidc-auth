@@ -1,6 +1,7 @@
 """OIDC Integration for Home Assistant."""
 
 import logging
+import re
 from typing import OrderedDict
 
 from homeassistant.core import HomeAssistant
@@ -92,6 +93,7 @@ async def async_setup(hass: HomeAssistant, config):
 
     # Register the views
     name = config[DOMAIN].get(DISPLAY_NAME, DEFAULT_TITLE)
+    name = re.sub(r"[^A-Za-z0-9 _-]", "", name)
 
     hass.http.register_view(OIDCWelcomeView(name))
     hass.http.register_view(OIDCRedirectView(oidc_client))
@@ -103,6 +105,6 @@ async def async_setup(hass: HomeAssistant, config):
     # Inject OIDC code into the frontend for /auth/authorize if the user has the
     # frontend injection feature enabled
     if features_config.get("disable_frontend_changes", False) is False:
-        await OIDCInjectedAuthPage.inject(hass)
+        await OIDCInjectedAuthPage.inject(hass, name)
 
     return True

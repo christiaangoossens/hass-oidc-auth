@@ -25,7 +25,7 @@ function addSSOButton() {
   if (!ssoButton) {
     ssoButton = document.createElement("mwc-button")
     ssoButton.classList.add("sso")
-    ssoButton.innerText = "Log in with SSO"
+    ssoButton.innerText = "Log in with " + window.sso_name
     ssoButton.setAttribute("raised", "")
     ssoButton.style.marginRight = "1em"
     ssoButton.style.display = "none"
