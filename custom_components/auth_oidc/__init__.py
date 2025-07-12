@@ -106,5 +106,7 @@ async def async_setup(hass: HomeAssistant, config):
     # frontend injection feature enabled
     if features_config.get("disable_frontend_changes", False) is False:
         await OIDCInjectedAuthPage.inject(hass, name)
+    else:
+        _LOGGER.info("OIDC frontend changes are disabled, skipping injection")
 
     return True
