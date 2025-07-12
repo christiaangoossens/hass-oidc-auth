@@ -131,7 +131,7 @@ observer.observe(document.body, { childList: true, subtree: true })
 
 setTimeout(() => {
   if (!ready) {
-    console.warn("hass-oidc-auth: Document was not ready after 500ms seconds, force displaying. This may indicate a problem with the UI injection.")
+    console.warn("hass-oidc-auth: Document was not ready after 300ms seconds, force displaying. This may indicate a problem with the UI injection.")
   }
   document.querySelector(".content").style.display = "";
   update();
