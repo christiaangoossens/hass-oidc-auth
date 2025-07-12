@@ -14,6 +14,7 @@ FEATURES_AUTOMATIC_USER_LINKING = "automatic_user_linking"
 FEATURES_AUTOMATIC_PERSON_CREATION = "automatic_person_creation"
 FEATURES_DISABLE_PKCE = "disable_rfc7636"
 FEATURES_INCLUDE_GROUPS_SCOPE = "include_groups_scope"
+FEATURE_DISABLE_FRONTEND_INJECTION = "disable_frontend_changes"
 CLAIMS = "claims"
 CLAIMS_DISPLAY_NAME = "display_name"
 CLAIMS_USERNAME = "username"
@@ -68,6 +69,10 @@ CONFIG_SCHEMA = vol.Schema(
                         # Boolean which activates and deactivates scope 'groups'
                         vol.Optional(
                             FEATURES_INCLUDE_GROUPS_SCOPE, default=True
+                        ): vol.Coerce(bool),
+                        # Disable frontend injection of OIDC login button
+                        vol.Optional(
+                            FEATURE_DISABLE_FRONTEND_INJECTION, default=False
                         ): vol.Coerce(bool),
                     }
                 ),
