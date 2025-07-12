@@ -93,7 +93,7 @@ async def async_setup(hass: HomeAssistant, config):
 
     # Register the views
     name = config[DOMAIN].get(DISPLAY_NAME, DEFAULT_TITLE)
-    name = re.sub(r"[^A-Za-z0-9 _-]", "", name)
+    name = re.sub(r"[^A-Za-z0-9 _\-\(\)]", "", name)
 
     hass.http.register_view(OIDCWelcomeView(name))
     hass.http.register_view(OIDCRedirectView(oidc_client))
