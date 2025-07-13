@@ -8,11 +8,14 @@ function safeSetTextContent(element, value) {
 let firstFocus = true
 let showCodeOverride = null
 
-function showCode() {
-  if (showCodeOverride !== null) return showCodeOverride
-
+function isMobile() {
   const clientId = new URL(location.href).searchParams.get("client_id")
   return clientId && clientId.startsWith("https://home-assistant.io/iOS") || clientId.startsWith("https://home-assistant.io/android")
+}
+
+function showCode() {
+  if (showCodeOverride !== null) return showCodeOverride
+  return isMobile()
 }
 
 let ssoButton = null
@@ -81,7 +84,7 @@ function update() {
 
   // ====
   // Toggle button
-  if (loginOptionList && !codeToggle) {
+  if (loginOptionList && !codeToggle && !isMobile()) {
     codeToggle = document.createElement("ha-list-item")
     codeToggle.setAttribute("hasmeta", "")
     codeToggleText = document.createTextNode("")
