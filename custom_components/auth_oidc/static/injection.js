@@ -5,8 +5,6 @@ function safeSetTextContent(element, value) {
   textNode.textContent = value
 }
 
-const SSO_NAME = window.sso_name || "Single Sign-On"
-
 let firstFocus = true
 let showCodeOverride = null
 
@@ -23,6 +21,7 @@ let codeToggle = null
 let codeToggleText = null
 
 function update() {
+  const sso_name = window.sso_name || "Single Sign-On"
   const loginHeader = document.querySelector(".card-content > ha-auth-flow > form > h1")
   const authForm = document.querySelector("ha-auth-form")
   const codeField = document.querySelector(".mdc-text-field__input[name=code]")
@@ -30,15 +29,17 @@ function update() {
   const errorAlert = document.querySelector("ha-auth-form ha-alert[alert-type=error]")
   const loginOptionList = document.querySelector("ha-pick-auth-provider")?.shadowRoot?.querySelector("mwc-list")
 
-  safeSetTextContent(loginHeader, "Log in to Home Assistant")
-
+  // ====
+  // Code input
   if (codeField) {
     if (codeField.placeholder !== "One-time code") {
       codeField.placeholder = "One-time code"
       codeField.autofocus = false
       codeField.autocomplete = "off"
+
       if (firstFocus) {
         firstFocus = false
+
         if (document.activeElement === codeField) {
           setTimeout(() => {
             codeField.blur()
@@ -57,22 +58,29 @@ function update() {
         }
       }
     }
+  
     if (errorAlert && errorAlert.textContent.trim().length === 0) {
       errorAlert.setAttribute("title", "Invalid Code")
     }
+  
     authForm.style.display = showCode() ? "" : "none"
     loginButton.style.display = showCode() ? "" : "none"
   }
 
   if (authForm && !codeMessage) {
     codeMessage = document.createElement("p")
-    codeMessage.innerText = `Login to Home Assistant in a web browser and enter the code you are given here`
+    codeMessage.innerHTML = `<b>Please login on a different device to continue.</b><br/>You can also use your mobile webbrowser.`
     authForm.parentElement.insertBefore(codeMessage, authForm)
   }
+
   if (codeMessage) {
     codeMessage.style.display = showCode() ? "" : "none"
   }
 
+  safeSetTextContent(loginButton, codeField ? "Log in with code" : "Log in")
+
+  // ====
+  // Toggle button
   if (loginOptionList && !codeToggle) {
     codeToggle = document.createElement("ha-list-item")
     codeToggle.setAttribute("hasmeta", "")
@@ -82,10 +90,21 @@ function update() {
     codeToggleIcon.setAttribute("slot", "meta")
     codeToggle.appendChild(codeToggleIcon)
 
+    let ranHandler = false;
     codeToggle.addEventListener("click", () => {
+      ranHandler = true;
       showCodeOverride = !showCode()
       update()
     })
+
+    loginOptionList.addEventListener("click", (ev) => {
+      if (!ranHandler) {
+        showCodeOverride = false;
+        codeMessage = null;
+      }
+      ranHandler = false;
+    })
+  
     loginOptionList.appendChild(codeToggle)
   }
 
@@ -94,13 +113,19 @@ function update() {
   }
 
   if (codeToggleText) {
-    codeToggleText.textContent = showCode() ? SSO_NAME : "Login Code"
+    codeToggleText.textContent = showCode() ? "Single-Sign On" : "One-time device code"
   }
 
+  // ====
+  // SSO Page
+  const shouldShowSSOButton = !showCode() && !!codeField
+  const isOurScreen = showCode() || shouldShowSSOButton
+  
   if (loginButton && !ssoButton) {
     ssoButton = document.createElement("mwc-button")
+    ssoButton.id = "sso_button"
     ssoButton.classList.add("sso")
-    ssoButton.innerText = "Log in with " + SSO_NAME
+    ssoButton.innerText = "Log in with " + sso_name
     ssoButton.setAttribute("raised", "")
     ssoButton.style.marginRight = "1em"
     ssoButton.addEventListener("click", () => {
@@ -108,13 +133,25 @@ function update() {
     })
     loginButton.parentElement.prepend(ssoButton)
   }
+
   if (ssoButton) {
     ssoButton.style.display = (!showCode() && codeField) ? "" : "none"
   }
 
-  safeSetTextContent(loginButton, codeField ? "Log in with code" : "Log in")
+  // ====
+  // Header hidden on our screens
+  if (loginHeader) {
+    if (isOurScreen) {
+      // Hide the header on our screens
+      loginHeader.style.display = "none"
+    } else {
+      // Show the header on the login screen
+      loginHeader.style.display = ""
+    }
+  }
 }
 
+// Hide the content until ready
 let ready = false
 document.querySelector(".content").style.display = "none"
 
@@ -133,6 +170,8 @@ setTimeout(() => {
   if (!ready) {
     console.warn("hass-oidc-auth: Document was not ready after 300ms seconds, force displaying. This may indicate a problem with the UI injection.")
   }
+
+  // Force display the content
   document.querySelector(".content").style.display = "";
   update();
 }, 300)
