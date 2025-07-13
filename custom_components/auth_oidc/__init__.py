@@ -92,10 +92,13 @@ async def async_setup(hass: HomeAssistant, config):
     )
 
     # Register the views
+    is_frontend_injection_enabled = (
+        features_config.get("disable_frontend_changes", False) is False
+    )
     name = config[DOMAIN].get(DISPLAY_NAME, DEFAULT_TITLE)
     name = re.sub(r"[^A-Za-z0-9 _\-\(\)]", "", name)
 
-    hass.http.register_view(OIDCWelcomeView(name))
+    hass.http.register_view(OIDCWelcomeView(name, is_frontend_injection_enabled))
     hass.http.register_view(OIDCRedirectView(oidc_client))
     hass.http.register_view(OIDCCallbackView(oidc_client, provider))
     hass.http.register_view(OIDCFinishView())
@@ -104,7 +107,7 @@ async def async_setup(hass: HomeAssistant, config):
 
     # Inject OIDC code into the frontend for /auth/authorize if the user has the
     # frontend injection feature enabled
-    if features_config.get("disable_frontend_changes", False) is False:
+    if is_frontend_injection_enabled:
         await OIDCInjectedAuthPage.inject(hass, name)
     else:
         _LOGGER.info("OIDC frontend changes are disabled, skipping injection")
