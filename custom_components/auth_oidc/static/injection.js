@@ -133,6 +133,8 @@ function update() {
     ssoButton.style.marginRight = "1em"
     ssoButton.addEventListener("click", () => {
       location.href = "/auth/oidc/redirect"
+      ssoButton.innerHTML = "Redirecting, please wait..."
+      ssoButton.disabled = true
     })
     loginButton.parentElement.prepend(ssoButton)
   }
