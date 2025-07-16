@@ -3,7 +3,6 @@
 import urllib.parse
 import logging
 import os
-import base64
 import hashlib
 import ssl
 from typing import Optional
@@ -23,6 +22,7 @@ from .config import (
     NETWORK_TLS_VERIFY,
     NETWORK_TLS_CA_PATH,
 )
+from .helpers import base64url_encode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -139,13 +139,9 @@ class OIDCClient:
                 body=body,
             )
 
-    def _base64url_encode(self, value: str) -> str:
-        """Uses base64url encoding on a given string"""
-        return base64.urlsafe_b64encode(value).rstrip(b"=").decode("utf-8")
-
     def _generate_random_url_string(self, length: int = 16) -> str:
         """Generates a random URL safe string (base64_url encoded)"""
-        return self._base64url_encode(os.urandom(length))
+        return base64url_encode(os.urandom(length))
 
     async def _get_http_session(self) -> aiohttp.ClientSession:
         """Create or get the existing client session with custom networking/TLS options"""
@@ -281,9 +277,7 @@ class OIDCClient:
                 jwk_obj = jwk.construct(
                     {
                         "kty": "oct",
-                        "k": base64.urlsafe_b64encode(
-                            self.client_secret.encode()
-                        ).decode(),
+                        "k": base64url_encode(self.client_secret.encode()),
                         "alg": alg,
                     }
                 )
@@ -366,7 +360,9 @@ class OIDCClient:
             _LOGGER.warning("JWT Verification failed: %s", e)
             return None
 
-    async def async_get_authorization_url(self, redirect_uri: str) -> Optional[str]:
+    async def async_get_authorization_url(
+        self, redirect_uri: str, fixed_state: str | None
+    ) -> Optional[str]:
         """Generates the authorization URL for the OIDC flow."""
         try:
             if self.discovery_document is None:
@@ -378,9 +374,13 @@ class OIDCClient:
             nonce = self._generate_random_url_string()
             state = self._generate_random_url_string()
 
+            # If we have a state suffix, append it to the state
+            if fixed_state:
+                state = f"jwt-{fixed_state}"
+
             # Generate PKCE (RFC 7636) parameters
             code_verifier = self._generate_random_url_string(32)
-            code_challenge = self._base64url_encode(
+            code_challenge = base64url_encode(
                 hashlib.sha256(code_verifier.encode("utf-8")).digest()
             )
 

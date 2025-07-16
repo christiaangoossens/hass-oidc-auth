@@ -21,6 +21,13 @@ function showCode() {
   return isMobile()
 }
 
+function redirect_to_login() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const redirectUri = encodeURIComponent(urlParams.get('redirect_uri'));
+  const clientId = encodeURIComponent(urlParams.get('client_id'));
+  window.location.href = `/auth/oidc/redirect?hass_callback_uri=${redirectUri}&hass_client_id=${clientId}`;
+}
+
 let ssoButton = null
 let codeMessage = null
 let codeToggle = null
@@ -135,7 +142,7 @@ function update() {
     ssoButton.setAttribute("raised", "")
     ssoButton.style.marginRight = "1em"
     ssoButton.addEventListener("click", () => {
-      location.href = "/auth/oidc/redirect"
+      redirect_to_login()
       ssoButton.innerHTML = "Redirecting, please wait..."
       ssoButton.disabled = true
     })
