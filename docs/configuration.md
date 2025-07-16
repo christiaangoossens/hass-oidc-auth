@@ -74,6 +74,28 @@ auth_oidc:
 
 This will show the provider on the login screen as: "Login with Example".
 
+### Forcing HTTPS
+First check if you are setting the header `X-Forwarded-Proto` in your proxy and if the [proxy settings for Home Assistant](https://www.home-assistant.io/integrations/http/#use_x_forwarded_for) are configured correctly. You should also check if IP addresses in your logs actually match the origin IP (instead of proxy IP). If you cannot find any mistakes, you may use the following config option to force HTTPS regardless:
+
+```yaml
+auth_oidc:
+  features:
+     force_https: true
+```
+
+### Disabling registration for new users
+This integration does not allow disabling registration for new users, as there is no way to abort registration that late in the process while providing a good user experience.
+You can however set both roles to groups that only contain certain users or to a non-existant group.
+
+```yaml
+auth_oidc:
+  roles:
+     user: "non_existent"
+     admin: "admins"
+```
+
+Note that if you put both on non-existent groups, no users will be able to login.
+
 ### Migrating from HA username/password users to OIDC users
 If you already have users created within Home Assistant and would like to re-use the current user profile for your OIDC login, you can (temporarily) enable `features.automatic_user_linking`, with the following config (example):
 
@@ -93,14 +115,7 @@ Upon login, OIDC users will then automatically be linked to the HA user with the
 > [!CAUTION]
 > MFA is ignored when using this setting, thus bypassing any MFA configuration the user has originally configured, as long as the username is an exact match. This is dangerous if you are not aware of it!
 
-### Forcing HTTPS
-First check if you are setting the header `X-Forwarded-Proto` in your proxy and if the [proxy settings for Home Assistant](https://www.home-assistant.io/integrations/http/#use_x_forwarded_for) are configured correctly. You should also check if IP addresses in your logs actually match the origin IP (instead of proxy IP). If you cannot find any mistakes, you may use the following config option to force HTTPS regardless:
 
-```yaml
-auth_oidc:
-  features:
-     force_https: true
-```
 
 ### Using a private certificate authority
 If you use a private certificate authority to secure your OIDC provider, you must configure the root certificates of your private certificate authority. Otherwise you will get an error (`[SSL: CERTIFICATE_VERIFY_FAILED]`) when connecting to the OIDC provider.
