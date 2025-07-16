@@ -14,6 +14,7 @@ FEATURES_AUTOMATIC_USER_LINKING = "automatic_user_linking"
 FEATURES_AUTOMATIC_PERSON_CREATION = "automatic_person_creation"
 FEATURES_DISABLE_PKCE = "disable_rfc7636"
 FEATURES_INCLUDE_GROUPS_SCOPE = "include_groups_scope"
+FEATURES_FORCE_HTTPS = "force_https"
 CLAIMS = "claims"
 CLAIMS_DISPLAY_NAME = "display_name"
 CLAIMS_USERNAME = "username"
@@ -69,6 +70,10 @@ CONFIG_SCHEMA = vol.Schema(
                         vol.Optional(
                             FEATURES_INCLUDE_GROUPS_SCOPE, default=True
                         ): vol.Coerce(bool),
+                        # Force HTTPS on all generated URLs (like redirect_uri)
+                        vol.Optional(FEATURES_FORCE_HTTPS, default=False): vol.Coerce(
+                            bool
+                        ),
                     }
                 ),
                 # Determine which specific claims will be used from the id_token

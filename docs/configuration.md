@@ -93,6 +93,15 @@ Upon login, OIDC users will then automatically be linked to the HA user with the
 > [!CAUTION]
 > MFA is ignored when using this setting, thus bypassing any MFA configuration the user has originally configured, as long as the username is an exact match. This is dangerous if you are not aware of it!
 
+### Forcing HTTPS
+First check if you are setting the header `X-Forwarded-Proto` in your proxy and if the [proxy settings for Home Assistant](https://www.home-assistant.io/integrations/http/#use_x_forwarded_for) are configured correctly. You should also check if IP addresses in your logs actually match the origin IP (instead of proxy IP). If you cannot find any mistakes, you may use the following config option to force HTTPS regardless:
+
+```yaml
+auth_oidc:
+  features:
+     force_https: true
+```
+
 ### Using a private certificate authority
 If you use a private certificate authority to secure your OIDC provider, you must configure the root certificates of your private certificate authority. Otherwise you will get an error (`[SSL: CERTIFICATE_VERIFY_FAILED]`) when connecting to the OIDC provider.
 
@@ -132,6 +141,7 @@ Here's a table of all options that you can set:
 | `features.automatic_person_creation` | `boolean` | No       | `true`          | Automatically creates a person entry for new user profiles created by this integration. Recommended if you would like to assign presence detection to OIDC users.                                            |
 | `features.disable_rfc7636`  | `boolean`| No       | `false`         | Disables PKCE (RFC 7636) for OIDC providers that don't support it. You should not need this with most providers.                                    |
 | `features.include_groups_scope`  | `boolean` | No       | `true`           | Include the 'groups' scope in the OIDC request. Set to `false` to exclude it. |
+| `features.force_https`  | `boolean` | No       | `false`           | Set to `true` to force all URLs generated to use `https` instead of automatically determining based on the request scheme or `X-Forwarded-Proto`. |
 | `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
 | `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.
 | `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |
