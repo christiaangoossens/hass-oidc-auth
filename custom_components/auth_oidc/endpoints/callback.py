@@ -17,10 +17,14 @@ class OIDCCallbackView(HomeAssistantView):
     name = "auth:oidc:callback"
 
     def __init__(
-        self, oidc_client: OIDCClient, oidc_provider: OpenIDAuthProvider
+        self,
+        oidc_client: OIDCClient,
+        oidc_provider: OpenIDAuthProvider,
+        force_https: bool,
     ) -> None:
         self.oidc_client = oidc_client
         self.oidc_provider = oidc_provider
+        self.force_https = force_https
 
     async def get(self, request: web.Request) -> web.Response:
         """Receive response."""
@@ -38,7 +42,7 @@ class OIDCCallbackView(HomeAssistantView):
             )
             return web.Response(text=view_html, content_type="text/html")
 
-        redirect_uri = get_url("/auth/oidc/callback")
+        redirect_uri = get_url("/auth/oidc/callback", self.force_https)
         user_details = await self.oidc_client.async_complete_token_flow(
             redirect_uri, code, state
         )
@@ -63,4 +67,6 @@ class OIDCCallbackView(HomeAssistantView):
             return web.Response(text=view_html, content_type="text/html")
 
         code = await self.oidc_provider.async_save_user_info(user_details)
-        return web.HTTPFound(get_url("/auth/oidc/finish?code=" + code))
+        return web.HTTPFound(
+            get_url("/auth/oidc/finish?code=" + code, self.force_https)
+        )

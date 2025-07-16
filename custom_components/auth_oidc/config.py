@@ -14,7 +14,8 @@ FEATURES_AUTOMATIC_USER_LINKING = "automatic_user_linking"
 FEATURES_AUTOMATIC_PERSON_CREATION = "automatic_person_creation"
 FEATURES_DISABLE_PKCE = "disable_rfc7636"
 FEATURES_INCLUDE_GROUPS_SCOPE = "include_groups_scope"
-FEATURE_DISABLE_FRONTEND_INJECTION = "disable_frontend_changes"
+FEATURES_DISABLE_FRONTEND_INJECTION = "disable_frontend_changes"
+FEATURES_FORCE_HTTPS = "force_https"
 CLAIMS = "claims"
 CLAIMS_DISPLAY_NAME = "display_name"
 CLAIMS_USERNAME = "username"
@@ -72,8 +73,12 @@ CONFIG_SCHEMA = vol.Schema(
                         ): vol.Coerce(bool),
                         # Disable frontend injection of OIDC login button
                         vol.Optional(
-                            FEATURE_DISABLE_FRONTEND_INJECTION, default=False
+                            FEATURES_DISABLE_FRONTEND_INJECTION, default=False
                         ): vol.Coerce(bool),
+                        # Force HTTPS on all generated URLs (like redirect_uri)
+                        vol.Optional(FEATURES_FORCE_HTTPS, default=False): vol.Coerce(
+                            bool
+                        ),
                     }
                 ),
                 # Determine which specific claims will be used from the id_token
