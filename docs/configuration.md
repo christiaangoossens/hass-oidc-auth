@@ -96,6 +96,26 @@ auth_oidc:
 
 Note that if you put both on non-existent groups, no users will be able to login.
 
+### Frontend changes & mobile one-click
+By default, this integration edits the Home Assistant login frontend to display a direct button for SSO. If you do not want to use this, for instance because you are concerned about future HA updates breaking your setup, or because of security concerns, you can disable it using the feature `disable_frontend_changes`.
+
+```yaml
+auth_oidc:
+  features:
+     disable_frontend_changes: true
+```
+
+By default, desktop/mobile webbrowsers use the one-click flow, where you can directly sign in on the same device. On these browsers, WebAuthN/FIDO/Passkeys/USB security keys are functional.
+The Android & iOS apps cannot use WebAuth/passkeys and may show your OIDC provider incorrectly (visual glitches). If you have tested it and would like to enable one-click signin for Android & iOS as well, you can use the following feature:
+
+```yaml
+auth_oidc:
+  features:
+     allow_mobile_one_click: true
+```
+
+If you leave it at the default `false`, no one-click login button will be shown for Android & iOS.
+
 ### Migrating from HA username/password users to OIDC users
 If you already have users created within Home Assistant and would like to re-use the current user profile for your OIDC login, you can (temporarily) enable `features.automatic_user_linking`, with the following config (example):
 
@@ -157,6 +177,7 @@ Here's a table of all options that you can set:
 | `features.disable_rfc7636`  | `boolean`| No       | `false`         | Disables PKCE (RFC 7636) for OIDC providers that don't support it. You should not need this with most providers.                                    |
 | `features.include_groups_scope`  | `boolean` | No       | `true`           | Include the 'groups' scope in the OIDC request. Set to `false` to exclude it. |
 | `features.disable_frontend_changes`  | `boolean` | No       | `false`           | Set to `true` to disable all changes made to the HA frontend for better compatbility with future HA versions, or if you are not comfortable with injecting Javascript into the existing frontend code. |
+| `features.allow_mobile_one_click`  | `boolean` | No       | `false`           | Set to `true` to allow the Android & iOS app to click the automatic signin button instead of using codes. You should test this first, not all OIDC providers will work! |
 | `features.force_https`  | `boolean` | No       | `false`           | Set to `true` to force all URLs generated to use `https` instead of automatically determining based on the request scheme or `X-Forwarded-Proto`. |
 | `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
 | `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.

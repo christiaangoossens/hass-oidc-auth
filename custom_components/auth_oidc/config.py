@@ -16,6 +16,7 @@ FEATURES_DISABLE_PKCE = "disable_rfc7636"
 FEATURES_INCLUDE_GROUPS_SCOPE = "include_groups_scope"
 FEATURES_DISABLE_FRONTEND_INJECTION = "disable_frontend_changes"
 FEATURES_FORCE_HTTPS = "force_https"
+FEATURES_ALLOW_MOBILE_ONE_CLICK = "allow_mobile_one_click"
 CLAIMS = "claims"
 CLAIMS_DISPLAY_NAME = "display_name"
 CLAIMS_USERNAME = "username"
@@ -79,6 +80,11 @@ CONFIG_SCHEMA = vol.Schema(
                         vol.Optional(FEATURES_FORCE_HTTPS, default=False): vol.Coerce(
                             bool
                         ),
+                        # Allow mobile clients to use the one-click login flow,
+                        # instead of defaulting to code flow
+                        vol.Optional(
+                            FEATURES_ALLOW_MOBILE_ONE_CLICK, default=False
+                        ): vol.Coerce(bool),
                     }
                 ),
                 # Determine which specific claims will be used from the id_token

@@ -26,6 +26,7 @@ from .config import (
     FEATURES_INCLUDE_GROUPS_SCOPE,
     FEATURES_DISABLE_FRONTEND_INJECTION,
     FEATURES_FORCE_HTTPS,
+    FEATURES_ALLOW_MOBILE_ONE_CLICK,
 )
 
 # pylint: enable=useless-import-alias
@@ -119,7 +120,10 @@ async def async_setup(hass: HomeAssistant, config):
     # Inject OIDC code into the frontend for /auth/authorize if the user has the
     # frontend injection feature enabled
     if is_frontend_injection_enabled:
-        await OIDCInjectedAuthPage.inject(hass, name)
+        allow_mobile_on_click = features_config.get(
+            FEATURES_ALLOW_MOBILE_ONE_CLICK, False
+        )
+        await OIDCInjectedAuthPage.inject(hass, name, allow_mobile_on_click)
     else:
         _LOGGER.info("OIDC frontend changes are disabled, skipping injection")
 
