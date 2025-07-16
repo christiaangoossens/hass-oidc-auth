@@ -9,6 +9,9 @@ let firstFocus = true
 let showCodeOverride = null
 
 function isMobile() {
+  // If mobile one-click is allowed, we just behave the same as on desktop
+  if (window.allow_mobile_one_click === true) return false
+
   const clientId = new URL(location.href).searchParams.get("client_id")
   return clientId && clientId.startsWith("https://home-assistant.io/iOS") || clientId.startsWith("https://home-assistant.io/android")
 }

@@ -18,7 +18,9 @@ async def read_file(path: str) -> str:
         return await f.read()
 
 
-async def frontend_injection(hass: HomeAssistant, sso_name: str) -> None:
+async def frontend_injection(
+    hass: HomeAssistant, sso_name: str, allow_mobile_one_click: bool
+) -> None:
     """Inject new frontend code into /auth/authorize."""
     router = hass.http.app.router
     frontend_path = None
@@ -63,9 +65,11 @@ async def frontend_injection(hass: HomeAssistant, sso_name: str) -> None:
     # Inject JS and register that route
     frontend_code = frontend_code.replace(
         "</body>",
-        "<script src='/auth/oidc/static/injection.js'></script><script>window.sso_name = '"
+        "<script src='/auth/oidc/static/injection.js?v=3'></script><script>window.sso_name = '"
         + sso_name
-        + "';</script></body>",
+        + "'; window.allow_mobile_one_click = "
+        + str(allow_mobile_one_click).lower()
+        + ";</script></body>",
     )
 
     await hass.http.async_register_static_paths(
@@ -95,10 +99,12 @@ class OIDCInjectedAuthPage(HomeAssistantView):
         self.html = html
 
     @staticmethod
-    async def inject(hass: HomeAssistant, sso_name: str) -> None:
+    async def inject(
+        hass: HomeAssistant, sso_name: str, allow_mobile_one_click: bool
+    ) -> None:
         """Inject the OIDC auth page into the frontend."""
         try:
-            await frontend_injection(hass, sso_name)
+            await frontend_injection(hass, sso_name, allow_mobile_one_click)
         except Exception as e:  # pylint: disable=broad-except
             _LOGGER.error("Failed to inject OIDC auth page: %s", e)
 
