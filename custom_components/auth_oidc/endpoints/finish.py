@@ -41,7 +41,7 @@ class OIDCFinishView(HomeAssistantView):
 
         # Return redirect to the main page for sign in with a cookie
         return web.HTTPFound(
-            location="/",
+            location="/?storeToken=true",
             headers={
                 # Set a cookie to enable autologin on only the specific path used
                 # for the POST request, with all strict parameters set
