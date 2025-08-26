@@ -6,7 +6,7 @@ from aiohttp import web
 import jwt
 from ..oidc_client import OIDCClient
 from ..provider import OpenIDAuthProvider
-from ..helpers import get_url, get_view, base64url_decode
+from ..helpers import get_url, get_view
 
 PATH = "/auth/oidc/callback"
 

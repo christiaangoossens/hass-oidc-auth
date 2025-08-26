@@ -6,7 +6,7 @@ from homeassistant.components.http import HomeAssistantView
 import jwt
 
 from ..oidc_client import OIDCClient
-from ..helpers import get_url, get_view, base64url_encode
+from ..helpers import get_url, get_view
 
 PATH = "/auth/oidc/redirect"
 
