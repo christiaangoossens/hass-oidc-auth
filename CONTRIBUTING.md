@@ -13,8 +13,29 @@ If you are not a programmer, you can still contribute by:
 You may also submit Pull Requests (PRs) to add features yourself! You can find a list that we are currently working on below. Please note that workflows will be run on your pull request and a pull request will only be merged when all checks pass and a review has been conducted (together with a manual test).
 
 ### Development
-This project uses the Rye package manager for development. You can find installation instructions here: https://rye.astral.sh/guide/installation/. Start by installing the dependencies using rye sync and then point your editor towards the environment created in the .venv directory.
+This project uses the uv package manager for development. You can find installation instructions here: https://docs.astral.sh/uv/getting-started/installation/. Start by installing the dependencies using `uv sync` and then point your editor towards the environment created in the .venv directory.
 You can then run Home Assistant and put the `custom_components/auth_oidc` directory in your HA `config` folder.
+
+#### Other useful commands
+Some useful scripts are in the `scripts` directory. If you run Linux (or WSL under Windows), you can run these directly:
+
+- `scripts/check` will check your Python files for linting errors
+- `scripts/fix` will fix some formatting mistakes automatically
+
+You can also run these commands manually on Windows:
+
+##### Check
+```
+uv run ruff check
+uv run ruff format --check
+uv run pylint custom_components
+```
+
+##### Fix
+```
+uv run ruff check --fix
+uv run ruff format
+```
 
 ### Docker Compose Development Environment
 You can also use the following Docker Compose configuration to automatically start up the latest HA release with the `auth_oidc` integration:

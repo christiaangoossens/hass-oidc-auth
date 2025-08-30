@@ -14,6 +14,9 @@
         ],
         "prCreation": "immediate"
     },
+    "lockFileMaintenance": {
+        "enabled": true
+    },
     "packageRules": [
         {
             "description": "Group all GitHub Actions updates",
@@ -36,7 +39,7 @@
         {
             "description": "Version updates for other pip packages",
             "matchDatasources": [
-                "pypi"
+                "uv"
             ],
             "automerge": false
         }
