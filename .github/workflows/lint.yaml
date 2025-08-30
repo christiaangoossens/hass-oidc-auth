@@ -10,11 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Install the latest version of rye
-        uses: eifinger/setup-rye@v4
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
       - name: Sync dependencies
-        run: rye sync
-      - name: Lint (pylint/rye lint)
-        run: rye run check
+        run: scripts/sync
+      - name: Lint (pylint/ruff lint)
+        run: scripts/check

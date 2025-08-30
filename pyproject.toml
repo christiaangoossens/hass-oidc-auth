@@ -19,11 +19,12 @@ requires-python = ">= 3.13"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.rye]
+[tool.uv]
 managed = true
 dev-dependencies = [
     "homeassistant~=2024.12",
     "pylint~=3.3",
+    "ruff>=0.12.11",
 ]
 
 [tool.hatch.metadata]
@@ -31,12 +32,3 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["custom_components/auth_oidc"]
-
-[tool.rye.scripts]
-check = { chain = ["check-lint", "check-fmt", "check-pylint" ] }
-"check-lint" = "rye lint"
-"check-fmt" = "rye fmt --check"
-"check-pylint" = "pylint custom_components"
-fix = { chain = ["fix-lint", "fix-fmt" ] }
-"fix-lint" = "rye lint --fix"
-"fix-fmt" = "rye fmt"
