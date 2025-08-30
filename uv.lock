@@ -836,7 +836,7 @@ wheels = [
 
 [[package]]
 name = "hass-oidc-auth"
-version = "0.7.0"
+version = "0.6.3"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
