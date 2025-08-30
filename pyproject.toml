@@ -13,7 +13,7 @@ dependencies = [
     "bcrypt>=4.2.0",
 ]
 readme = "README.md"
-requires-python = ">= 3.13"
+requires-python = ">= 3.13.2"
 
 [build-system]
 requires = ["hatchling"]
@@ -22,7 +22,7 @@ build-backend = "hatchling.build"
 [tool.uv]
 managed = true
 dev-dependencies = [
-    "homeassistant~=2024.12",
+    "homeassistant~=2025.8",
     "pylint~=3.3",
     "ruff>=0.12.11",
 ]
