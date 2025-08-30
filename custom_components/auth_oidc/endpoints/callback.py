@@ -121,4 +121,7 @@ class OIDCCallbackView(HomeAssistantView):
                 + hass_client_id,
             },
         )
+        _LOGGER.debug(
+            "Got user_details, we should implement mobile login: %s ", user_details
+        )
         return web.Response(text=view_html, content_type="text/html")
