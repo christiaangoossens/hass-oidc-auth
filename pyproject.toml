@@ -22,7 +22,7 @@ build-backend = "hatchling.build"
 [tool.uv]
 managed = true
 dev-dependencies = [
-    "homeassistant~=2024.12",
+    "homeassistant~=2025.8",
     "pylint~=3.3",
     "ruff>=0.12.11",
 ]
