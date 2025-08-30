@@ -23,7 +23,6 @@ from .config import (
     ROLES,
     NETWORK,
     FEATURES_INCLUDE_GROUPS_SCOPE,
-    FEATURES_DISABLE_FRONTEND_INJECTION,
     FEATURES_FORCE_HTTPS,
 )
 
@@ -93,10 +92,11 @@ async def async_setup(hass: HomeAssistant, config):
 
     # Register the views
     name = config[DOMAIN].get(DISPLAY_NAME, DEFAULT_TITLE)
+    force_https = features_config.get(FEATURES_FORCE_HTTPS, False)
 
     hass.http.register_view(OIDCWelcomeView(name))
-    hass.http.register_view(OIDCRedirectView(oidc_client))
-    hass.http.register_view(OIDCCallbackView(oidc_client, provider))
+    hass.http.register_view(OIDCRedirectView(oidc_client, force_https))
+    hass.http.register_view(OIDCCallbackView(oidc_client, provider, force_https))
     hass.http.register_view(OIDCFinishView())
 
     _LOGGER.info("Registered OIDC views")
