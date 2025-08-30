@@ -21,7 +21,9 @@
         {
             "description": "Group all GitHub Actions updates",
             "matchDatasources": [
-                "github-actions"
+                "github-actions",
+                "github-tags",
+                "github-runners"
             ],
             "groupName": "Github Actions Updates",
             "automerge": true
@@ -37,9 +39,9 @@
             "automerge": false
         },
         {
-            "description": "Version updates for other pip packages",
+            "description": "Version updates for other Python packages",
             "matchDatasources": [
-                "uv"
+                "pypi"
             ],
             "automerge": false
         }
