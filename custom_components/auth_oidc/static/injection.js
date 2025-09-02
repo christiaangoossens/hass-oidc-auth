@@ -28,9 +28,9 @@ function update() {
   const loginHeader = document.querySelector(".card-content > ha-auth-flow > form > h1")
   const authForm = document.querySelector("ha-auth-form")
   const codeField = document.querySelector(".mdc-text-field__input[name=code]")
-  const loginButton = document.querySelector("mwc-button:not(.sso)")
+  const loginButton = document.querySelector("ha-button:not(.sso)")
   const errorAlert = document.querySelector("ha-auth-form ha-alert[alert-type=error]")
-  const loginOptionList = document.querySelector("ha-pick-auth-provider")?.shadowRoot?.querySelector("mwc-list")
+  const loginOptionList = document.querySelector("ha-pick-auth-provider")?.shadowRoot?.querySelector("ha-list")
 
   // ====
   // Code input
@@ -125,7 +125,7 @@ function update() {
   const isOurScreen = showCode() || shouldShowSSOButton
   
   if (loginButton && !ssoButton) {
-    ssoButton = document.createElement("mwc-button")
+    ssoButton = document.createElement("ha-button")
     ssoButton.id = "sso_button"
     ssoButton.classList.add("sso")
     ssoButton.innerText = "Log in with " + sso_name
