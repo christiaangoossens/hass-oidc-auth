@@ -1,0 +1,104 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Choose OIDC Provider",
+        "description": "Select your OpenID Connect identity provider to get started with the setup.",
+        "data": {
+          "provider": "Provider"
+        }
+      },
+      "discovery_url": {
+        "title": "Provider Configuration",
+        "description": "Enter the discovery URL for {provider_name}. This is typically found in your provider's documentation and usually ends with '/.well-known/openid-configuration'.\n\nNeed detailed setup instructions? See the [provider guide]({documentation_url}).",
+        "data": {
+          "discovery_url": "Discovery URL"
+        }
+      },
+      "client_config": {
+        "title": "Client Configuration",
+        "description": "Configure your OIDC client. You can find these details in your {provider_name} application settings.\n\n**Discovery URL:** {discovery_url}\n\n**Setup Instructions:**\n1. Register a new application in your OIDC provider\n2. Set the application type to 'Public Client' (recommended for most users)\n3. Add redirect URLs for Home Assistant\n4. Copy the Client ID below\n\n**Note:** If your provider requires a client secret, check 'Use Confidential Client' and provide your client secret below.\n\n**Need detailed setup instructions?** Check the [setup guide]({documentation_url}) for step-by-step instructions.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret (optional; required by some providers)"
+        }
+      },
+      "client_secret": {
+        "title": "Client Secret Configuration",
+        "description": "Since you selected 'Confidential Client', please provide your client secret.\n\n**Provider:** {provider_name}\n**Client ID:** {client_id}\n**Discovery URL:** {discovery_url}\n\n**Security Note:** The client secret will be stored securely in Home Assistant's configuration. Never share your client secret with others.",
+        "data": {
+          "client_secret": "Client Secret"
+        }
+      },
+      "validate_connection": {
+        "title": "Connection Validation",
+        "description": "Testing connection to your {provider_name} OIDC provider...\n\n**Discovery URL:** {discovery_url}\n**Client ID:** {client_id}\n\n{discovery_details}\n\n**What to do next:**\n- **Continue Setup:** Proceed with the configuration (when validation succeeds)\n- **Retry Validation:** Test the connection again with current settings\n- **Modify Client Settings:** Go back to change Client ID or secret\n- **Modify Discovery URL:** Go back to change the discovery URL\n- **Change Provider:** Start over with a different provider\n\n**Need Help?** Check the [setup documentation]({documentation_url}) for detailed configuration instructions.",
+        "data": {
+          "action": "Choose an action"
+        }
+      },
+      "groups_config": {
+        "title": "Groups & Role Configuration",
+        "description": "Configure how user groups from {provider_name} should be mapped to Home Assistant roles.\n\n**Groups Support:** Groups allow you to automatically assign admin or user roles based on group membership in your identity provider.\n\n**Admin Group:** Users in this group will have administrator access\n**User Group:** Users in this group will have standard user access (leave empty to allow all authenticated users)",
+        "data": {
+          "enable_groups": "Enable group-based role assignment",
+          "admin_group": "Admin group name",
+          "user_group": "User group name (optional)"
+        }
+      },
+      "user_linking": {
+        "title": "User Linking Options",
+        "description": "Configure how OIDC users are linked to existing Home Assistant users.\n\n**⚠️ Important Security Information:**\n\n**User Linking Disabled (Recommended):** New OIDC accounts are created for each user. This is the most secure option.\n\n**User Linking Enabled:** OIDC users can be linked to existing Home Assistant users by username. **This has security implications:**\n- If someone can guess or obtain a Home Assistant username, they might gain access to that account\n- Only enable this if you're migrating from local Home Assistant accounts to OIDC\n- You can disable this later if needed",
+        "data": {
+          "enable_user_linking": "Enable automatic user linking (⚠️ Security Risk)"
+        }
+      },
+      "finalize": {
+        "title": "Setup Complete",
+        "description": "Your OIDC authentication is now configured and ready to use.\n\n**Next Steps:**\n1. Save this configuration\n2. Restart Home Assistant if prompted\n3. The OIDC login option will appear on your login screen\n\n**Advanced Configuration:**\nAdvanced options like custom networking settings, specific claim configurations, or custom scopes are only available through YAML configuration. See the documentation for details.",
+        "data": {}
+      },
+      "reconfigure": {
+        "title": "Reconfigure OIDC Authentication",
+        "description": "Update your OIDC client credentials for {provider_name}.\n\n**Discovery URL:** {discovery_url}\n\n**What you can change:**\n- **Client ID**: Update your application's client identifier\n- **Client Type**: Switch between Public and Confidential client types\n- **Client Secret**: Update or add a client secret (for confidential clients)\n\n**Note:** Changes will be validated against your OIDC provider before being saved. Your existing settings will be preserved if validation fails.\n\n**Security:** For confidential clients, leave the client secret field empty to keep your existing secret unchanged.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret (leave empty to keep current)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the OIDC provider. Please check your network connection and discovery URL.",
+      "discovery_invalid": "The discovery document could not be retrieved or is invalid. Please verify the discovery URL is correct.",
+      "jwks_invalid": "Failed to retrieve or validate the JWKS (JSON Web Key Set). Please check your provider configuration.",
+      "invalid_client_credentials": "The client ID or client secret appears to be invalid. Please check your OIDC application settings and ensure the credentials are correct.",
+      "client_secret_required": "Client secret is required when using confidential client mode.",
+      "invalid_url_format": "The discovery URL must be a valid HTTP or HTTPS URL.",
+      "invalid_client_id": "Client ID cannot be empty and must contain valid characters.",
+      "no_url_available": "Unable to determine Home Assistant URL for OAuth redirect. Please check your network configuration.",
+      "auth_url_failed": "Failed to generate authorization URL for OAuth test.",
+      "unknown": "An unexpected error occurred. Please check the logs for more details."
+    },
+    "abort": {
+      "already_configured": "This OIDC provider is already configured.",
+      "cannot_connect": "Unable to connect to the OIDC provider.",
+      "invalid_discovery": "Invalid discovery document received from the provider.",
+      "reconfigure_successful": "OIDC Authentication has been successfully reconfigured with the updated client credentials.",
+      "single_instance_allowed": "OIDC Authentication only supports a single configuration. You already have OIDC configured (either through YAML or the UI). To modify your existing configuration, go to Settings > Devices & Services > OIDC Authentication and click 'Configure'. To replace your configuration, first remove the existing one."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "OIDC Authentication Options",
+        "description": "Update configuration options for your {provider_name} OIDC authentication.\n\n**User Linking:** Control how OIDC users are linked to existing Home Assistant accounts (⚠️ security implications).\n\n**Groups Configuration:** Configure role assignment based on group membership from your identity provider.\n\n**Note:** Changes take effect immediately but may require users to log out and back in.",
+        "data": {
+          "enable_user_linking": "Enable automatic user linking (⚠️ Security Risk)",
+          "enable_groups": "Enable group-based role assignment",
+          "admin_group": "Admin group name",
+          "user_group": "User group name (optional - leave empty to allow all authenticated users)"
+        }
+      }
+    }
+  }
+}
