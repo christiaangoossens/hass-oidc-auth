@@ -5,11 +5,24 @@ from __future__ import annotations
 from urllib.parse import urlparse
 
 
+def validate_url(url: str) -> bool:
+    """Validate that a URL is properly formatted."""
+    try:
+        parsed = urlparse(url.strip())
+        return bool(parsed.scheme in ("http", "https") and parsed.netloc)
+    except (ValueError, TypeError):
+        return False
+
+
 def validate_discovery_url(url: str) -> bool:
     """Validate that a URL is properly formatted for OIDC discovery."""
     try:
         parsed = urlparse(url.strip())
-        return bool(parsed.scheme in ("http", "https") and parsed.netloc)
+        return bool(
+            parsed.scheme in ("http", "https")
+            and parsed.netloc
+            and parsed.path.endswith("/.well-known/openid-configuration")
+        )
     except (ValueError, TypeError):
         return False
 

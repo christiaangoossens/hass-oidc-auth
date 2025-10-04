@@ -1,6 +1,6 @@
 {
   "domain": "auth_oidc",
-  "name": "OIDC Authentication",
+  "name": "OpenID Connect/SSO Authentication",
   "codeowners": [
     "@christiaangoossens"
   ],

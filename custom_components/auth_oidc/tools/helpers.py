@@ -1,7 +1,7 @@
 """Helper functions for the integration."""
 
 from homeassistant.components import http
-from .views.loader import AsyncTemplateRenderer
+from ..views.loader import AsyncTemplateRenderer
 
 
 def get_url(path: str, force_https: bool) -> str:

@@ -4,8 +4,8 @@ can either be linked to directly or accessed through the welcome page."""
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from ..oidc_client import OIDCClient
-from ..helpers import get_url, get_view
+from ..tools.oidc_client import OIDCClient
+from ..tools.helpers import get_url, get_view
 
 PATH = "/auth/oidc/redirect"
 

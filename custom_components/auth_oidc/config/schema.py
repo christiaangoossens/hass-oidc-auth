@@ -1,36 +1,35 @@
-"""Config schema and constants."""
+"""Config schema"""
 
 import voluptuous as vol
+from .const import (
+    CLIENT_ID,
+    CLIENT_SECRET,
+    DISCOVERY_URL,
+    DISPLAY_NAME,
+    ID_TOKEN_SIGNING_ALGORITHM,
+    GROUPS_SCOPE,
+    ADDITIONAL_SCOPES,
+    FEATURES,
+    FEATURES_AUTOMATIC_USER_LINKING,
+    FEATURES_AUTOMATIC_PERSON_CREATION,
+    FEATURES_DISABLE_PKCE,
+    FEATURES_INCLUDE_GROUPS_SCOPE,
+    FEATURES_DISABLE_FRONTEND_INJECTION,
+    FEATURES_FORCE_HTTPS,
+    CLAIMS,
+    CLAIMS_DISPLAY_NAME,
+    CLAIMS_USERNAME,
+    CLAIMS_GROUPS,
+    ROLES,
+    ROLE_ADMINS,
+    ROLE_USERS,
+    NETWORK,
+    NETWORK_TLS_VERIFY,
+    NETWORK_TLS_CA_PATH,
+    DOMAIN,
+    DEFAULT_GROUPS_SCOPE,
+)
 
-CLIENT_ID = "client_id"
-CLIENT_SECRET = "client_secret"
-DISCOVERY_URL = "discovery_url"
-DISPLAY_NAME = "display_name"
-ID_TOKEN_SIGNING_ALGORITHM = "id_token_signing_alg"
-GROUPS_SCOPE = "groups_scope"
-ADDITIONAL_SCOPES = "additional_scopes"
-FEATURES = "features"
-FEATURES_AUTOMATIC_USER_LINKING = "automatic_user_linking"
-FEATURES_AUTOMATIC_PERSON_CREATION = "automatic_person_creation"
-FEATURES_DISABLE_PKCE = "disable_rfc7636"
-FEATURES_INCLUDE_GROUPS_SCOPE = "include_groups_scope"
-FEATURES_DISABLE_FRONTEND_INJECTION = "disable_frontend_changes"
-FEATURES_FORCE_HTTPS = "force_https"
-CLAIMS = "claims"
-CLAIMS_DISPLAY_NAME = "display_name"
-CLAIMS_USERNAME = "username"
-CLAIMS_GROUPS = "groups"
-ROLES = "roles"
-ROLE_ADMINS = "admin"
-ROLE_USERS = "user"
-
-NETWORK = "network"
-NETWORK_TLS_VERIFY = "tls_verify"
-NETWORK_TLS_CA_PATH = "tls_ca_path"
-
-DEFAULT_TITLE = "OpenID Connect (SSO)"
-
-DOMAIN = "auth_oidc"
 CONFIG_SCHEMA = vol.Schema(
     {
         DOMAIN: vol.Schema(
@@ -48,7 +47,9 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional(ID_TOKEN_SIGNING_ALGORITHM): vol.Coerce(str),
                 # String value to allow changing the groups scope
                 # Defaults to 'groups' which is used by Authelia and Authentik
-                vol.Optional(GROUPS_SCOPE, default="groups"): vol.Coerce(str),
+                vol.Optional(GROUPS_SCOPE, default=DEFAULT_GROUPS_SCOPE): vol.Coerce(
+                    str
+                ),
                 # Additional scopes to request from the OIDC provider
                 # Optional, this field is unnecessary if you only use the openid and profile scopes.
                 vol.Optional(ADDITIONAL_SCOPES, default=[]): vol.Coerce(list[str]),
