@@ -31,6 +31,7 @@ function update() {
   const loginButton = document.querySelector("ha-button:not(.sso)")
   const errorAlert = document.querySelector("ha-auth-form ha-alert[alert-type=error]")
   const loginOptionList = document.querySelector("ha-pick-auth-provider")?.shadowRoot?.querySelector("ha-list")
+  const forgotPasswordLink = document.querySelector(".forgot-password")
 
   // ====
   // Code input
@@ -149,9 +150,11 @@ function update() {
     if (isOurScreen) {
       // Hide the header on our screens
       loginHeader.style.display = "none"
+      forgotPasswordLink.style.display = "none"
     } else {
       // Show the header on the login screen
       loginHeader.style.display = ""
+      forgotPasswordLink.style.display = ""
     }
   }
 }

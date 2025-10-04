@@ -8,7 +8,9 @@ from typing import Any, Dict
 
 DEFAULT_TITLE = "OpenID Connect (SSO)"
 DOMAIN = "auth_oidc"
-REPO_ROOT_URL = "https://github.com/christiaangoossens/hass-oidc-auth/tree/v0.7.0-alpha"
+REPO_ROOT_URL = (
+    "https://github.com/christiaangoossens/hass-oidc-auth/tree/v0.7.0-alpha-rc3"
+)
 
 ## ===
 ## Config keys
