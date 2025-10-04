@@ -532,3 +532,21 @@ class OIDCClient:
         except OIDCClientException as e:
             _LOGGER.warning("Failed to complete token flow, returning None. (%s)", e)
             return None
+
+    async def validate_discovery(self):
+        """Validate that the discovery document can be fetched and is valid.
+
+        Public method for configuration validation.
+        Returns the discovery document if valid.
+        Raises OIDCDiscoveryInvalid if invalid.
+        """
+        return await self._fetch_discovery_document()
+
+    async def validate_jwks(self, jwks_uri: str):
+        """Validate that the JWKS can be fetched from the given URI.
+
+        Public method for configuration validation.
+        Returns the JWKS if valid.
+        Raises OIDCJWKSInvalid if invalid.
+        """
+        return await self._get_jwks(jwks_uri)
