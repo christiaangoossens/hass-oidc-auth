@@ -1,2 +1,2 @@
 #! /bin/bash
-uv run pytest
+uv run pytest --cov=custom_components.auth_oidc --cov-report term:skip-covered tests/

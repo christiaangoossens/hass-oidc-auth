@@ -1,0 +1,3 @@
+#! /bin/bash
+uv run pytest --cov=custom_components.auth_oidc --cov-report html tests/
+uv run python -m http.server 8000 -d htmlcov
