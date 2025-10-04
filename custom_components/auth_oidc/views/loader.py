@@ -40,7 +40,7 @@ class AsyncTemplateRenderer:
                     ) as f:
                         content = await f.read()
                         templates[filename] = content
-                except (OSError, IOError) as e:
+                except (OSError, IOError) as e:  # pragma: no cover
                     _LOGGER.warning("Error reading template file %s: %s", filename, e)
 
     async def render_template(self, template_name: str, **kwargs: Any) -> str:

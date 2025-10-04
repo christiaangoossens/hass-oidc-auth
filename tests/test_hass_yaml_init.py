@@ -52,7 +52,7 @@ async def test_setup_failure_partial_empty_yaml_discovery(hass: HomeAssistant, c
     assert not result
 
     assert "required key 'client_id' not provided" in caplog.text
-    assert not "required key 'discovery_url' not provided" in caplog.text
+    assert "required key 'discovery_url' not provided" not in caplog.text
     assert (
         "Setup failed for custom integration 'auth_oidc': Invalid config."
         in caplog.text
@@ -66,7 +66,7 @@ async def test_setup_failure_partial_empty_yaml_client(hass: HomeAssistant, capl
     result = await async_setup_component(hass, DOMAIN, mock_config)
     assert not result
 
-    assert not "required key 'client_id' not provided" in caplog.text
+    assert "required key 'client_id' not provided" not in caplog.text
     assert "required key 'discovery_url' not provided" in caplog.text
     assert (
         "Setup failed for custom integration 'auth_oidc': Invalid config."
