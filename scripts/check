@@ -1,4 +1,4 @@
 #! /bin/bash
 uv run ruff check
 uv run ruff format --check
-uv run pylint custom_components
+uv run pylint custom_components --allow-reexport-from-package true

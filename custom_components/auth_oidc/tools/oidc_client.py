@@ -13,7 +13,7 @@ from jose import jwt, jwk
 from homeassistant.core import HomeAssistant
 
 from .types import UserDetails
-from .config import (
+from ..config.const import (
     FEATURES_DISABLE_PKCE,
     CLAIMS_DISPLAY_NAME,
     CLAIMS_USERNAME,
@@ -22,7 +22,9 @@ from .config import (
     ROLE_USERS,
     NETWORK_TLS_VERIFY,
     NETWORK_TLS_CA_PATH,
+    DEFAULT_ID_TOKEN_SIGNING_ALGORITHM,
 )
+from .validation import validate_url
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,6 +35,32 @@ class OIDCClientException(Exception):
 
 class OIDCDiscoveryInvalid(OIDCClientException):
     "Raised when the discovery document is not found, invalid or otherwise malformed."
+
+    type: Optional[str]
+    details: Optional[dict]
+
+    def __init__(self, *args, **kwargs):
+        if args:
+            self.message = args[0]
+        else:
+            self.message = "OIDC Discovery document is invalid"
+
+        self.type = kwargs.pop("type", None)
+        self.details = kwargs.pop("details", None)
+        super().__init__(self.message)
+
+    def get_detail_string(self) -> str:
+        """Returns a detailed string for logging purposes."""
+        string = []
+
+        if self.type:
+            string.append(f"type: {self.type}")
+
+        if self.details:
+            for key, value in self.details.items():
+                string.append(f"{key}: {value}")
+
+        return ", ".join(string)
 
 
 class OIDCTokenResponseInvalid(OIDCClientException):
@@ -68,6 +96,199 @@ class HTTPClientError(aiohttp.ClientResponseError):
         return f"{self.status} ({self.message}) with response body: {self.body}"
 
 
+async def http_raise_for_status(response: aiohttp.ClientResponse) -> None:
+    """Raises an exception if the response is not OK."""
+    if not response.ok:
+        # reason should always be not None for a started response
+        assert response.reason is not None
+        body = await response.text()
+
+        raise HTTPClientError(
+            response.request_info,
+            response.history,
+            status=response.status,
+            message=response.reason,
+            headers=response.headers,
+            body=body,
+        )
+
+
+class OIDCDiscoveryClient:
+    """OIDC Discovery Client implementation for Python"""
+
+    def __init__(
+        self,
+        discovery_url: str,
+        http_session: aiohttp.ClientSession,
+        verification_context: dict,
+    ):
+        self.discovery_url = discovery_url
+        self.http_session = http_session
+        self.verification_context = verification_context
+
+    async def _fetch_discovery_document(self):
+        """Fetches discovery document from the given URL."""
+        try:
+            async with self.http_session.get(self.discovery_url) as response:
+                await http_raise_for_status(response)
+                return await response.json()
+        except HTTPClientError as e:
+            if e.status == 404:
+                _LOGGER.warning(
+                    "Error: Discovery document not found at %s", self.discovery_url
+                )
+            else:
+                _LOGGER.warning("Error fetching discovery: %s", e)
+            raise OIDCDiscoveryInvalid(type="fetch_error") from e
+
+    async def _fetch_jwks(self, jwks_uri):
+        """Fetches JWKS from the given URL."""
+        try:
+            async with self.http_session.get(jwks_uri) as response:
+                await http_raise_for_status(response)
+                return await response.json()
+        except HTTPClientError as e:
+            _LOGGER.warning("Error fetching JWKS: %s", e)
+            raise OIDCJWKSInvalid from e
+
+    # pylint: disable=too-many-branches
+    async def _validate_discovery_document(self, document):
+        """Validates the discovery document."""
+
+        # Verify that required endpoints are present
+        required_endpoints = [
+            "issuer",
+            "authorization_endpoint",
+            "token_endpoint",
+            "jwks_uri",
+        ]
+
+        for endpoint in required_endpoints:
+            if endpoint not in document:
+                _LOGGER.warning(
+                    "Error: Discovery document %s is missing required endpoint: %s",
+                    self.discovery_url,
+                    endpoint,
+                )
+                raise OIDCDiscoveryInvalid(
+                    type="missing_endpoint", details={"endpoint": endpoint}
+                )
+            if validate_url(document[endpoint]) is False:
+                _LOGGER.warning(
+                    "Error: Discovery document %s has invalid URL in endpoint: %s (%s)",
+                    self.discovery_url,
+                    endpoint,
+                    document[endpoint],
+                )
+                raise OIDCDiscoveryInvalid(
+                    type="invalid_endpoint",
+                    details={"endpoint": endpoint, "url": document[endpoint]},
+                )
+
+        # Verify optional response_modes_supported
+        if "response_modes_supported" in document:
+            if "query" not in document["response_modes_supported"]:
+                _LOGGER.warning(
+                    "Error: Discovery document %s does not support required 'query' "
+                    "response mode, only supports: %s",
+                    self.discovery_url,
+                    document["response_modes_supported"],
+                )
+                raise OIDCDiscoveryInvalid(
+                    type="does_not_support_response_mode",
+                    modes=document["response_modes_supported"],
+                )
+
+        # If grant_types_supported is set, should support 'authorization_code'
+        if "grant_types_supported" in document:
+            if "authorization_code" not in document["grant_types_supported"]:
+                _LOGGER.warning(
+                    "Error: Discovery document %s does not support required "
+                    "'authorization_code' grant type, only supports: %s",
+                    self.discovery_url,
+                    document["grant_types_supported"],
+                )
+                raise OIDCDiscoveryInvalid(
+                    type="does_not_support_grant_type",
+                    details={
+                        "required": "authorization_code",
+                        "supported": document["grant_types_supported"],
+                    },
+                )
+
+        # If response_types_supported is set, should support 'code'
+        if "response_types_supported" in document:
+            if "code" not in document["response_types_supported"]:
+                _LOGGER.warning(
+                    "Error: Discovery document %s does not support required "
+                    "'code' response type, only supports: %s",
+                    self.discovery_url,
+                    document["response_types_supported"],
+                )
+                raise OIDCDiscoveryInvalid(
+                    type="does_not_support_response_type",
+                    details={
+                        "required": "code",
+                        "supported": document["response_types_supported"],
+                    },
+                )
+
+        # If code_challenge_methods_supported is present, check that it contains S256
+        if "code_challenge_methods_supported" in document:
+            if "S256" not in document["code_challenge_methods_supported"]:
+                _LOGGER.warning(
+                    "Error: Discovery document %s does not support required "
+                    "'S256' code challenge method, only supports: %s",
+                    self.discovery_url,
+                    document["code_challenge_methods_supported"],
+                )
+                raise OIDCDiscoveryInvalid(
+                    type="does_not_support_required_code_challenge_method",
+                    details={
+                        "required": "S256",
+                        "supported": document["code_challenge_methods_supported"],
+                    },
+                )
+
+        # Verify the id_token_signing_alg_values_supported field is present and filled
+        signing_values = document.get("id_token_signing_alg_values_supported", None)
+        if signing_values is None:
+            _LOGGER.warning(
+                "Error: Discovery document %s does not have "
+                "'id_token_signing_alg_values_supported' field",
+                self.discovery_url,
+            )
+            raise OIDCDiscoveryInvalid(type="missing_id_token_signing_alg_values")
+
+        # Verify that the requested id_token_signing_alg is supported
+        requested_alg = self.verification_context.get("id_token_signing_alg", None)
+        if requested_alg is not None and requested_alg not in signing_values:
+            _LOGGER.warning(
+                "Error: Discovery document %s does not support requested "
+                "id_token_signing_alg '%s', only supports: %s",
+                self.discovery_url,
+                requested_alg,
+                signing_values,
+            )
+            raise OIDCDiscoveryInvalid(
+                type="does_not_support_id_token_signing_alg",
+                details={"requested": requested_alg, "supported": signing_values},
+            )
+
+    async def fetch_discovery_document(self):
+        """Fetches discovery document."""
+        document = await self._fetch_discovery_document()
+        await self._validate_discovery_document(document)
+        return document
+
+    async def fetch_jwks(self, jwks_uri: str | None):
+        """Fetches JWKS."""
+        if jwks_uri is None:
+            discovery_document = await self._fetch_discovery_document()
+            jwks_uri = discovery_document["jwks_uri"]
+        return await self._fetch_jwks(jwks_uri)
+
+
 # pylint: disable=too-many-instance-attributes
 class OIDCClient:
     """OIDC Client implementation for Python, including PKCE."""
@@ -77,6 +298,9 @@ class OIDCClient:
 
     # HTTP session to be used
     http_session: aiohttp.ClientSession = None
+
+    # OIDC Discovery tool to be used
+    discovery_class: OIDCDiscoveryClient = None
 
     def __init__(
         self,
@@ -98,7 +322,7 @@ class OIDCClient:
         # Default id_token_signing_alg to RS256 if not specified
         self.id_token_signing_alg = kwargs.get("id_token_signing_alg")
         if self.id_token_signing_alg is None:
-            self.id_token_signing_alg = "RS256"
+            self.id_token_signing_alg = DEFAULT_ID_TOKEN_SIGNING_ALGORITHM
 
         features = kwargs.get("features")
         claims = kwargs.get("claims")
@@ -121,23 +345,6 @@ class OIDCClient:
         if self.http_session:
             _LOGGER.debug("Closing HTTP session")
             self.http_session.close()
-
-    async def http_raise_for_status(self, response: aiohttp.ClientResponse) -> None:
-        """Raises an exception if the response is not OK."""
-        if not response.ok:
-            # reason should always be not None for a started response
-            assert response.reason is not None
-
-            body = await response.text()
-
-            raise HTTPClientError(
-                response.request_info,
-                response.history,
-                status=response.status,
-                message=response.reason,
-                headers=response.headers,
-                body=body,
-            )
 
     def _base64url_encode(self, value: str) -> str:
         """Uses base64url encoding on a given string"""
@@ -173,42 +380,13 @@ class OIDCClient:
         )
         return self.http_session
 
-    async def _fetch_discovery_document(self):
-        """Fetches discovery document from the given URL."""
-        try:
-            session = await self._get_http_session()
-
-            async with session.get(self.discovery_url) as response:
-                await self.http_raise_for_status(response)
-                return await response.json()
-        except HTTPClientError as e:
-            if e.status == 404:
-                _LOGGER.warning(
-                    "Error: Discovery document not found at %s", self.discovery_url
-                )
-            else:
-                _LOGGER.warning("Error fetching discovery: %s", e)
-            raise OIDCDiscoveryInvalid from e
-
-    async def _get_jwks(self, jwks_uri):
-        """Fetches JWKS from the given URL."""
-        try:
-            session = await self._get_http_session()
-
-            async with session.get(jwks_uri) as response:
-                await self.http_raise_for_status(response)
-                return await response.json()
-        except HTTPClientError as e:
-            _LOGGER.warning("Error fetching JWKS: %s", e)
-            raise OIDCJWKSInvalid from e
-
     async def _make_token_request(self, token_endpoint, query_params):
         """Performs the token POST call"""
         try:
             session = await self._get_http_session()
 
             async with session.post(token_endpoint, data=query_params) as response:
-                await self.http_raise_for_status(response)
+                await http_raise_for_status(response)
                 return await response.json()
         except HTTPClientError as e:
             if e.status == 400:
@@ -231,11 +409,33 @@ class OIDCClient:
             headers = {"Authorization": "Bearer " + access_token}
 
             async with session.get(userinfo_uri, headers=headers) as response:
-                await self.http_raise_for_status(response)
+                await http_raise_for_status(response)
                 return await response.json()
         except HTTPClientError as e:
             _LOGGER.warning("Error fetching userinfo: %s", e)
             raise OIDCUserinfoInvalid from e
+
+    async def _fetch_discovery_document(self):
+        """Fetches discovery document."""
+        if self.discovery_document is not None:
+            return self.discovery_document
+
+        if self.discovery_class is None:
+            session = await self._get_http_session()
+            self.discovery_class = OIDCDiscoveryClient(
+                discovery_url=self.discovery_url,
+                http_session=session,
+                verification_context={
+                    "id_token_signing_alg": self.id_token_signing_alg,
+                },
+            )
+
+        self.discovery_document = await self.discovery_class.fetch_discovery_document()
+        return self.discovery_document
+
+    async def _fetch_jwks(self, jwks_uri: str):
+        """Fetches JWKS."""
+        return await self.discovery_class.fetch_jwks(jwks_uri)
 
     async def _parse_id_token(
         self, id_token: str, access_token: str | None
@@ -245,7 +445,7 @@ class OIDCClient:
             self.discovery_document = await self._fetch_discovery_document()
 
         jwks_uri = self.discovery_document["jwks_uri"]
-        jwks_data = await self._get_jwks(jwks_uri)
+        jwks_data = await self._fetch_jwks(jwks_uri)
 
         try:
             # Obtain the id_token header
@@ -369,10 +569,8 @@ class OIDCClient:
     async def async_get_authorization_url(self, redirect_uri: str) -> Optional[str]:
         """Generates the authorization URL for the OIDC flow."""
         try:
-            if self.discovery_document is None:
-                self.discovery_document = await self._fetch_discovery_document()
-
-            auth_endpoint = self.discovery_document["authorization_endpoint"]
+            discovery_document = await self._fetch_discovery_document()
+            auth_endpoint = discovery_document["authorization_endpoint"]
 
             # Generate random nonce & state
             nonce = self._generate_random_url_string()
@@ -417,8 +615,9 @@ class OIDCClient:
 
         # Fetch userinfo if there is an userinfo_endpoint available
         # and use the data to supply the missing values in id_token
-        if "userinfo_endpoint" in self.discovery_document:
-            userinfo_endpoint = self.discovery_document["userinfo_endpoint"]
+        discovery_document = await self._fetch_discovery_document()
+        if "userinfo_endpoint" in discovery_document:
+            userinfo_endpoint = discovery_document["userinfo_endpoint"]
             userinfo = await self._get_userinfo(userinfo_endpoint, access_token)
 
             # Replace missing claims in the id_token with their userinfo version
@@ -451,9 +650,7 @@ class OIDCClient:
             # Only unique per issuer, so we combine it with the issuer and hash it.
             # This might allow multiple OIDC providers to be used with this integration.
             "sub": hashlib.sha256(
-                f"{self.discovery_document['issuer']}.{id_token.get('sub')}".encode(
-                    "utf-8"
-                )
+                f"{discovery_document['issuer']}.{id_token.get('sub')}".encode("utf-8")
             ).hexdigest(),
             # Display name, configurable
             "display_name": id_token.get(self.display_name_claim),
@@ -474,10 +671,8 @@ class OIDCClient:
 
             flow = self.flows[state]
 
-            if self.discovery_document is None:
-                self.discovery_document = await self._fetch_discovery_document()
-
-            token_endpoint = self.discovery_document["token_endpoint"]
+            discovery_document = await self._fetch_discovery_document()
+            token_endpoint = discovery_document["token_endpoint"]
 
             # Construct the params
             query_params = {
@@ -532,21 +727,3 @@ class OIDCClient:
         except OIDCClientException as e:
             _LOGGER.warning("Failed to complete token flow, returning None. (%s)", e)
             return None
-
-    async def validate_discovery(self):
-        """Validate that the discovery document can be fetched and is valid.
-
-        Public method for configuration validation.
-        Returns the discovery document if valid.
-        Raises OIDCDiscoveryInvalid if invalid.
-        """
-        return await self._fetch_discovery_document()
-
-    async def validate_jwks(self, jwks_uri: str):
-        """Validate that the JWKS can be fetched from the given URI.
-
-        Public method for configuration validation.
-        Returns the JWKS if valid.
-        Raises OIDCJWKSInvalid if invalid.
-        """
-        return await self._get_jwks(jwks_uri)

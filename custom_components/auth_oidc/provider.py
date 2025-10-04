@@ -24,14 +24,14 @@ from homeassistant.components import http, person
 from homeassistant.exceptions import HomeAssistantError
 import voluptuous as vol
 
-from .config import (
+from .config.const import (
     FEATURES,
     FEATURES_AUTOMATIC_USER_LINKING,
     FEATURES_AUTOMATIC_PERSON_CREATION,
     DEFAULT_TITLE,
 )
 from .stores.code_store import CodeStore
-from .types import UserDetails
+from .tools.types import UserDetails
 
 _LOGGER = logging.getLogger(__name__)
 

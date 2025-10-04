@@ -3,16 +3,23 @@
     "step": {
       "user": {
         "title": "Choose OIDC Provider",
-        "description": "Select your OpenID Connect identity provider to get started with the setup.",
+        "description": "Select your OpenID Connect identity provider to get started with the setup.\n\nIf you want to use a provider that isn't listed, try the Generic OpenID Connect provider or use the advanced YAML configuration instead.",
         "data": {
           "provider": "Provider"
         }
       },
       "discovery_url": {
         "title": "Provider Configuration",
-        "description": "Enter the discovery URL for {provider_name}. This is typically found in your provider's documentation and usually ends with '/.well-known/openid-configuration'.\n\nNeed detailed setup instructions? See the [provider guide]({documentation_url}).",
+        "description": "Enter the discovery URL for {provider_name}. This is typically found in your provider's admin interface and ends with '/.well-known/openid-configuration'.\n\nNeed detailed setup instructions? See the [provider guide]({documentation_url}).",
         "data": {
           "discovery_url": "Discovery URL"
+        }
+      },
+      "validate_connection": {
+        "title": "Connection Validation",
+        "description": "Testing connection to your {provider_name} OIDC provider...\n\n**Discovery URL:** {discovery_url}\n\n{discovery_details}\n\n**What to do next:**\n- **Continue Setup:** Proceed with the configuration (when validation succeeds)\n- **Retry Validation:** Test the connection again with current settings\n- **Modify Discovery URL:** Go back to change the discovery URL\n- **Change Provider:** Start over with a different provider\n\n**Need Help?** Check the [setup documentation]({documentation_url}) for detailed configuration instructions.",
+        "data": {
+          "action": "Choose an action"
         }
       },
       "client_config": {
@@ -21,20 +28,6 @@
         "data": {
           "client_id": "Client ID",
           "client_secret": "Client Secret (optional; required by some providers)"
-        }
-      },
-      "client_secret": {
-        "title": "Client Secret Configuration",
-        "description": "Since you selected 'Confidential Client', please provide your client secret.\n\n**Provider:** {provider_name}\n**Client ID:** {client_id}\n**Discovery URL:** {discovery_url}\n\n**Security Note:** The client secret will be stored securely in Home Assistant's configuration. Never share your client secret with others.",
-        "data": {
-          "client_secret": "Client Secret"
-        }
-      },
-      "validate_connection": {
-        "title": "Connection Validation",
-        "description": "Testing connection to your {provider_name} OIDC provider...\n\n**Discovery URL:** {discovery_url}\n**Client ID:** {client_id}\n\n{discovery_details}\n\n**What to do next:**\n- **Continue Setup:** Proceed with the configuration (when validation succeeds)\n- **Retry Validation:** Test the connection again with current settings\n- **Modify Client Settings:** Go back to change Client ID or secret\n- **Modify Discovery URL:** Go back to change the discovery URL\n- **Change Provider:** Start over with a different provider\n\n**Need Help?** Check the [setup documentation]({documentation_url}) for detailed configuration instructions.",
-        "data": {
-          "action": "Choose an action"
         }
       },
       "groups_config": {
@@ -71,12 +64,8 @@
       "cannot_connect": "Failed to connect to the OIDC provider. Please check your network connection and discovery URL.",
       "discovery_invalid": "The discovery document could not be retrieved or is invalid. Please verify the discovery URL is correct.",
       "jwks_invalid": "Failed to retrieve or validate the JWKS (JSON Web Key Set). Please check your provider configuration.",
-      "invalid_client_credentials": "The client ID or client secret appears to be invalid. Please check your OIDC application settings and ensure the credentials are correct.",
-      "client_secret_required": "Client secret is required when using confidential client mode.",
-      "invalid_url_format": "The discovery URL must be a valid HTTP or HTTPS URL.",
+      "invalid_url_format": "The discovery URL must be a valid HTTP or HTTPS URL and should end with '/.well-known/openid-configuration'",
       "invalid_client_id": "Client ID cannot be empty and must contain valid characters.",
-      "no_url_available": "Unable to determine Home Assistant URL for OAuth redirect. Please check your network configuration.",
-      "auth_url_failed": "Failed to generate authorization URL for OAuth test.",
       "unknown": "An unexpected error occurred. Please check the logs for more details."
     },
     "abort": {
@@ -84,7 +73,8 @@
       "cannot_connect": "Unable to connect to the OIDC provider.",
       "invalid_discovery": "Invalid discovery document received from the provider.",
       "reconfigure_successful": "OIDC Authentication has been successfully reconfigured with the updated client credentials.",
-      "single_instance_allowed": "OIDC Authentication only supports a single configuration. You already have OIDC configured (either through YAML or the UI). To modify your existing configuration, go to Settings > Devices & Services > OIDC Authentication and click 'Configure'. To replace your configuration, first remove the existing one."
+      "single_instance_allowed": "OIDC Authentication only supports a single configuration. You already have OIDC configured in the UI. To modify your existing configuration, go to Settings > Devices & Services > OIDC Authentication and click 'Configure'. To replace your configuration, first remove the existing one.",
+      "yaml_configured": "You are currently using YAML configuration for this integration. To switch to UI configuration, please remove the YAML configuration first. Note that some advanced options configured via YAML may not be available in the UI."
     }
   },
   "options": {

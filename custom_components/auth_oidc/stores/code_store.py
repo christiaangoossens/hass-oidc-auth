@@ -8,7 +8,7 @@ from typing import cast, Optional
 from homeassistant.helpers.storage import Store
 from homeassistant.core import HomeAssistant
 
-from ..types import UserDetails
+from ..tools.types import UserDetails
 
 STORAGE_VERSION = 1
 STORAGE_KEY = "auth_provider.auth_oidc.codes"

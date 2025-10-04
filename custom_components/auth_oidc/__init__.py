@@ -9,8 +9,10 @@ from homeassistant.core import HomeAssistant
 
 # Import and re-export config schema explictly
 # pylint: disable=useless-import-alias
+from .config import CONFIG_SCHEMA as CONFIG_SCHEMA
+
+# Get all the constants for the config
 from .config import (
-    CONFIG_SCHEMA as CONFIG_SCHEMA,
     DOMAIN,
     DEFAULT_TITLE,
     CLIENT_ID,
@@ -27,17 +29,19 @@ from .config import (
     FEATURES_INCLUDE_GROUPS_SCOPE,
     FEATURES_DISABLE_FRONTEND_INJECTION,
     FEATURES_FORCE_HTTPS,
+    REQUIRED_SCOPES,
 )
 
-# pylint: enable=useless-import-alias
+from .config import convert_ui_config_entry_to_internal_format
 
-from .endpoints.welcome import OIDCWelcomeView
-from .endpoints.redirect import OIDCRedirectView
-from .endpoints.finish import OIDCFinishView
-from .endpoints.callback import OIDCCallbackView
-from .endpoints.injected_auth_page import OIDCInjectedAuthPage
-
-from .oidc_client import OIDCClient
+from .endpoints import (
+    OIDCWelcomeView,
+    OIDCRedirectView,
+    OIDCFinishView,
+    OIDCCallbackView,
+    OIDCInjectedAuthPage,
+)
+from .tools.oidc_client import OIDCClient
 from .provider import OpenIDAuthProvider
 
 _LOGGER = logging.getLogger(__name__)
@@ -62,12 +66,12 @@ async def async_setup(hass: HomeAssistant, config):
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    """Set up OIDC Authentication from a config entry."""
+    """Set up OIDC Authentication from a config entry (UI config)."""
     # Convert config entry data to the format expected by the existing setup
     config_data = entry.data.copy()
 
     # Convert config entry format to internal format
-    my_config = _convert_config_entry_to_internal_format(config_data)
+    my_config = convert_ui_config_entry_to_internal_format(config_data)
 
     # Get display name from config entry
     display_name = config_data.get("display_name", DEFAULT_TITLE)
@@ -81,36 +85,6 @@ async def async_unload_entry(_hass: HomeAssistant, _entry: ConfigEntry):
     # OIDC auth providers cannot be easily unloaded as they are integrated
     # into Home Assistant's auth system. A restart is required.
     return False
-
-
-def _convert_config_entry_to_internal_format(config_data: dict) -> dict:
-    """Convert config entry data to internal configuration format."""
-    my_config = {}
-
-    # Required fields
-    my_config[CLIENT_ID] = config_data["client_id"]
-    my_config[DISCOVERY_URL] = config_data["discovery_url"]
-
-    # Optional fields
-    if "client_secret" in config_data:
-        my_config[CLIENT_SECRET] = config_data["client_secret"]
-
-    if "display_name" in config_data:
-        my_config[DISPLAY_NAME] = config_data["display_name"]
-
-    # Features configuration
-    if "features" in config_data:
-        my_config[FEATURES] = config_data["features"]
-
-    # Claims configuration
-    if "claims" in config_data:
-        my_config[CLAIMS] = config_data["claims"]
-
-    # Roles configuration
-    if "roles" in config_data:
-        my_config[ROLES] = config_data["roles"]
-
-    return my_config
 
 
 async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_name: str):
@@ -131,7 +105,7 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
     # Set the correct scopes
     # Always use 'openid' & 'profile' as they are specified in the OIDC spec
     # All servers should support this
-    scope = "openid profile"
+    scope = REQUIRED_SCOPES
 
     # Include groups if requested (default is to include 'groups'
     # as a scope for Authelia & Authentik)
