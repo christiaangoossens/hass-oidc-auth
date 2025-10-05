@@ -3,7 +3,7 @@
 import random
 import string
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import cast, Optional
 from homeassistant.helpers.storage import Store
 from homeassistant.core import HomeAssistant
@@ -46,7 +46,7 @@ class CodeStore:
             raise RuntimeError("Data not loaded")
 
         code = self._generate_code()
-        expiration = datetime.utcnow() + timedelta(minutes=5)
+        expiration = datetime.now(timezone.utc) + timedelta(minutes=5)
 
         self._data[code] = {
             "user_info": user_info,
