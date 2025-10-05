@@ -24,6 +24,16 @@ Some useful scripts are in the `scripts` directory. If you run Linux (or WSL und
 
 You can also run these commands manually on Windows:
 
+##### Compiling css
+
+To compile tailwind css styles for the pages you need the tailwind CLI version 4+
+
+You can run the [css](./scripts/css) script to compile css once and while developing you can run the [watchcss](./scripts/watchcss) script to recompile the css every time the html changes.
+
+Tailwind cli standalone can be downloaded from the [tailwindcss github](https://github.com/tailwindlabs/tailwindcss/releases)
+
+on nixos you need to use the `tailwindcss_4` package
+
 ##### Check
 ```
 uv run ruff check
