@@ -1,4 +1,4 @@
-"""Tests for the YAML config setup of OIDC"""
+"""Tests for the helpers and validation tools"""
 
 from unittest.mock import patch
 import pytest

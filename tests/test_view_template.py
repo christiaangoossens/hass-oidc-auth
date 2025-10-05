@@ -1,12 +1,9 @@
-"""Tests for the YAML config setup of OIDC"""
+"""Tests for the view templates"""
 
-import logging
 import pytest
 from os import path
 
 from custom_components.auth_oidc.views.loader import AsyncTemplateRenderer
-
-_LOGGER = logging.getLogger(__name__)
 
 FAKE_TEMPLATE_PATH = path.join(
     path.dirname(path.abspath(__file__)), "resources", "fake_templates"

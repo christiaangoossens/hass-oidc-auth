@@ -1,6 +1,5 @@
 """Tests for the YAML config setup of OIDC"""
 
-import logging
 import pytest
 
 from homeassistant.core import HomeAssistant
@@ -8,8 +7,6 @@ from homeassistant.setup import async_setup_component
 
 from custom_components.auth_oidc import DOMAIN
 from custom_components.auth_oidc.config.const import ADDITIONAL_SCOPES
-
-_LOGGER = logging.getLogger(__name__)
 
 
 async def setup(hass: HomeAssistant, config: dict, expect_success: bool) -> bool:

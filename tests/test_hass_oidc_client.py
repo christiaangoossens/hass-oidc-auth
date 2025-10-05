@@ -1,6 +1,5 @@
-"""Tests for the YAML config setup of OIDC"""
+"""Tests for the OIDC client"""
 
-import logging
 from urllib.parse import urlparse, parse_qs
 import pytest
 from homeassistant.core import HomeAssistant
@@ -16,7 +15,6 @@ from auth_oidc.config.const import (
 
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
 
-_LOGGER = logging.getLogger(__name__)
 EXAMPLE_CLIENT_ID = "dummyclient"
 
 
@@ -88,10 +86,8 @@ async def test_full_oidc_flow(hass: HomeAssistant, hass_client):
             f"/auth/oidc/callback?code={code}&state={state}", allow_redirects=False
         )
 
-        text = await resp.text()
         # TODO: Test if logged text contains our login
         # TODO: Test if the code actually works
-        _LOGGER.debug("Callback response text: %s", text)
         assert resp.status == 302
         assert "/auth/oidc/finish?code=" in resp.headers["Location"]
 

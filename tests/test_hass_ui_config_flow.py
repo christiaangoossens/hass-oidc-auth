@@ -1,4 +1,5 @@
-import logging
+"""Tests for the UI config flow"""
+
 import pytest
 
 from homeassistant import config_entries
@@ -27,8 +28,6 @@ from custom_components.auth_oidc.config.const import (
 )
 
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
-
-_LOGGER = logging.getLogger(__name__)
 
 DEMO_CLIENT_ID = "testing_example_client_id"
 DEMO_CLIENT_SECRET = "faz"
@@ -142,8 +141,6 @@ async def test_full_config_flow_success(hass: HomeAssistant):
         # Finally, assert that the flow is complete and a config entry is created
         assert result["type"] == FlowResultType.CREATE_ENTRY
         assert result["title"] == OIDC_PROVIDERS["authentik"]["name"]
-
-        _LOGGER.debug("Final result data: %s", result["data"])
 
         expected_data = {
             "provider": "authentik",

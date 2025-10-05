@@ -1,13 +1,13 @@
-"""Tests for the YAML config setup of OIDC"""
+"""Tests for the Auth Provider registration in HA"""
 
 from urllib.parse import urlparse, parse_qs
-import logging
 import pytest
 
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.setup import async_setup_component
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.components.person import DOMAIN as PERSON_DOMAIN
 
 from custom_components.auth_oidc import DOMAIN
 from custom_components.auth_oidc.config.const import (
@@ -18,8 +18,6 @@ from custom_components.auth_oidc.config.const import (
     FEATURES_AUTOMATIC_USER_LINKING,
 )
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
-
-_LOGGER = logging.getLogger(__name__)
 
 
 async def setup(hass: HomeAssistant, config: dict, expect_success: bool) -> bool:
@@ -167,8 +165,39 @@ async def test_login_with_linking(hass: HomeAssistant, hass_client):
 
         # Use the code to login directly with the registered auth provider
         user2 = await login_user(hass, code)
-        _LOGGER.debug("Found SSO user: %s", user2)
         assert user2.id == user.id  # Assert that the user was linked
+
+
+@pytest.mark.asyncio
+async def test_login_with_person_create(hass: HomeAssistant, hass_client):
+    """Test a person create."""
+    await setup(
+        hass,
+        {
+            CLIENT_ID: "dummy",
+            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: True,
+                FEATURES_AUTOMATIC_USER_LINKING: False,
+            },
+        },
+        True,
+    )
+
+    await async_setup_component(hass, PERSON_DOMAIN, {})
+
+    with mock_oidc_responses():
+        code = await get_login_code(hass, hass_client)
+        user = await login_user(hass, code)
+        assert user.is_active
+
+        # Find the person associated to this user using the PersonRegistry API
+        person_store = hass.data[PERSON_DOMAIN][1]
+        persons = person_store.async_items()
+        assert len(persons) == 1
+
+        person = persons[0]
+        assert person["user_id"] == user.id
 
 
 @pytest.mark.asyncio

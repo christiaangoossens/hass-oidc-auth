@@ -1,6 +1,6 @@
-"""Tests for the YAML config setup of OIDC"""
+"""Tests for the registered webpages"""
 
-import logging
+import os
 from auth_oidc.config.const import (
     DISCOVERY_URL,
     CLIENT_ID,
@@ -11,10 +11,9 @@ import pytest
 
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
+from homeassistant.components.http import StaticPathConfig, DOMAIN as HTTP_DOMAIN
 
 from custom_components.auth_oidc import DOMAIN
-
-_LOGGER = logging.getLogger(__name__)
 
 
 async def setup(hass: HomeAssistant, enable_frontend_changes: bool = None):
@@ -120,3 +119,33 @@ async def test_finish_post(hass: HomeAssistant, hass_client):
     assert resp2.status == 302
     assert resp2.headers["Location"] == "/?storeToken=true"
     assert resp2.cookies["auth_oidc_code"].value == "456888"
+
+
+# Test the frontend injection
+@pytest.mark.asyncio
+async def test_frontend_injection(hass: HomeAssistant, hass_client):
+    """Test that frontend injection works."""
+
+    # Because there is no frontend in the test setup,
+    # we'll have to fake /auth/authorize for the changes to register
+    await async_setup_component(hass, HTTP_DOMAIN, {})
+
+    mock_html_path = os.path.join(os.path.dirname(__file__), "mocks", "auth_page.html")
+    await hass.http.async_register_static_paths(
+        [
+            StaticPathConfig(
+                "/auth/authorize",
+                mock_html_path,
+                cache_headers=False,
+            )
+        ]
+    )
+
+    await setup(hass, enable_frontend_changes=True)
+
+    client = await hass_client()
+    resp = await client.get("/auth/authorize", allow_redirects=False)
+    assert resp.status == 200
+    text = await resp.text()
+
+    assert "<script src='/auth/oidc/static/injection.js" in text

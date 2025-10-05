@@ -1,6 +1,4 @@
-"""Tests for the YAML config setup of OIDC"""
-
-import logging
+"""Tests for the code store"""
 
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
@@ -9,8 +7,6 @@ from homeassistant.core import HomeAssistant
 import pytest
 
 from auth_oidc.stores.code_store import CodeStore
-
-_LOGGER = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio
