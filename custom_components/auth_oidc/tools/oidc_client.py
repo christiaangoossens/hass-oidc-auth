@@ -39,12 +39,8 @@ class OIDCDiscoveryInvalid(OIDCClientException):
     type: Optional[str]
     details: Optional[dict]
 
-    def __init__(self, *args, **kwargs):
-        if args:
-            self.message = args[0]
-        else:
-            self.message = "OIDC Discovery document is invalid"
-
+    def __init__(self, **kwargs):
+        self.message = "OIDC Discovery document is invalid"
         self.type = kwargs.pop("type", None)
         self.details = kwargs.pop("details", None)
         super().__init__(self.message)
@@ -196,7 +192,7 @@ class OIDCDiscoveryClient:
                 )
                 raise OIDCDiscoveryInvalid(
                     type="does_not_support_response_mode",
-                    modes=document["response_modes_supported"],
+                    details={"modes": document["response_modes_supported"]},
                 )
 
         # If grant_types_supported is set, should support 'authorization_code'
@@ -281,7 +277,7 @@ class OIDCDiscoveryClient:
         await self._validate_discovery_document(document)
         return document
 
-    async def fetch_jwks(self, jwks_uri: str | None):
+    async def fetch_jwks(self, jwks_uri: str | None = None):
         """Fetches JWKS."""
         if jwks_uri is None:
             discovery_document = await self._fetch_discovery_document()
