@@ -25,10 +25,14 @@ class OIDCRedirectView(HomeAssistantView):
         """Receive response."""
 
         redirect_uri = get_url("/auth/oidc/callback", self.force_https)
-        auth_url = await self.oidc_client.async_get_authorization_url(redirect_uri)
 
-        if auth_url:
-            return web.HTTPFound(auth_url)
+        try:
+            auth_url = await self.oidc_client.async_get_authorization_url(redirect_uri)
+
+            if auth_url:
+                raise web.HTTPFound(auth_url)
+        except RuntimeError:
+            pass
 
         view_html = await get_view(
             "error",

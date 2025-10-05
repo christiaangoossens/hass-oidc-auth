@@ -1,0 +1,5 @@
+{
+    "discovery": {
+        "issuer": "https://mock-oidc-server.local"
+    }
+}

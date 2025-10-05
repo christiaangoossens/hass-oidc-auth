@@ -40,7 +40,7 @@ class OIDCFinishView(HomeAssistantView):
             return web.Response(text="No code received", status=500)
 
         # Return redirect to the main page for sign in with a cookie
-        return web.HTTPFound(
+        raise web.HTTPFound(
             location="/?storeToken=true",
             headers={
                 # Set a cookie to enable autologin on only the specific path used

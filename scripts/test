@@ -1,0 +1,2 @@
+#! /bin/bash
+uv run pytest --cov-report term:skip-covered tests/ 

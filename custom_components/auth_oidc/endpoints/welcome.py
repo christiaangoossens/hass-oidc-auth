@@ -23,7 +23,7 @@ class OIDCWelcomeView(HomeAssistantView):
         """Receive response."""
 
         if not self.is_enabled:
-            return web.HTTPTemporaryRedirect(get_url("/", self.force_https))
+            raise web.HTTPTemporaryRedirect(get_url("/", self.force_https))
 
         view_html = await get_view("welcome", {"name": self.name})
         return web.Response(text=view_html, content_type="text/html")

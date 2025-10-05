@@ -1,0 +1,7 @@
+{
+    "discovery": {
+        "issuer": "https://mock-oidc-server.local",
+        "authorization_endpoint": "https://mock-oidc-server.local/authorize",
+        "token_endpoint": "https://mock-oidc-server.local/token"
+    }
+}
