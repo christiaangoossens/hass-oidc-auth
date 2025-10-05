@@ -177,9 +177,9 @@ class OpenIDAuthProvider(AuthProvider):
         # If person creation is enabled, add a person for this user
         if self.create_persons:
             user_meta = await self.async_user_meta_for_credentials(credential)
-            await self.async_create_person(user, user_meta.name)
+            await self._async_create_person(user, user_meta.name)
 
-    async def async_create_person(self, user: User, name: str) -> None:
+    async def _async_create_person(self, user: User, name: str) -> None:
         """Create a person for the user."""
         _LOGGER.info("Automatically creating person for new user %s", user.id)
 
@@ -194,7 +194,7 @@ class OpenIDAuthProvider(AuthProvider):
         # pylint: disable=broad-exception-caught
         except Exception:
             _LOGGER.warning(
-                "Requested automatic person creation, but person creation failed."
+                "Requested automatic person creation, but person creation failed"
             )
         # pylint: enable=broad-exception-caught
 
@@ -315,7 +315,7 @@ class OpenIdLoginFlow(LoginFlow):
         """Handle the step of the form."""
 
         # Try to use the user input first
-        if user_input is not None:
+        if user_input is not None and "code" in user_input:
             try:
                 return await self._finalize_user(user_input["code"])
             except InvalidAuthError:
@@ -323,14 +323,15 @@ class OpenIdLoginFlow(LoginFlow):
 
         # If not available, check the cookie
         req = http.current_request.get()
-        code_cookie = req.cookies.get("auth_oidc_code")
+        if req and req.cookies:
+            code_cookie = req.cookies.get("auth_oidc_code")
 
-        if code_cookie:
-            _LOGGER.debug("Code cookie found on login: %s", code_cookie)
-            try:
-                return await self._finalize_user(code_cookie)
-            except InvalidAuthError:
-                pass
+            if code_cookie:
+                _LOGGER.debug("Code cookie found on login: %s", code_cookie)
+                try:
+                    return await self._finalize_user(code_cookie)
+                except InvalidAuthError:
+                    pass
 
         # If none are available, just show the form
         return self._show_login_form()

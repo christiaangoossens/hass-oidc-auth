@@ -3,6 +3,7 @@
 from contextlib import contextmanager
 import time
 import logging
+import hashlib
 import random
 import json
 import os
@@ -14,6 +15,7 @@ from joserfc.jwk import RSAKey, KeySet
 _LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://oidc.example.com"
+SUBJECT = "testuser"
 
 
 class MockOIDCServer:
@@ -120,13 +122,21 @@ class MockOIDCServer:
         query_params = self._code_storage[code]
         _LOGGER.debug("Creating ID token with query params: %s", query_params)
 
+        # Get username
+        if "username" in self._scenario:
+            username = self._scenario["username"]
+        else:
+            username = "testuser"
+
         # Create a simple signed JWT with our JWK
         header = {"alg": self._jwk.alg, "kid": self._jwk.kid}
         claims = {
             "iss": BASE_URL,
-            "sub": "1234567890",
+            "sub": SUBJECT,
             "aud": query_params.get("client_id", [""])[0],
             "nonce": query_params.get("nonce", [""])[0],
+            "name": "Test Name",
+            "preferred_username": username,
         }
 
         now = int(time.time())
@@ -147,6 +157,11 @@ class MockOIDCServer:
         key_set = KeySet([public_key])
 
         return key_set.as_dict(), 200
+
+    @staticmethod
+    def get_final_subject():
+        """Return the subject that's returned to HA."""
+        return hashlib.sha256(f"{BASE_URL}.{SUBJECT}".encode("utf-8")).hexdigest()
 
 
 @contextmanager
