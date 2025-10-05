@@ -1,8 +1,6 @@
 """Tests for the YAML config setup of OIDC"""
 
-from contextlib import contextmanager
 import logging
-from unittest.mock import AsyncMock, patch
 from urllib.parse import urlparse, parse_qs
 import pytest
 from homeassistant.core import HomeAssistant
@@ -16,7 +14,7 @@ from auth_oidc.config.const import (
     CLIENT_ID,
 )
 
-from .mocks.oidc_server import MockOIDCServer
+from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
 
 _LOGGER = logging.getLogger(__name__)
 EXAMPLE_CLIENT_ID = "dummyclient"
@@ -33,39 +31,6 @@ async def setup(hass: HomeAssistant):
 
     result = await async_setup_component(hass, DOMAIN, mock_config)
     assert result
-
-
-@contextmanager
-def mock_oidc_responses(scenario: str | None = None):
-    """Mock OIDC responses for testing."""
-
-    mock_oidc_server = MockOIDCServer(scenario)
-
-    def make_mock_response(json_data, status):
-        mock_response = AsyncMock()
-        mock_response.__aenter__.return_value = mock_response
-        mock_response.__aexit__.return_value = None
-        mock_response.json = AsyncMock(return_value=json_data)
-        mock_response.status = status
-        return mock_response
-
-    def default_handler(method, url, *args, **kwargs):
-        _LOGGER.debug("Mocked %s request to %s", method, url)
-        body = kwargs.get("data") or kwargs.get("json") or None
-        response = mock_oidc_server.process_request(url, method, body)
-        return make_mock_response(response[0], response[1])
-
-    def get_side_effect(url, *args, **kwargs):
-        return default_handler("GET", url, *args, **kwargs)
-
-    def post_side_effect(url, *args, **kwargs):
-        return default_handler("POST", url, *args, **kwargs)
-
-    with (
-        patch("aiohttp.ClientSession.get", side_effect=get_side_effect) as get_patch,
-        patch("aiohttp.ClientSession.post", side_effect=post_side_effect) as post_patch,
-    ):
-        yield (get_patch, post_patch, default_handler)
 
 
 @pytest.mark.asyncio
