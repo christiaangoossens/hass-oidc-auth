@@ -31,7 +31,7 @@ class CodeStore:
             data = cast(dict[str, UserDetails], {})
         self._data = data
 
-    async def async_save(self) -> None:
+    async def _async_save(self) -> None:
         """Save data."""
         if self._data is not None:
             await self._store.async_save(self._data)
@@ -54,7 +54,7 @@ class CodeStore:
             "expiration": expiration.isoformat(),
         }
 
-        await self.async_save()
+        await self._async_save()
         return code
 
     async def receive_userinfo_for_code(self, code: str) -> Optional[UserDetails]:
@@ -67,12 +67,15 @@ class CodeStore:
         if user_data:
             # We should now wipe it from the database, as it's one time use code
             self._data.pop(code)
-            await self.async_save()
+            await self._async_save()
 
-        if (
-            user_data
-            and datetime.fromisoformat(user_data["expiration"]) > datetime.utcnow()
+        if user_data and datetime.fromisoformat(user_data["expiration"]) > datetime.now(
+            timezone.utc
         ):
             return user_data["user_info"]
 
         return None
+
+    def get_data(self):
+        """Get the internal data for testing purposes."""
+        return self._data
