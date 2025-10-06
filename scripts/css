@@ -1,2 +1,0 @@
-#! /bin/bash
-tailwindcss -i ./custom_components/auth_oidc/static/input.css -o ./custom_components/auth_oidc/static/style.css --minify

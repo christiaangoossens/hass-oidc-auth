@@ -28,13 +28,9 @@ You can also run these commands manually on Windows:
 
 ##### Compiling css
 
-To compile tailwind css styles for the pages you need the tailwind CLI version 4+
+To compile tailwind css styles for the pages you need the NodeJS and NPM installed.
 
-You can run the [css](./scripts/css) script to compile css once and while developing you can run the [watchcss](./scripts/watchcss) script to recompile the css every time the html changes.
-
-Tailwind cli standalone can be downloaded from the [tailwindcss github](https://github.com/tailwindlabs/tailwindcss/releases)
-
-on nixos you need to use the `tailwindcss_4` package
+You can run the `npm run css` script to generate the css once and you can run the `npm run css:watch` to recompile the css every time the templates change
 
 ##### Check
 ```
