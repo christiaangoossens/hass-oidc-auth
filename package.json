@@ -1,0 +1,11 @@
+{
+  "name": "hass-oidc-auth",
+  "scripts": {
+    "css": "tailwindcss -i ./custom_components/auth_oidc/static/input.css -o ./custom_components/auth_oidc/static/style.css --minify",
+    "css:watch": "tailwindcss -i ./custom_components/auth_oidc/static/input.css -o ./custom_components/auth_oidc/static/style.css --watch --minify"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.1.14",
+    "tailwindcss": "^4.1.14"
+  }
+}

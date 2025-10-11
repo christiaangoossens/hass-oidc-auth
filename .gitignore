@@ -110,3 +110,6 @@ dmypy.json
 .venv
 
 .pytest_logs.log
+
+
+node_modules
