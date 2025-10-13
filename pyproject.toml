@@ -19,7 +19,7 @@ requires-python = "~=3.13.7"
 [dependency-groups]
 dev = [
     "homeassistant~=2025.8",
-    "pylint~=3.3",
+    "pylint~=4.0",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
     "pytest-cov>=7.0.0",
