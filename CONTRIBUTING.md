@@ -24,6 +24,12 @@ Some useful scripts are in the `scripts` directory. If you run Linux (or WSL und
 
 You can also run these commands manually on Windows:
 
+##### Compiling css
+
+To compile tailwind css styles for the pages you need the NodeJS and NPM installed.
+
+You can run the `npm run css` script to generate the css once and you can run the `npm run css:watch` to recompile the css every time the templates change
+
 ##### Check
 ```
 uv run ruff check
