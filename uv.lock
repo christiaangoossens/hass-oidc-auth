@@ -913,7 +913,7 @@ requires-dist = [
     { name = "aiofiles", specifier = "~=25.1" },
     { name = "bcrypt", specifier = "~=4.2" },
     { name = "jinja2", specifier = "~=3.1" },
-    { name = "joserfc", specifier = "~=1.4.0" },
+    { name = "joserfc", specifier = "~=1.5.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1099,14 +1099,14 @@ wheels = [
 
 [[package]]
 name = "joserfc"
-version = "1.4.3"
+version = "1.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/dc/32/8315032da02a124a326c2c98724387a4c9dcfa248efeb1307db8f2662331/joserfc-1.4.3.tar.gz", hash = "sha256:dcbd447ff70c64d75f4cbdc5fb1d48f6914bff67b97fa0f779dd5c581d1bb81d", size = 200514, upload-time = "2025-11-19T05:52:27.942Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/b4/d49b4ec64feb3332f9255a1deefd8b6ffcbe6c332c205fa86eb33cf48c3a/joserfc-1.5.0.tar.gz", hash = "sha256:4e88d757cf08ec1d370561a15dd6dda8452ad4e335066a9aeb1b426bffe91c56", size = 213086, upload-time = "2025-11-30T06:01:52.073Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d9/4e/b998a5f8f042a17a6a87e7ed7fb85082d62f7d5c1d307ac6c544a2c7293c/joserfc-1.4.3-py3-none-any.whl", hash = "sha256:3cb2f1c1e3285c44a50ca9cb3287f37c2c665442028a4983aed87a75285164dc", size = 66957, upload-time = "2025-11-19T05:52:26.15Z" },
+    { url = "https://files.pythonhosted.org/packages/13/6a/71937d4760bf6f3beabc640cf18578683b5247845db5ee4dbd8c66898def/joserfc-1.5.0-py3-none-any.whl", hash = "sha256:eaaded4f4c6717a761baa41b4067307d0c246b9d5e38acd44e80a332f5ddaf24", size = 68388, upload-time = "2025-11-30T06:01:50.43Z" },
 ]
 
 [[package]]
