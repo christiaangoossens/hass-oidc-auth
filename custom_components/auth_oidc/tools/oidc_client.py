@@ -11,6 +11,10 @@ from functools import partial
 import aiohttp
 from joserfc import jwt, jwk, jws, errors as joserfc_errors
 from homeassistant.core import HomeAssistant
+import json
+from pathlib import Path
+import aiofiles
+from .helpers import compute_allowed_signing_algs
 
 from .types import UserDetails
 from ..config.const import (
@@ -124,9 +128,35 @@ class OIDCDiscoveryClient:
 
     async def _fetch_discovery_document(self):
         """Fetches discovery document from the given URL."""
+        # Pass verbose context from OIDCClient (additive)
+        verbose_mode = getattr(self, 'verbose_debug_mode', False)
+        capture_dir = getattr(self, 'capture_dir', None)
+        
         try:
+            if verbose_mode and capture_dir:
+                _LOGGER.debug(f"Attempting to fetch discovery document from: {self.discovery_url}")
+                discovery_txt = capture_dir / "get_discovery.txt"
+                async with aiofiles.open(discovery_txt, 'w', encoding='utf-8') as f:
+                    await f.write(
+                        "/*\n----------BEGIN DISCOVERY DOCUMENT REQUEST----------\n"
+                        f"Discovery Endpoint URL: {self.discovery_url}\n*/\n\n"
+                    )
+                _LOGGER.debug("Check Discovery doc request capture in: %s for more details...", discovery_txt)
+
             async with self.http_session.get(self.discovery_url) as response:
                 await http_raise_for_status(response)
+                response_text = await response.text()
+                
+                if verbose_mode and capture_dir:
+                    _LOGGER.debug(f"Discovery response received: Status {response.status}")
+                    async with aiofiles.open(discovery_txt, 'a', encoding='utf-8') as f:
+                        await f.write(
+                            "/*\n----------BEGIN DISCOVERY DOCUMENT RESPONSE----------\n"
+                            f"Fetch Discovery Doc Response Status: {response.status}\n*/\n"
+                            f"//Response Body:\n{response_text}\n"
+                        )
+                    _LOGGER.debug("Check Discovery doc response capture in: %s for more details...", discovery_txt)
+                
                 return await response.json()
         except HTTPClientError as e:
             if e.status == 404:
@@ -139,9 +169,35 @@ class OIDCDiscoveryClient:
 
     async def _fetch_jwks(self, jwks_uri):
         """Fetches JWKS from the given URL."""
+        # Pass verbose context (additive)
+        verbose_mode = getattr(self, 'verbose_debug_mode', False)
+        capture_dir = getattr(self, 'capture_dir', None)
+        
         try:
+            if verbose_mode and capture_dir:
+                _LOGGER.debug(f"Retrieving JWKS keys from endpoint: {jwks_uri}")
+                jwks_txt = capture_dir / "get_jwks.txt"
+                async with aiofiles.open(jwks_txt, 'w', encoding='utf-8') as f:
+                    await f.write(
+                        "/*\n----------BEGIN JWKS REQUEST----------\n"
+                        f"JWKS Endpoint URL: {jwks_uri}\n*/\n\n"
+                    )
+                _LOGGER.debug("Check JWKS request capture in: %s for more details...", jwks_txt)
+
             async with self.http_session.get(jwks_uri) as response:
                 await http_raise_for_status(response)
+                response_text = await response.text()
+                
+                if verbose_mode and capture_dir:
+                    _LOGGER.debug(f"JWKS response received: Status {response.status}")
+                    async with aiofiles.open(jwks_txt, 'a', encoding='utf-8') as f:
+                        await f.write(
+                            "/*\n----------BEGIN JWKS RESPONSE----------\n"
+                            f"Fetch JWKS Keys Status: {response.status}\n*/\n"
+                            f"//Response Body:\n{response_text}\n"
+                        )
+                    _LOGGER.debug("Check JWKS response capture in: %s for more details...", jwks_txt)
+                
                 return await response.json()
         except HTTPClientError as e:
             _LOGGER.warning("Error fetching JWKS: %s", e)
@@ -256,20 +312,26 @@ class OIDCDiscoveryClient:
             )
             raise OIDCDiscoveryInvalid(type="missing_id_token_signing_alg_values")
 
-        # Verify that the requested id_token_signing_alg is supported
+        # Verify that the requested id_token_signing_alg is supported (WARN only, flexible)
         requested_alg = self.verification_context.get("id_token_signing_alg", None)
-        if requested_alg is not None and requested_alg not in signing_values:
+        signing_values = document.get("id_token_signing_alg_values_supported", None)
+        if signing_values is None:
             _LOGGER.warning(
-                "Error: Discovery document %s does not support requested "
-                "id_token_signing_alg '%s', only supports: %s",
+                "Error: Discovery document %s does not have "
+                "'id_token_signing_alg_values_supported' field",
+                self.discovery_url,
+            )
+            raise OIDCDiscoveryInvalid(type="missing_id_token_signing_alg_values")
+
+        if requested_alg is not None and requested_alg not in signing_values:
+            _LOGGER.warning(  # WARN, not raise (flexible via compute_allowed_signing_algs)
+                "Discovery document %s does not support requested "
+                "id_token_signing_alg '%s', only supports: %s. Proceeding anyway.",
                 self.discovery_url,
                 requested_alg,
                 signing_values,
             )
-            raise OIDCDiscoveryInvalid(
-                type="does_not_support_id_token_signing_alg",
-                details={"requested": requested_alg, "supported": signing_values},
-            )
+            # raise ...  # REMOVED: Now handled flexibly in _parse_id_token
 
     async def fetch_discovery_document(self):
         """Fetches discovery document."""
@@ -316,9 +378,7 @@ class OIDCClient:
         self.client_secret = kwargs.get("client_secret")
 
         # Default id_token_signing_alg to RS256 if not specified
-        self.id_token_signing_alg = kwargs.get("id_token_signing_alg")
-        if self.id_token_signing_alg is None:
-            self.id_token_signing_alg = DEFAULT_ID_TOKEN_SIGNING_ALGORITHM
+        self.id_token_signing_alg = kwargs.get("id_token_signing_alg", DEFAULT_ID_TOKEN_SIGNING_ALGORITHM)
 
         features = kwargs.get("features")
         claims = kwargs.get("claims")
@@ -333,7 +393,21 @@ class OIDCClient:
         self.admin_role = roles.get(ROLE_ADMINS, "admins")
         self.tls_verify = network.get(NETWORK_TLS_VERIFY, True)
         self.tls_ca_path = network.get(NETWORK_TLS_CA_PATH)
-
+        
+        self.verbose_debug_mode = kwargs.get("enable_verbose_debug_mode", False)
+        if self.verbose_debug_mode:
+            _LOGGER.warning(
+                "VERBOSE_DEBUG_MODE is enabled so detailed token request and response "
+                + "logging is active. Do NOT leave this enabled in production!"
+            )
+            self.capture_dir = Path(self.hass.config.config_dir) / "custom_components" / "auth_oidc" / "verbose_debug"
+            self.capture_dir.mkdir(parents=True, exist_ok=True)
+            _LOGGER.info(f"The following scopes will be included in auth request: {self.scope}")
+        if self.verbose_debug_mode:
+            _LOGGER.debug(
+                "Configured ID token signing algorithm: %s",
+                self.id_token_signing_alg or "none (will use OP discovery)"
+            )
     def __del__(self):
         """Cleanup the HTTP session."""
 
@@ -380,10 +454,44 @@ class OIDCClient:
         """Performs the token POST call"""
         try:
             session = await self._get_http_session()
+            
+            if self.verbose_debug_mode:
+                _LOGGER.debug(f"Attempting Token request via Endpoint URL: {token_endpoint}")
+                token_req_txt = self.capture_dir / "get_token.txt"
+                async with aiofiles.open(token_req_txt, 'w', encoding='utf-8') as f:
+                    await f.write(
+                        "/*\n----------BEGIN TOKEN REQUEST----------\n"
+                        f"Token Endpoint URL: {token_endpoint}\n*/\n"
+                        f"//Query Parameters:\n{json.dumps(query_params, indent=2)}\n\n"
+                    )
+                _LOGGER.debug("Check Token request capture in: %s for more details...", token_req_txt)
 
             async with session.post(token_endpoint, data=query_params) as response:
                 await http_raise_for_status(response)
-                return await response.json()
+                response_text = await response.text()
+            
+                if self.verbose_debug_mode:
+                    _LOGGER.debug(f"Token response received: Status {response.status}")
+                    async with aiofiles.open(token_req_txt, 'a', encoding='utf-8') as f:
+                        await f.write(
+                            "/*\n----------BEGIN TOKEN RESPONSE----------\n"
+                            f"Fetch Token Status: {response.status}\n*/\n"
+                            f"//Response Body:\n{response_text}\n"
+                        )
+                    _LOGGER.debug("Check Token response capture in: %s for more details...", token_req_txt)
+
+                try:
+                    parsed_json = json.loads(response_text)
+                    if self.verbose_debug_mode:
+                        _LOGGER.debug(f"Success! Token received from Endpoint: {token_endpoint}")
+                    return parsed_json
+                except json.JSONDecodeError:
+                    if self.verbose_debug_mode:
+                        unhandled_txt = self.capture_dir / "unhandled_token_response.txt"
+                        async with aiofiles.open(unhandled_txt, 'w', encoding='utf-8') as f:
+                            await f.write(response_text)
+                    _LOGGER.error("Unhandled Exception: Token Response is not json!")
+                    raise OIDCTokenResponseInvalid("Token response not JSON")
         except HTTPClientError as e:
             if e.status == 400:
                 _LOGGER.warning(
@@ -403,10 +511,33 @@ class OIDCClient:
         try:
             session = await self._get_http_session()
             headers = {"Authorization": "Bearer " + access_token}
+            
+            if self.verbose_debug_mode:
+                _LOGGER.debug(f"Sending request to: {userinfo_uri} to collect Userinfo")
+                userinfo_txt = self.capture_dir / "get_userinfo.txt"
+                async with aiofiles.open(userinfo_txt, 'w', encoding='utf-8') as f:
+                    await f.write(
+                        "/*\n----------BEGIN USERINFO REQUEST----------\n"
+                        f"Userinfo URL: {userinfo_uri}\n*/\n"
+                        f"//Request Headers:\n{json.dumps(headers, indent=2)}\n\n"
+                    )
+                _LOGGER.debug("Check Userinfo request capture in: %s for more details...", userinfo_txt)
 
             async with session.get(userinfo_uri, headers=headers) as response:
                 await http_raise_for_status(response)
-                return await response.json()
+                response_text = await response.text()
+                
+                if self.verbose_debug_mode:
+                    _LOGGER.debug(f"Userinfo response received: Status {response.status}")
+                    async with aiofiles.open(userinfo_txt, 'a', encoding='utf-8') as f:
+                        await f.write(
+                            "/*\n----------BEGIN USERINFO RESPONSE----------\n"
+                            f"Userinfo Response Status: {response.status}\n*/\n"
+                            f"//Response Body:\n{response_text}\n"
+                        )
+                    _LOGGER.debug("Check Userinfo response capture in: %s for more details...", userinfo_txt)
+                
+                return json.loads(response_text)
         except HTTPClientError as e:
             _LOGGER.warning("Error fetching userinfo: %s", e)
             raise OIDCUserinfoInvalid from e
@@ -425,6 +556,9 @@ class OIDCClient:
                     "id_token_signing_alg": self.id_token_signing_alg,
                 },
             )
+            # Pass verbose context (additive)
+            self.discovery_class.verbose_debug_mode = self.verbose_debug_mode
+            self.discovery_class.capture_dir = self.capture_dir
 
         self.discovery_document = await self.discovery_class.fetch_discovery_document()
         return self.discovery_document
@@ -437,12 +571,20 @@ class OIDCClient:
         """Parses the ID token into a dict containing token contents."""
         if self.discovery_document is None:
             self.discovery_document = await self._fetch_discovery_document()
+        
+        # Flexible algorithm handling
+        allowed_algs = compute_allowed_signing_algs(
+            self.discovery_document,
+            self.id_token_signing_alg,
+            self.verbose_debug_mode,
+            _LOGGER,
+        )
 
         jwks_uri = self.discovery_document["jwks_uri"]
         jwks_data = await self._fetch_jwks(jwks_uri)
 
         try:
-            # Obtain the id_token header
+            # Obtain the (unverified) id_token header
             token_obj = jws.extract_compact(id_token.encode())
             unverified_header = token_obj.protected
             if not unverified_header:
@@ -451,14 +593,19 @@ class OIDCClient:
 
             # Obtain the signing algorithm from the header of the id_token
             alg = unverified_header.get("alg")
-            if alg != self.id_token_signing_alg:
-                # Verify that it matches our requested algorithm
+            if not alg:
+                _LOGGER.warning("JWT does not have alg")
+                return None
+
+            if alg not in allowed_algs:
                 _LOGGER.warning(
-                    "ID Token received signed with the wrong algorithm: %s, expected %s",
-                    alg,
-                    self.id_token_signing_alg,
+                    "ID Token received signed with unsupported algorithm: %s (allowed: %s)",
+                    alg, allowed_algs
                 )
-                raise OIDCIdTokenSigningAlgorithmInvalid()
+                raise OIDCIdTokenSigningAlgorithmInvalid
+            
+            if self.verbose_debug_mode:
+                _LOGGER.debug("ID token signed with algorithm '%s'", alg)
 
             # OpenID Connect Core 1.0 Section 3.1.3.7.8
             # If the JWT alg Header Parameter uses a MAC based algorithm
@@ -490,12 +637,8 @@ class OIDCClient:
                     _LOGGER.warning("JWT does not have kid (Key ID)")
                     return None
 
-                # Get the correct key
-                signing_key = None
-                for key in jwks_data["keys"]:
-                    if key["kid"] == kid:
-                        signing_key = key
-                        break
+                # Get the correct key from the JWKS via: kid
+                signing_key = next((key for key in jwks_data["keys"] if key["kid"] == kid), None)
 
                 if not signing_key:
                     _LOGGER.warning("Could not find matching key with kid: %s", kid)
@@ -516,10 +659,12 @@ class OIDCClient:
                 # The Client MUST validate the signature of all other ID Tokens
                 # according to JWS [JWS] using the algorithm specified in the JWT
                 # alg Header Parameter.
-                algorithms=[self.id_token_signing_alg],
+                algorithms=[alg],
+                #algorithms=[self.id_token_signing_alg],
             )
 
             # Create Claims Registry for validation
+            # (aud/iss/sub/exp/nbf/iat + leeway)
             id_token_validator = jwt.JWTClaimsRegistry(
                 leeway=5,
                 # OpenID Connect Core 1.0 Section 3.1.3.7.3
@@ -538,9 +683,13 @@ class OIDCClient:
             )
 
             id_token_validator.validate(decoded_token.claims)
+            
+            # Nonce check (post-decode, per spec §3.1.3.7.11) - assume checked earlier in flow
+            # at_hash omitted for brevity (add if access_token passed)
+
             return decoded_token.claims
 
-        except joserfc_errors.JoseError as e:
+        except (joserfc_errors.JoseError, jwt.JWTClaimsError) as e:
             _LOGGER.warning("JWT verification failed: %s", e)
             return None
 

@@ -40,12 +40,13 @@ ROLE_USERS = "user"
 NETWORK = "network"
 NETWORK_TLS_VERIFY = "tls_verify"
 NETWORK_TLS_CA_PATH = "tls_ca_path"
+VERBOSE_DEBUG_MODE = "enable_verbose_debug_mode"
 
 ## ===
 ## Default configurations for providers
 ## ===
 
-REQUIRED_SCOPES = "openid profile"
+REQUIRED_SCOPES = "openid profile email"
 DEFAULT_ID_TOKEN_SIGNING_ALGORITHM = "RS256"
 
 DEFAULT_GROUPS_SCOPE = "groups"

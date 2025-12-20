@@ -28,6 +28,7 @@ from .const import (
     NETWORK_TLS_CA_PATH,
     DOMAIN,
     DEFAULT_GROUPS_SCOPE,
+    VERBOSE_DEBUG_MODE,
 )
 
 CONFIG_SCHEMA = vol.Schema(
@@ -53,6 +54,11 @@ CONFIG_SCHEMA = vol.Schema(
                 # Additional scopes to request from the OIDC provider
                 # Optional, this field is unnecessary if you only use the openid and profile scopes.
                 vol.Optional(ADDITIONAL_SCOPES, default=[]): vol.Coerce(list[str]),
+                # Added for debugging purposes
+                # If enabled, logging will include more detailed information regarding
+                # the full OIDC auth chain (including tokens) and is captured within:
+                # <component_dir>/custom_components/auth_oidc/verbose_debug/
+                vol.Optional(VERBOSE_DEBUG_MODE, default=False): vol.Coerce(bool),
                 # Which features should be enabled/disabled?
                 # Optional, defaults to sane/secure defaults
                 vol.Optional(FEATURES): vol.Schema(
