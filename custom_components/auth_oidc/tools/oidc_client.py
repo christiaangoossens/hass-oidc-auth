@@ -366,9 +366,6 @@ class OIDCDiscoveryClient:
 class OIDCClient:
     """OIDC Client implementation for Python, including PKCE."""
 
-    # Flows stores the state, code_verifier and nonce of all current flows.
-    flows = {}
-
     # HTTP session to be used
     http_session: aiohttp.ClientSession = None
 
@@ -432,6 +429,11 @@ class OIDCClient:
                 "Configured ID token signing algorithm: %s",
                 self.id_token_signing_alg or "none (will use OP discovery)",
             )
+
+        # Flows stores the state, code_verifier and nonce of all current flows.
+        # Made instance-level to prevent collisions across multiple OIDCClient instances
+        # (e.g., multiple providers). Previously class-level caused state sharing/leaks.
+        self.flows = {}
 
     def __del__(self):
         """Cleanup the HTTP session."""
@@ -671,50 +673,96 @@ class OIDCClient:
                 jwk_obj = jwk.import_key(
                     {
                         "kty": "oct",
-                        "k": base64.urlsafe_b64encode(
-                            self.client_secret.encode()
-                        ).decode(),
+                        "k": self._base64url_encode(self.client_secret),  # RFC 7517 §4.2: base64url without padding
                         "alg": alg,
                     }
                 )
+
             else:
-                # TODO: Deal with cases where kid is not specified (just take the first key?)
-                # Obtain the kid (Key ID) from the header of the id_token
+                # RFC 7515 (JWS) §4.1.11: "kid" (Key ID) is OPTIONAL but RECOMMENDED.
+                # If absent, select key via other means (e.g., try candidates until verification succeeds).
+                # Priority: 1. Exact "kid" match. 2. Matching key["alg"]. 3. All keys.
+                # OpenID Connect Core 1.0 §3.1.3.7: MUST validate signature using header "alg".
+                # RFC 7518 (JWK) §7.2: Inherit "alg" from header if missing in key.
                 kid = unverified_header.get("kid")
                 if not kid:
-                    _LOGGER.warning("JWT does not have kid (Key ID)")
+                    if self.verbose_debug_mode:
+                        _LOGGER.debug("JWT header lacks 'kid'; will try all JWKS candidates")
+                    else:
+                        _LOGGER.warning("JWT does not have 'kid' (Key ID); trying all JWKS keys (add 'kid' to provider config for efficiency)")
+
+                # Collect candidate keys from JWKS (jwks_data["keys"] is list of dicts)
+                candidates = []
+                if kid:
+                    # Priority 1: Exact kid match
+                    matching_kid = next((key for key in jwks_data["keys"] if key.get("kid") == kid), None)
+                    if matching_kid:
+                        candidates.append(matching_kid)
+                        if self.verbose_debug_mode:
+                            _LOGGER.debug("Selected JWKS key by exact 'kid' match: %s", kid)
+
+                # Priority 2-3: No kid or no match → add keys matching alg, then all (avoid dupes)
+                for key in jwks_data["keys"]:
+                    if key.get("alg") == alg:
+                        if key not in candidates:  # Avoid dupes
+                            candidates.append(key)
+                            if self.verbose_debug_mode:
+                                _LOGGER.debug("Added JWKS candidate by 'alg' match: %s (kid=%s)", alg, key.get("kid", "none"))
+                    elif (kid is None or key.get("kid") != kid) and key not in candidates:  # Fallback: all non-dupe keys
+                        candidates.append(key)
+                        if self.verbose_debug_mode:
+                            _LOGGER.debug("Added JWKS fallback candidate (kid=%s, alg=%s)", key.get("kid", "none"), key.get("alg", "none"))
+
+                if not candidates:
+                    _LOGGER.warning("No candidate keys found in JWKS for alg '%s' (kid='%s')", alg, kid or "none")
                     return None
 
-                # Get the correct key from the JWKS via: kid
-                signing_key = next(
-                    (key for key in jwks_data["keys"] if key["kid"] == kid), None
-                )
+                # Try verification on each candidate until success (RFC 7515 compliant)
+                decoded_token = None
+                selected_key_info = None
+                for candidate_key in candidates:
+                    try:
+                        # If key lacks "alg", inherit from header (per JWK §7.2, optional)
+                        key_dict = candidate_key.copy()
+                        if "alg" not in key_dict:
+                            key_dict["alg"] = alg
 
-                if not signing_key:
-                    _LOGGER.warning("Could not find matching key with kid: %s", kid)
+                        jwk_obj = jwk.import_key(key_dict)
+
+                        # Attempt decode+verify (raises on sig fail/mismatch)
+                        candidate_decoded = jwt.decode(
+                            id_token,
+                            jwk_obj,
+                            # OpenID Connect Core 1.0 Section 3.1.3.7.6
+                            # The Client MUST validate the signature of all other ID Tokens
+                            # according to JWS [JWS] using the algorithm specified in the JWT
+                            # alg Header Parameter.
+                            algorithms=[alg],
+                        )
+                        decoded_token = candidate_decoded
+                        selected_key_info = {
+                            "kid": candidate_key.get("kid", "none"),
+                            "alg": candidate_key.get("alg", alg),
+                            "kty": candidate_key.get("kty"),
+                        }
+                        if self.verbose_debug_mode:
+                            _LOGGER.debug("Signature verified successfully with JWKS key: %s", selected_key_info)
+                        break  # Success! Proceed
+                    except (joserfc_errors.JoseError, jwt.JWTClaimsError) as verify_err:
+                        if self.verbose_debug_mode:
+                            _LOGGER.debug("Key candidate failed verification (kid=%s): %s", candidate_key.get("kid", "none"), verify_err)
+                        continue  # Try next
+
+                if decoded_token is None:
+                    _LOGGER.warning("No JWKS key verified the ID token signature (alg='%s', tried %d candidates; check JWKS rotation/provider config)", alg, len(candidates))
                     return None
 
-                # If signing_key does not have alg, set it to the one passed in the token
-                if "alg" not in signing_key:
-                    signing_key["alg"] = alg
+                # Log successful key selection
+                if self.verbose_debug_mode:
+                    _LOGGER.debug("Final selected key for verification: %s", selected_key_info)
 
-                # Construct the JWK from the RSA key
-                jwk_obj = jwk.import_key(signing_key)
-
-            # Decode the token, decode does not verify it
-            decoded_token = jwt.decode(
-                id_token,
-                jwk_obj,
-                # OpenID Connect Core 1.0 Section 3.1.3.7.6
-                # The Client MUST validate the signature of all other ID Tokens
-                # according to JWS [JWS] using the algorithm specified in the JWT
-                # alg Header Parameter.
-                algorithms=[alg],
-                # algorithms=[self.id_token_signing_alg],
-            )
-
-            # Create Claims Registry for validation
-            # (aud/iss/sub/exp/nbf/iat + leeway)
+            # Claims validation (post-signature verification)
+            # Create Claims Registry for validation (aud/iss/sub/exp/nbf/iat + leeway)
             id_token_validator = jwt.JWTClaimsRegistry(
                 leeway=5,
                 # OpenID Connect Core 1.0 Section 3.1.3.7.3
@@ -787,7 +835,7 @@ class OIDCClient:
             _LOGGER.warning("Error generating authorization URL: %s", e)
             return None
 
-    async def parse_user_details(self, id_token: str, access_token: str) -> UserDetails:
+    async def parse_user_details(self, id_token_claims: dict, access_token: str) -> UserDetails:
         """Parses the ID token and/or userinfo into user details."""
 
         # Fetch userinfo if there is an userinfo_endpoint available
@@ -803,11 +851,11 @@ class OIDCClient:
                 self.display_name_claim,
                 self.username_claim,
             ):
-                if claim not in id_token and claim in userinfo:
-                    id_token[claim] = userinfo[claim]
+                if claim not in id_token_claims and claim in userinfo:
+                    id_token_claims[claim] = userinfo[claim]
 
         # Get and parse groups (to check if it's an array)
-        groups = id_token.get(self.groups_claim, [])
+        groups = id_token_claims.get(self.groups_claim, [])
         if not isinstance(groups, list):
             _LOGGER.warning("Groups claim is not a list, using empty list instead.")
             groups = []
@@ -827,12 +875,12 @@ class OIDCClient:
             # Only unique per issuer, so we combine it with the issuer and hash it.
             # This might allow multiple OIDC providers to be used with this integration.
             "sub": hashlib.sha256(
-                f"{discovery_document['issuer']}.{id_token.get('sub')}".encode("utf-8")
+                f"{discovery_document['issuer']}.{id_token_claims.get('sub')}".encode("utf-8")
             ).hexdigest(),
             # Display name, configurable
-            "display_name": id_token.get(self.display_name_claim),
+            "display_name": id_token_claims.get(self.display_name_claim),
             # Username, configurable
-            "username": id_token.get(self.username_claim),
+            "username": id_token_claims.get(self.username_claim),
             # Role
             "role": role,
         }
