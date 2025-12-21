@@ -1,33 +1,35 @@
 """OIDC Client class"""
 
-import urllib.parse
-import logging
-import os
 import base64
 import hashlib
-import ssl
-from typing import Optional
-from functools import partial
-import aiohttp
-from joserfc import jwt, jwk, jws, errors as joserfc_errors
-from homeassistant.core import HomeAssistant
 import json
+import logging
+import os
+import ssl
+import urllib.parse
+from functools import partial
 from pathlib import Path
-from .helpers import compute_allowed_signing_algs, capture_auth_flows
+from typing import Optional
 
-from .types import UserDetails
+import aiohttp
+from homeassistant.core import HomeAssistant
+from joserfc import errors as joserfc_errors
+from joserfc import jwk, jws, jwt
+
 from ..config.const import (
-    FEATURES_DISABLE_PKCE,
     CLAIMS_DISPLAY_NAME,
-    CLAIMS_USERNAME,
     CLAIMS_GROUPS,
+    CLAIMS_USERNAME,
+    DEFAULT_ID_TOKEN_SIGNING_ALGORITHM,
+    FEATURES_DISABLE_PKCE,
+    NETWORK_TLS_CA_PATH,
+    NETWORK_TLS_VERIFY,
+    NETWORK_USERINFO_FALLBACK,
     ROLE_ADMINS,
     ROLE_USERS,
-    NETWORK_TLS_VERIFY,
-    NETWORK_TLS_CA_PATH,
-    NETWORK_USERINFO_FALLBACK,
-    DEFAULT_ID_TOKEN_SIGNING_ALGORITHM,
 )
+from .helpers import capture_auth_flows, compute_allowed_signing_algs
+from .types import UserDetails
 from .validation import validate_url
 
 _LOGGER = logging.getLogger(__name__)
@@ -125,10 +127,14 @@ class OIDCDiscoveryClient:
         discovery_url: str,
         http_session: aiohttp.ClientSession,
         verification_context: dict,
+        verbose_debug_mode: bool = False,
+        capture_dir: Optional[Path] = None,
     ):
         self.discovery_url = discovery_url
         self.http_session = http_session
         self.verification_context = verification_context
+        self.verbose_debug_mode = verbose_debug_mode
+        self.capture_dir = capture_dir
 
     async def _fetch_discovery_document(self):
         """Fetches discovery document from the given URL."""
@@ -159,7 +165,10 @@ class OIDCDiscoveryClient:
                     capture_dir,
                     f"Discovery response received: Status {response.status}",
                     "get_discovery.txt",
-                    f"Fetch Discovery Doc Response Status: {response.status}\n//Response Body:\n{response_text}",
+                    (
+                        f"Fetch Discovery Doc Response Status: {response.status}"
+                        f"\n//Response Body:\n{response_text}"
+                    ),
                     mode="a",
                     header="",
                     is_request=False,
@@ -204,7 +213,10 @@ class OIDCDiscoveryClient:
                     capture_dir,
                     f"JWKS response received: Status {response.status}",
                     "get_jwks.txt",
-                    f"Fetch JWKS Keys Status: {response.status}\n//Response Body:\n{response_text}",
+                    (
+                        f"Fetch JWKS Keys Status: {response.status}"
+                        f"\n//Response Body:\n{response_text}"
+                    ),
                     mode="a",
                     header="",
                     is_request=False,
@@ -446,7 +458,7 @@ class OIDCClient:
             )
             self.capture_dir.mkdir(parents=True, exist_ok=True)
             _LOGGER.info(
-                f"The following scopes will be included in auth request: {self.scope}"
+                "The following scopes will be included in auth request: %s", self.scope
             )
         if self.verbose_debug_mode:
             _LOGGER.debug(
@@ -512,7 +524,10 @@ class OIDCClient:
                 self.capture_dir,
                 f"Attempting Token request via Endpoint URL: {token_endpoint}",
                 "get_token.txt",
-                f"Token Endpoint URL: {token_endpoint}\n//Query Parameters:\n{json.dumps(query_params, indent=2)}",
+                (
+                    f"Token Endpoint URL: {token_endpoint}\n//Query Parameters:"
+                    f"\n{json.dumps(query_params, indent=2)}"
+                ),
                 mode="w",
                 header="",
                 is_request=True,
@@ -528,7 +543,10 @@ class OIDCClient:
                     self.capture_dir,
                     f"Token response received: Status {response.status}",
                     "get_token.txt",
-                    f"Fetch Token Status: {response.status}\n//Response Body:\n{response_text}",
+                    (
+                        f"Fetch Token Status: {response.status}"
+                        f"\n//Response Body:\n{response_text}"
+                    ),
                     mode="a",
                     header="",
                     is_request=False,
@@ -538,10 +556,10 @@ class OIDCClient:
                     parsed_json = json.loads(response_text)
                     if self.verbose_debug_mode:
                         _LOGGER.debug(
-                            f"Success! Token received from Endpoint: {token_endpoint}"
+                            "Success! Token received from Endpoint: %s", token_endpoint
                         )
                     return parsed_json
-                except json.JSONDecodeError:
+                except json.JSONDecodeError as e:
                     await capture_auth_flows(
                         (_LOGGER, 10),
                         self.verbose_debug_mode,
@@ -554,7 +572,7 @@ class OIDCClient:
                         is_request=False,
                     )
                     _LOGGER.error("Unhandled Exception: Token Response is not json!")
-                    raise OIDCTokenResponseInvalid("Token response not JSON")
+                    raise OIDCTokenResponseInvalid("Token response not JSON") from e
         except HTTPClientError as e:
             if e.status == 400:
                 _LOGGER.warning(
@@ -581,7 +599,10 @@ class OIDCClient:
                 self.capture_dir,
                 f"Sending request to: {userinfo_uri} to collect Userinfo",
                 "get_userinfo.txt",
-                f"Userinfo URL: {userinfo_uri}\n//Request Headers:\n{json.dumps(headers, indent=2)}",
+                (
+                    f"Userinfo URL: {userinfo_uri}\n//Request Headers:"
+                    f"\n{json.dumps(headers, indent=2)}",
+                ),
                 mode="w",
                 header="",
                 is_request=True,
@@ -597,7 +618,10 @@ class OIDCClient:
                     self.capture_dir,
                     f"Userinfo response received: Status {response.status}",
                     "get_userinfo.txt",
-                    f"Userinfo Response Status: {response.status}\n//Response Body:\n{response_text}",
+                    (
+                        f"Userinfo Response Status: {response.status}"
+                        f"\n//Response Body:\n{response_text}"
+                    ),
                     mode="a",
                     header="",
                     is_request=False,
@@ -610,7 +634,8 @@ class OIDCClient:
 
     async def _fetch_discovery_document(self):
         """Fetches discovery document if missing or expired (TTL=1h)."""
-        import time  # Local import for TTL check
+        # Local import for TTL check
+        import time  # pylint: disable=import-outside-toplevel
 
         now = time.time()
         if (
@@ -628,10 +653,9 @@ class OIDCClient:
                 verification_context={
                     "id_token_signing_alg": self.id_token_signing_alg,
                 },
+                verbose_debug_mode=self.verbose_debug_mode,
+                capture_dir=self.capture_dir,
             )
-            # Pass verbose context (additive)
-            self.discovery_class.verbose_debug_mode = self.verbose_debug_mode
-            self.discovery_class.capture_dir = self.capture_dir
 
         self.discovery_document = await self.discovery_class.fetch_discovery_document()
         self.discovery_timestamp = now
@@ -709,7 +733,8 @@ class OIDCClient:
 
             else:
                 # RFC 7515 (JWS) §4.1.11: "kid" (Key ID) is OPTIONAL but RECOMMENDED.
-                # If absent, select key via other means (e.g., try candidates until verification succeeds).
+                # If absent, select key via other means
+                # (e.g., try candidates until verification succeeds).
                 # Priority: 1. Exact "kid" match. 2. Matching key["alg"]. 3. All keys.
                 # OpenID Connect Core 1.0 §3.1.3.7: MUST validate signature using header "alg".
                 # RFC 7518 (JWK) §7.2: Inherit "alg" from header if missing in key.
@@ -721,7 +746,8 @@ class OIDCClient:
                         )
                     else:
                         _LOGGER.warning(
-                            "JWT does not have 'kid' (Key ID); trying all JWKS keys (add 'kid' to provider config for efficiency)"
+                            "JWT does not have 'kid' (Key ID); trying all JWKS keys"
+                            " (add 'kid' to provider config for efficiency)"
                         )
 
                 # Collect candidate keys from JWKS (jwks_data["keys"] is list of dicts)
@@ -803,7 +829,7 @@ class OIDCClient:
                                 selected_key_info,
                             )
                         break  # Success! Proceed
-                    except (joserfc_errors.JoseError, jwt.JWTClaimsError) as verify_err:
+                    except joserfc_errors.JoseError as verify_err:
                         if self.verbose_debug_mode:
                             _LOGGER.debug(
                                 "Key candidate failed verification (kid=%s): %s",
@@ -814,7 +840,10 @@ class OIDCClient:
 
                 if decoded_token is None:
                     _LOGGER.warning(
-                        "No JWKS key verified the ID token signature (alg='%s', tried %d candidates; check JWKS rotation/provider config)",
+                        (
+                            "No JWKS key verified the ID token signature (alg='%s', "
+                            "tried %d candidates; check JWKS rotation/provider config)"
+                        ),
                         alg,
                         len(candidates),
                     )
@@ -863,20 +892,23 @@ class OIDCClient:
                     actual_at_hash = decoded_token.claims.get("at_hash")
                     if actual_at_hash != expected_at_hash:
                         _LOGGER.warning(
-                            "ID token at_hash mismatch! Expected: %s, got: %s (access_token tampering?)",
+                            (
+                                "ID token at_hash mismatch! Expected: %s, "
+                                "got: %s (access_token tampering?)"
+                            ),
                             expected_at_hash,
                             actual_at_hash,
                         )
                         return None
                     if self.verbose_debug_mode:
                         _LOGGER.debug("at_hash validated successfully")
-                except Exception as e:
+                except (UnicodeEncodeError, AttributeError) as e:
                     _LOGGER.warning("at_hash computation/validation failed: %s", e)
                     return None  # Fail closed
 
             return decoded_token.claims
 
-        except (joserfc_errors.JoseError, jwt.JWTClaimsError) as e:
+        except joserfc_errors.JoseError as e:
             _LOGGER.warning("JWT verification failed: %s", e)
             return None
 
@@ -962,11 +994,16 @@ class OIDCClient:
             _LOGGER.warning("Groups claim is not a list, using empty list instead.")
             groups = []
 
-        # Extract case insensitive username and apply email stripping if configured to use 'email' claim.
-        # This converts full email (e.g., 'user@domain.com') to local-part (e.g., 'user') for username only.
-        # 1. Not all OP's support username / preferred_username claim, so email is often used, but
-        # this is not ideal for usernames in HA (even without username linking support **currently**).
-        # 2. Many RPs/OPs provide some level of claim matching / processing to increase flexibility.
+        # Extract case insensitive username and apply email
+        # stripping if configured to use 'email' claim.
+        # This converts full email (e.g., 'user@domain.com')
+        # to local-part (e.g., 'user') for username only.
+        # 1. Not all OP's support username / preferred_username
+        # claim, so email is often used, but
+        # this is not ideal for usernames in HA (even without
+        # username linking support **currently**).
+        # 2. Many RPs/OPs provide some level of claim matching
+        # / processing to increase flexibility.
         username_raw = id_token_claims.get(self.username_claim)
         username = username_raw
         if (
