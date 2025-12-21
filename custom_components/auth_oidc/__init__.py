@@ -31,6 +31,7 @@ from .config import (
     FEATURES_FORCE_HTTPS,
     REQUIRED_SCOPES,
     VERBOSE_DEBUG_MODE,
+    NETWORK_USERINFO_FALLBACK,
 )
 
 from .config import convert_ui_config_entry_to_internal_format
@@ -136,6 +137,7 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
         roles=my_config.get(ROLES, {}),
         network=my_config.get(NETWORK, {}),
         enable_verbose_debug_mode=my_config.get(VERBOSE_DEBUG_MODE, False),
+        userinfo_fallback=my_config.get(NETWORK_USERINFO_FALLBACK, False),
     )
 
     # Register the views

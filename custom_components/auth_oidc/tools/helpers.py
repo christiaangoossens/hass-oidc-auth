@@ -3,6 +3,9 @@
 from homeassistant.components import http
 from ..views.loader import AsyncTemplateRenderer
 from typing import Optional
+import aiofiles
+from pathlib import Path
+import logging
 
 
 def get_url(path: str, force_https: bool) -> str:
@@ -29,7 +32,7 @@ def compute_allowed_signing_algs(
     discovery: dict,
     id_token_signing_alg: Optional[str],
     verbose_debug_mode: bool,
-    logger,
+    logger: logging.Logger,
 ) -> list[str]:
     """Compute allowed ID token signing algorithms from config and OP discovery document.
 
@@ -42,6 +45,7 @@ def compute_allowed_signing_algs(
         self.id_token_signing_alg (or None; falls
         back to DEFAULT_ID_TOKEN_SIGNING_ALGORITHM="RS256").
         verbose_debug_mode: Enable debug logs.
+        logger: Logger instance (e.g., _LOGGER).
 
     Returns:
         List of allowed algs (e.g., ['RS256', 'ES256']).
@@ -67,3 +71,51 @@ def compute_allowed_signing_algs(
         logger.debug("Allowed ID token signing algorithms: %s", allowed_algs)
 
     return allowed_algs
+
+
+async def capture_auth_flows(
+    log_info: tuple[logging.Logger, int],
+    verbose_debug_mode: bool,
+    capture_dir: Path | None,
+    debug_msg: str,
+    filename: str,
+    content: str,
+    mode: str = "a",
+    header: str = "",
+    is_request: bool = False,
+) -> None:
+    """Helper to log verbose debug messages and optionally capture content to file.
+
+    Reduces repetition in OIDCClient/OIDCDiscoveryClient verbose logging and file captures.
+    Only writes/captures if verbose_debug_mode is True and capture_dir exists.
+
+    Args:
+        log_info: Tuple containing logger instance (e.g., (_LOGGER, 10) is Debug level).
+        verbose_debug_mode: Whether verbose mode is enabled.
+        capture_dir: Directory path for captures (if None, skips file write).
+        debug_msg: Message for _LOGGER.debug().
+        filename: Base filename for capture file (e.g., 'get_discovery.txt').
+        content: Content to write (e.g., JSON string or URL).
+        mode: File write mode ('w' to overwrite, 'a' to append).
+        header: Prepend header comment to content (e.g., discovery endpoint info).
+        is_request: If True, uses 'BEGIN REQUEST' header; else 'BEGIN RESPONSE'.
+    """
+    
+    # Unpack logger and log level
+    logger, log_level = log_info
+    
+    if verbose_debug_mode:
+        logger.log(log_level, debug_msg)
+
+    if verbose_debug_mode and capture_dir:
+        header_str = (
+            f"/*\n----------BEGIN {'REQUEST' if is_request else 'RESPONSE'}----------\n"
+            f"{header}*/\n\n"
+            if header
+            else ""
+        )
+        full_content = header_str + content
+        file_path = capture_dir / filename
+        async with aiofiles.open(file_path, mode=mode, encoding="utf-8") as f:
+            await f.write(full_content)
+        logger.log(log_level, "Check %s capture in: %s for more details...", filename, file_path)

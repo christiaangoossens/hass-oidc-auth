@@ -13,8 +13,7 @@ from joserfc import jwt, jwk, jws, errors as joserfc_errors
 from homeassistant.core import HomeAssistant
 import json
 from pathlib import Path
-import aiofiles
-from .helpers import compute_allowed_signing_algs
+from .helpers import compute_allowed_signing_algs, capture_auth_flows
 
 from .types import UserDetails
 from ..config.const import (
@@ -26,6 +25,7 @@ from ..config.const import (
     ROLE_USERS,
     NETWORK_TLS_VERIFY,
     NETWORK_TLS_CA_PATH,
+    NETWORK_USERINFO_FALLBACK,
     DEFAULT_ID_TOKEN_SIGNING_ALGORITHM,
 )
 from .validation import validate_url
@@ -83,6 +83,10 @@ class OIDCIdTokenSigningAlgorithmInvalid(OIDCTokenResponseInvalid):
     "Raised when the id_token is signed with the wrong algorithm, adjust your config accordingly."
 
 
+class OIDCIdTokenInvalid(OIDCClientException):
+    """Raised when the ID token is invalid, unverifiable, or claims validation fails."""
+
+
 class HTTPClientError(aiohttp.ClientResponseError):
     "Raised when the HTTP client encounters not OK (200) status code."
 
@@ -133,39 +137,33 @@ class OIDCDiscoveryClient:
         capture_dir = getattr(self, "capture_dir", None)
 
         try:
-            if verbose_mode and capture_dir:
-                _LOGGER.debug(
-                    f"Attempting to fetch discovery document from: {self.discovery_url}"
-                )
-                discovery_txt = capture_dir / "get_discovery.txt"
-                async with aiofiles.open(discovery_txt, "w", encoding="utf-8") as f:
-                    await f.write(
-                        "/*\n----------BEGIN DISCOVERY DOCUMENT REQUEST----------\n"
-                        f"Discovery Endpoint URL: {self.discovery_url}\n*/\n\n"
-                    )
-                _LOGGER.debug(
-                    "Check Discovery doc request capture in: %s for more details...",
-                    discovery_txt,
-                )
+            await capture_auth_flows(
+                (_LOGGER, 10), # logger.DEBUG is 10
+                verbose_mode,
+                capture_dir,
+                f"Attempting to fetch discovery document from: {self.discovery_url}",
+                "get_discovery.txt",
+                f"Discovery Endpoint URL: {self.discovery_url}",
+                mode="w",
+                header="",
+                is_request=True,
+            )
 
             async with self.http_session.get(self.discovery_url) as response:
                 await http_raise_for_status(response)
                 response_text = await response.text()
 
-                if verbose_mode and capture_dir:
-                    _LOGGER.debug(
-                        f"Discovery response received: Status {response.status}"
-                    )
-                    async with aiofiles.open(discovery_txt, "a", encoding="utf-8") as f:
-                        await f.write(
-                            "/*\n----------BEGIN DISCOVERY DOCUMENT RESPONSE----------\n"
-                            f"Fetch Discovery Doc Response Status: {response.status}\n*/\n"
-                            f"//Response Body:\n{response_text}\n"
-                        )
-                    _LOGGER.debug(
-                        "Check Discovery doc response capture in: %s for more details...",
-                        discovery_txt,
-                    )
+                await capture_auth_flows(
+                    (_LOGGER, 10),
+                    verbose_mode,
+                    capture_dir,
+                    f"Discovery response received: Status {response.status}",
+                    "get_discovery.txt",
+                    f"Fetch Discovery Doc Response Status: {response.status}\n//Response Body:\n{response_text}",
+                    mode="a",
+                    header="",
+                    is_request=False,
+                )
 
                 return await response.json()
         except HTTPClientError as e:
@@ -184,34 +182,33 @@ class OIDCDiscoveryClient:
         capture_dir = getattr(self, "capture_dir", None)
 
         try:
-            if verbose_mode and capture_dir:
-                _LOGGER.debug(f"Retrieving JWKS keys from endpoint: {jwks_uri}")
-                jwks_txt = capture_dir / "get_jwks.txt"
-                async with aiofiles.open(jwks_txt, "w", encoding="utf-8") as f:
-                    await f.write(
-                        "/*\n----------BEGIN JWKS REQUEST----------\n"
-                        f"JWKS Endpoint URL: {jwks_uri}\n*/\n\n"
-                    )
-                _LOGGER.debug(
-                    "Check JWKS request capture in: %s for more details...", jwks_txt
-                )
+            await capture_auth_flows(
+                (_LOGGER, 10),
+                verbose_mode,
+                capture_dir,
+                f"Retrieving JWKS keys from endpoint: {jwks_uri}",
+                "get_jwks.txt",
+                f"JWKS Endpoint URL: {jwks_uri}",
+                mode="w",
+                header="",
+                is_request=True,
+            )
 
             async with self.http_session.get(jwks_uri) as response:
                 await http_raise_for_status(response)
                 response_text = await response.text()
 
-                if verbose_mode and capture_dir:
-                    _LOGGER.debug(f"JWKS response received: Status {response.status}")
-                    async with aiofiles.open(jwks_txt, "a", encoding="utf-8") as f:
-                        await f.write(
-                            "/*\n----------BEGIN JWKS RESPONSE----------\n"
-                            f"Fetch JWKS Keys Status: {response.status}\n*/\n"
-                            f"//Response Body:\n{response_text}\n"
-                        )
-                    _LOGGER.debug(
-                        "Check JWKS response capture in: %s for more details...",
-                        jwks_txt,
-                    )
+                await capture_auth_flows(
+                    (_LOGGER, 10),
+                    verbose_mode,
+                    capture_dir,
+                    f"JWKS response received: Status {response.status}",
+                    "get_jwks.txt",
+                    f"Fetch JWKS Keys Status: {response.status}\n//Response Body:\n{response_text}",
+                    mode="a",
+                    header="",
+                    is_request=False,
+                )
 
                 return await response.json()
         except HTTPClientError as e:
@@ -251,6 +248,28 @@ class OIDCDiscoveryClient:
                     type="invalid_endpoint",
                     details={"endpoint": endpoint, "url": document[endpoint]},
                 )
+
+        # OpenID Connect Discovery 1.0 §2.1 & Core 1.0 §3.1.3.7.2: Explicitly validate
+        # that the 'issuer' from discovery document exactly matches the discovery URL
+        # (normalized: scheme/host only, lowercase scheme, no path/query/fragment).
+        # Prevents issuer mismatch attacks or misconfigs.
+        def normalize_issuer(issuer_url: str) -> str:
+            """Normalize issuer URL per OIDC §8.1 (scheme/host only, lowercase scheme)."""
+            parsed = urllib.parse.urlparse(issuer_url.rstrip("/"))
+            return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
+
+        expected_issuer = normalize_issuer(self.discovery_url)
+        actual_issuer = normalize_issuer(document["issuer"])
+        if expected_issuer != actual_issuer:
+            _LOGGER.warning(
+                "Error: Discovery issuer mismatch. Expected (normalized): %s, got: %s",
+                expected_issuer,
+                actual_issuer,
+            )
+            raise OIDCDiscoveryInvalid(
+                type="issuer_mismatch",
+                details={"expected": expected_issuer, "actual": actual_issuer},
+            )
 
         # Verify optional response_modes_supported
         if "response_modes_supported" in document:
@@ -383,6 +402,10 @@ class OIDCClient:
         self.hass = hass
         self.discovery_url = discovery_url
         self.discovery_document = None
+        # Instance-level discovery caching with TTL (1h) for efficiency/freshness
+        # Prevents stale data on OP endpoint/JWKS rotations while minimizing fetches.
+        self.discovery_timestamp = None
+        self.discovery_ttl = 3600  # 1 hour
         self.client_id = client_id
         self.scope = scope
 
@@ -407,6 +430,7 @@ class OIDCClient:
         self.admin_role = roles.get(ROLE_ADMINS, "admins")
         self.tls_verify = network.get(NETWORK_TLS_VERIFY, True)
         self.tls_ca_path = network.get(NETWORK_TLS_CA_PATH)
+        self.userinfo_fallback = network.get(NETWORK_USERINFO_FALLBACK, False)
 
         self.verbose_debug_mode = kwargs.get("enable_verbose_debug_mode", False)
         if self.verbose_debug_mode:
@@ -443,8 +467,8 @@ class OIDCClient:
             _LOGGER.debug("Closing HTTP session")
             self.http_session.close()
 
-    def _base64url_encode(self, value: str) -> str:
-        """Uses base64url encoding on a given string"""
+    def _base64url_encode(self, value: bytes) -> str:
+        """Uses base64url encoding on a given byte string"""
         return base64.urlsafe_b64encode(value).rstrip(b"=").decode("utf-8")
 
     def _generate_random_url_string(self, length: int = 16) -> str:
@@ -482,38 +506,33 @@ class OIDCClient:
         try:
             session = await self._get_http_session()
 
-            if self.verbose_debug_mode:
-                _LOGGER.debug(
-                    f"Attempting Token request via Endpoint URL: {token_endpoint}"
-                )
-                token_req_txt = self.capture_dir / "get_token.txt"
-                async with aiofiles.open(token_req_txt, "w", encoding="utf-8") as f:
-                    await f.write(
-                        "/*\n----------BEGIN TOKEN REQUEST----------\n"
-                        f"Token Endpoint URL: {token_endpoint}\n*/\n"
-                        f"//Query Parameters:\n{json.dumps(query_params, indent=2)}\n\n"
-                    )
-                _LOGGER.debug(
-                    "Check Token request capture in: %s for more details...",
-                    token_req_txt,
-                )
+            await capture_auth_flows(
+                (_LOGGER, 10),
+                self.verbose_debug_mode,
+                self.capture_dir,
+                f"Attempting Token request via Endpoint URL: {token_endpoint}",
+                "get_token.txt",
+                f"Token Endpoint URL: {token_endpoint}\n//Query Parameters:\n{json.dumps(query_params, indent=2)}",
+                mode="w",
+                header="",
+                is_request=True,
+            )
 
             async with session.post(token_endpoint, data=query_params) as response:
                 await http_raise_for_status(response)
                 response_text = await response.text()
 
-                if self.verbose_debug_mode:
-                    _LOGGER.debug(f"Token response received: Status {response.status}")
-                    async with aiofiles.open(token_req_txt, "a", encoding="utf-8") as f:
-                        await f.write(
-                            "/*\n----------BEGIN TOKEN RESPONSE----------\n"
-                            f"Fetch Token Status: {response.status}\n*/\n"
-                            f"//Response Body:\n{response_text}\n"
-                        )
-                    _LOGGER.debug(
-                        "Check Token response capture in: %s for more details...",
-                        token_req_txt,
-                    )
+                await capture_auth_flows(
+                    (_LOGGER, 10),
+                    self.verbose_debug_mode,
+                    self.capture_dir,
+                    f"Token response received: Status {response.status}",
+                    "get_token.txt",
+                    f"Fetch Token Status: {response.status}\n//Response Body:\n{response_text}",
+                    mode="a",
+                    header="",
+                    is_request=False,
+                )
 
                 try:
                     parsed_json = json.loads(response_text)
@@ -523,14 +542,17 @@ class OIDCClient:
                         )
                     return parsed_json
                 except json.JSONDecodeError:
-                    if self.verbose_debug_mode:
-                        unhandled_txt = (
-                            self.capture_dir / "unhandled_token_response.txt"
-                        )
-                        async with aiofiles.open(
-                            unhandled_txt, "w", encoding="utf-8"
-                        ) as f:
-                            await f.write(response_text)
+                    await capture_auth_flows(
+                        (_LOGGER, 10), 
+                        self.verbose_debug_mode,
+                        self.capture_dir,
+                        "Unhandled token response (not JSON)",
+                        "unhandled_token_response.txt",
+                        response_text,
+                        mode="w",
+                        header="",
+                        is_request=False,
+                    )
                     _LOGGER.error("Unhandled Exception: Token Response is not json!")
                     raise OIDCTokenResponseInvalid("Token response not JSON")
         except HTTPClientError as e:
@@ -553,38 +575,33 @@ class OIDCClient:
             session = await self._get_http_session()
             headers = {"Authorization": "Bearer " + access_token}
 
-            if self.verbose_debug_mode:
-                _LOGGER.debug(f"Sending request to: {userinfo_uri} to collect Userinfo")
-                userinfo_txt = self.capture_dir / "get_userinfo.txt"
-                async with aiofiles.open(userinfo_txt, "w", encoding="utf-8") as f:
-                    await f.write(
-                        "/*\n----------BEGIN USERINFO REQUEST----------\n"
-                        f"Userinfo URL: {userinfo_uri}\n*/\n"
-                        f"//Request Headers:\n{json.dumps(headers, indent=2)}\n\n"
-                    )
-                _LOGGER.debug(
-                    "Check Userinfo request capture in: %s for more details...",
-                    userinfo_txt,
-                )
+            await capture_auth_flows(
+                (_LOGGER, 10),
+                self.verbose_debug_mode,
+                self.capture_dir,
+                f"Sending request to: {userinfo_uri} to collect Userinfo",
+                "get_userinfo.txt",
+                f"Userinfo URL: {userinfo_uri}\n//Request Headers:\n{json.dumps(headers, indent=2)}",
+                mode="w",
+                header="",
+                is_request=True,
+            )
 
             async with session.get(userinfo_uri, headers=headers) as response:
                 await http_raise_for_status(response)
                 response_text = await response.text()
 
-                if self.verbose_debug_mode:
-                    _LOGGER.debug(
-                        f"Userinfo response received: Status {response.status}"
-                    )
-                    async with aiofiles.open(userinfo_txt, "a", encoding="utf-8") as f:
-                        await f.write(
-                            "/*\n----------BEGIN USERINFO RESPONSE----------\n"
-                            f"Userinfo Response Status: {response.status}\n*/\n"
-                            f"//Response Body:\n{response_text}\n"
-                        )
-                    _LOGGER.debug(
-                        "Check Userinfo response capture in: %s for more details...",
-                        userinfo_txt,
-                    )
+                await capture_auth_flows(
+                    (_LOGGER, 10),
+                    self.verbose_debug_mode,
+                    self.capture_dir,
+                    f"Userinfo response received: Status {response.status}",
+                    "get_userinfo.txt",
+                    f"Userinfo Response Status: {response.status}\n//Response Body:\n{response_text}",
+                    mode="a",
+                    header="",
+                    is_request=False,
+                )
 
                 return json.loads(response_text)
         except HTTPClientError as e:
@@ -592,8 +609,15 @@ class OIDCClient:
             raise OIDCUserinfoInvalid from e
 
     async def _fetch_discovery_document(self):
-        """Fetches discovery document."""
-        if self.discovery_document is not None:
+        """Fetches discovery document if missing or expired (TTL=1h)."""
+        import time  # Local import for TTL check
+
+        now = time.time()
+        if (
+            self.discovery_document is not None
+            and self.discovery_timestamp is not None
+            and (now - self.discovery_timestamp) < self.discovery_ttl
+        ):
             return self.discovery_document
 
         if self.discovery_class is None:
@@ -610,13 +634,14 @@ class OIDCClient:
             self.discovery_class.capture_dir = self.capture_dir
 
         self.discovery_document = await self.discovery_class.fetch_discovery_document()
+        self.discovery_timestamp = now
         return self.discovery_document
 
     async def _fetch_jwks(self, jwks_uri: str):
         """Fetches JWKS."""
         return await self.discovery_class.fetch_jwks(jwks_uri)
 
-    async def _parse_id_token(self, id_token: str) -> Optional[dict]:
+    async def _parse_id_token(self, id_token: str, access_token: Optional[str] = None) -> Optional[dict]:
         """Parses the ID token into a dict containing token contents."""
         if self.discovery_document is None:
             self.discovery_document = await self._fetch_discovery_document()
@@ -673,7 +698,7 @@ class OIDCClient:
                 jwk_obj = jwk.import_key(
                     {
                         "kty": "oct",
-                        "k": self._base64url_encode(self.client_secret),  # RFC 7517 §4.2: base64url without padding
+                        "k": self._base64url_encode(self.client_secret.encode("utf-8")),  # RFC 7517 §4.2: base64url without padding
                         "alg": alg,
                     }
                 )
@@ -782,8 +807,30 @@ class OIDCClient:
 
             id_token_validator.validate(decoded_token.claims)
 
-            # Nonce check (post-decode, per spec §3.1.3.7.11) - assume checked earlier in flow
-            # at_hash omitted for brevity (add if access_token passed)
+            # OpenID Connect Core 1.0 §3.1.3.6: Validate at_hash if access_token present
+            # Binds ID token to access_token (prevents tampering/replay).
+            # at_hash = base64url(SHA256(left half of access_token))[0:hash_len/2]
+            if access_token:  # Pass access_token to method
+                try:
+                    # Compute at_hash (OpenID Connect Core §3.1.3.6)
+                    access_token_bytes = access_token.encode("utf-8")
+                    hashed_access_token = hashlib.sha256(access_token_bytes).digest()
+                    left_half_hash = hashed_access_token[: len(hashed_access_token) // 2]
+                    expected_at_hash = self._base64url_encode(left_half_hash)
+
+                    actual_at_hash = decoded_token.claims.get("at_hash")
+                    if actual_at_hash != expected_at_hash:
+                        _LOGGER.warning(
+                            "ID token at_hash mismatch! Expected: %s, got: %s (access_token tampering?)",
+                            expected_at_hash,
+                            actual_at_hash,
+                        )
+                        return None
+                    if self.verbose_debug_mode:
+                        _LOGGER.debug("at_hash validated successfully")
+                except Exception as e:
+                    _LOGGER.warning("at_hash computation/validation failed: %s", e)
+                    return None  # Fail closed
 
             return decoded_token.claims
 
@@ -828,6 +875,12 @@ class OIDCClient:
             if not self.disable_pkce:
                 query_params["code_challenge"] = code_challenge
                 query_params["code_challenge_method"] = "S256"
+            else:
+                # Warn once per-flow if PKCE disabled (security risk for legacy OPs)
+                _LOGGER.warning(
+                    "PKCE (RFC 7636) disabled via features.disable_rfc7636! "
+                    "Authorization code interception risk increased. Only for legacy OPs."
+                )
 
             url = f"{auth_endpoint}?{urllib.parse.urlencode(query_params)}"
             return url
@@ -841,8 +894,13 @@ class OIDCClient:
         # Fetch userinfo if there is an userinfo_endpoint available
         # and use the data to supply the missing values in id_token
         discovery_document = await self._fetch_discovery_document()
-        if "userinfo_endpoint" in discovery_document:
-            userinfo_endpoint = discovery_document["userinfo_endpoint"]
+        userinfo_endpoint = discovery_document.get("userinfo_endpoint")
+        # Users may attempt fallback userinfo endpoint if OP doesn't advertise it
+        # Commonly /userinfo even if not in discovery document
+        if not userinfo_endpoint and self.userinfo_fallback:
+            userinfo_endpoint = f"{discovery_document['issuer'].rstrip('/')}/userinfo"
+            _LOGGER.info("Using userinfo fallback endpoint: %s", userinfo_endpoint)
+        if userinfo_endpoint:
             userinfo = await self._get_userinfo(userinfo_endpoint, access_token)
 
             # Replace missing claims in the id_token with their userinfo version
@@ -860,6 +918,22 @@ class OIDCClient:
             _LOGGER.warning("Groups claim is not a list, using empty list instead.")
             groups = []
 
+        # Extract case insensitive username and apply email stripping if configured to use 'email' claim.
+        # This converts full email (e.g., 'user@domain.com') to local-part (e.g., 'user') for username only.
+        # 1. Not all OP's support username / preferred_username claim, so email is often used, but
+        # this is not ideal for usernames in HA (even without username linking support **currently**).
+        # 2. Many RPs/OPs provide some level of claim matching / processing to increase flexibility.
+        username_raw = id_token_claims.get(self.username_claim)
+        username = username_raw
+        if (self.username_claim.lower() in ["email", "e-mail"]) and username_raw and "@" in username_raw:
+            username = username_raw.split("@")[0]
+            if self.verbose_debug_mode:
+                _LOGGER.debug(
+                    "Stripped email '%s' to username '%s' (local-part before '@')",
+                    username_raw,
+                    username,
+                )
+
         # Assign role if user has the required groups
         role = "invalid"
         if self.user_role in groups or self.user_role is None:
@@ -869,6 +943,8 @@ class OIDCClient:
             role = "system-admin"
 
         # Create a user details dict based on the contents of the id_token & userinfo
+        # Note: if user username claim is email, will be processed with local var 'username' above
+        # Other claims use originals from id_token_claims/userinfo merge.
         return {
             # Subject Identifier. A locally unique and never reassigned identifier within the
             # Issuer for the End-User, which is intended to be consumed by the Client
@@ -879,8 +955,8 @@ class OIDCClient:
             ).hexdigest(),
             # Display name, configurable
             "display_name": id_token_claims.get(self.display_name_claim),
-            # Username, configurable
-            "username": id_token_claims.get(self.username_claim),
+            # Username, configurable (uses processed 'username' var: email-stripped if applicable
+            "username": username,
             # Role
             "role": role,
         }
@@ -891,10 +967,9 @@ class OIDCClient:
         """Completes the OIDC token flow to obtain a user's details."""
 
         try:
-            if state not in self.flows:
+            flow = self.flows.pop(state, None)
+            if flow is None:
                 raise OIDCStateInvalid
-
-            flow = self.flows[state]
 
             discovery_document = await self._fetch_discovery_document()
             token_endpoint = discovery_document["token_endpoint"]
@@ -920,12 +995,12 @@ class OIDCClient:
                 token_endpoint, query_params
             )
 
-            id_token = token_response.get("id_token")
+            id_token_str = token_response.get("id_token")
+            access_token = token_response.get("access_token")
 
             # Parse the id token to obtain the relevant details
-            id_token = await self._parse_id_token(id_token)
-
-            if id_token is None:
+            id_token_claims = await self._parse_id_token(id_token_str, access_token=access_token)
+            if id_token_claims is None:
                 _LOGGER.warning("ID token could not be parsed!")
                 return None
 
@@ -933,19 +1008,18 @@ class OIDCClient:
             # If a nonce value was sent in the Authentication Request,
             # a nonce Claim MUST be present and its value checked to verify
             # that it is the same value as the one that was sent in the Authentication Request.
-            if id_token.get("nonce") != flow["nonce"]:
+            if id_token_claims.get("nonce") != flow["nonce"]:
                 _LOGGER.warning("Nonce mismatch!")
                 return None
 
-            access_token = token_response.get("access_token")
-            data = await self.parse_user_details(id_token, access_token)
+            data = await self.parse_user_details(id_token_claims, access_token)
 
             # Log which details were obtained for debugging
             # Also log the original subject identifier such that you can look it up in your provider
             _LOGGER.debug(
                 "Obtained user details from OIDC provider: %s (issuer subject: %s)",
                 data,
-                id_token.get("sub"),
+                id_token_claims.get("sub"),
             )
             return data
         except OIDCClientException as e:

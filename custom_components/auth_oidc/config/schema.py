@@ -26,6 +26,7 @@ from .const import (
     NETWORK,
     NETWORK_TLS_VERIFY,
     NETWORK_TLS_CA_PATH,
+    NETWORK_USERINFO_FALLBACK,
     DOMAIN,
     DEFAULT_GROUPS_SCOPE,
     VERBOSE_DEBUG_MODE,
@@ -121,6 +122,9 @@ CONFIG_SCHEMA = vol.Schema(
                         ),
                         # Load custom certificate chain for private CAs
                         vol.Optional(NETWORK_TLS_CA_PATH): vol.Coerce(str),
+                        # Constructed Userinfo endpoint fallback if not provided in discovery
+                        # Some OPs omit this endpoint
+                        vol.Optional(NETWORK_USERINFO_FALLBACK, default=False): vol.Coerce(bool),
                     }
                 ),
             }
