@@ -1,11 +1,13 @@
 """Helper functions for the integration."""
 
-from homeassistant.components import http
-from ..views.loader import AsyncTemplateRenderer
-from typing import Optional
-import aiofiles
-from pathlib import Path
 import logging
+from pathlib import Path
+from typing import Optional
+
+import aiofiles
+from homeassistant.components import http
+
+from ..views.loader import AsyncTemplateRenderer
 
 
 def get_url(path: str, force_https: bool) -> str:
@@ -56,7 +58,10 @@ def compute_allowed_signing_algs(
         allowed_algs = [id_token_signing_alg]
         if id_token_signing_alg not in supported_algs:
             logger.warning(
-                "Configured id_token_signing_alg '%s' not in OP supported algorithms %s. Proceeding anyway.",
+                (
+                "Configured signing algorithm '%s' is not in OP"
+                " supported algorithms: %s. Proceeding anyway."
+                ),
                 id_token_signing_alg,
                 supported_algs,
             )
@@ -64,7 +69,10 @@ def compute_allowed_signing_algs(
         allowed_algs = supported_algs or ["RS256"]
         if not supported_algs:
             logger.info(
-                "No 'id_token_signing_alg_values_supported' in discovery document, defaulting to RS256"
+                (
+                "No signing algorithms supported from OP"
+                " discovery document! Will default to RS256"
+                )
             )
 
     if verbose_debug_mode:
