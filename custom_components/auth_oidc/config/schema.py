@@ -124,7 +124,9 @@ CONFIG_SCHEMA = vol.Schema(
                         vol.Optional(NETWORK_TLS_CA_PATH): vol.Coerce(str),
                         # Constructed Userinfo endpoint fallback if not provided in discovery
                         # Some OPs omit this endpoint
-                        vol.Optional(NETWORK_USERINFO_FALLBACK, default=False): vol.Coerce(bool),
+                        vol.Optional(
+                            NETWORK_USERINFO_FALLBACK, default=False
+                        ): vol.Coerce(bool),
                     }
                 ),
             }

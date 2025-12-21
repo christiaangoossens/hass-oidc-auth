@@ -138,7 +138,7 @@ class OIDCDiscoveryClient:
 
         try:
             await capture_auth_flows(
-                (_LOGGER, 10), # logger.DEBUG is 10
+                (_LOGGER, 10),  # logger.DEBUG is 10
                 verbose_mode,
                 capture_dir,
                 f"Attempting to fetch discovery document from: {self.discovery_url}",
@@ -543,7 +543,7 @@ class OIDCClient:
                     return parsed_json
                 except json.JSONDecodeError:
                     await capture_auth_flows(
-                        (_LOGGER, 10), 
+                        (_LOGGER, 10),
                         self.verbose_debug_mode,
                         self.capture_dir,
                         "Unhandled token response (not JSON)",
@@ -641,7 +641,9 @@ class OIDCClient:
         """Fetches JWKS."""
         return await self.discovery_class.fetch_jwks(jwks_uri)
 
-    async def _parse_id_token(self, id_token: str, access_token: Optional[str] = None) -> Optional[dict]:
+    async def _parse_id_token(
+        self, id_token: str, access_token: Optional[str] = None
+    ) -> Optional[dict]:
         """Parses the ID token into a dict containing token contents."""
         if self.discovery_document is None:
             self.discovery_document = await self._fetch_discovery_document()
@@ -698,7 +700,9 @@ class OIDCClient:
                 jwk_obj = jwk.import_key(
                     {
                         "kty": "oct",
-                        "k": self._base64url_encode(self.client_secret.encode("utf-8")),  # RFC 7517 §4.2: base64url without padding
+                        "k": self._base64url_encode(
+                            self.client_secret.encode("utf-8")
+                        ),  # RFC 7517 §4.2: base64url without padding
                         "alg": alg,
                     }
                 )
@@ -712,19 +716,28 @@ class OIDCClient:
                 kid = unverified_header.get("kid")
                 if not kid:
                     if self.verbose_debug_mode:
-                        _LOGGER.debug("JWT header lacks 'kid'; will try all JWKS candidates")
+                        _LOGGER.debug(
+                            "JWT header lacks 'kid'; will try all JWKS candidates"
+                        )
                     else:
-                        _LOGGER.warning("JWT does not have 'kid' (Key ID); trying all JWKS keys (add 'kid' to provider config for efficiency)")
+                        _LOGGER.warning(
+                            "JWT does not have 'kid' (Key ID); trying all JWKS keys (add 'kid' to provider config for efficiency)"
+                        )
 
                 # Collect candidate keys from JWKS (jwks_data["keys"] is list of dicts)
                 candidates = []
                 if kid:
                     # Priority 1: Exact kid match
-                    matching_kid = next((key for key in jwks_data["keys"] if key.get("kid") == kid), None)
+                    matching_kid = next(
+                        (key for key in jwks_data["keys"] if key.get("kid") == kid),
+                        None,
+                    )
                     if matching_kid:
                         candidates.append(matching_kid)
                         if self.verbose_debug_mode:
-                            _LOGGER.debug("Selected JWKS key by exact 'kid' match: %s", kid)
+                            _LOGGER.debug(
+                                "Selected JWKS key by exact 'kid' match: %s", kid
+                            )
 
                 # Priority 2-3: No kid or no match → add keys matching alg, then all (avoid dupes)
                 for key in jwks_data["keys"]:
@@ -732,14 +745,28 @@ class OIDCClient:
                         if key not in candidates:  # Avoid dupes
                             candidates.append(key)
                             if self.verbose_debug_mode:
-                                _LOGGER.debug("Added JWKS candidate by 'alg' match: %s (kid=%s)", alg, key.get("kid", "none"))
-                    elif (kid is None or key.get("kid") != kid) and key not in candidates:  # Fallback: all non-dupe keys
+                                _LOGGER.debug(
+                                    "Added JWKS candidate by 'alg' match: %s (kid=%s)",
+                                    alg,
+                                    key.get("kid", "none"),
+                                )
+                    elif (
+                        kid is None or key.get("kid") != kid
+                    ) and key not in candidates:  # Fallback: all non-dupe keys
                         candidates.append(key)
                         if self.verbose_debug_mode:
-                            _LOGGER.debug("Added JWKS fallback candidate (kid=%s, alg=%s)", key.get("kid", "none"), key.get("alg", "none"))
+                            _LOGGER.debug(
+                                "Added JWKS fallback candidate (kid=%s, alg=%s)",
+                                key.get("kid", "none"),
+                                key.get("alg", "none"),
+                            )
 
                 if not candidates:
-                    _LOGGER.warning("No candidate keys found in JWKS for alg '%s' (kid='%s')", alg, kid or "none")
+                    _LOGGER.warning(
+                        "No candidate keys found in JWKS for alg '%s' (kid='%s')",
+                        alg,
+                        kid or "none",
+                    )
                     return None
 
                 # Try verification on each candidate until success (RFC 7515 compliant)
@@ -771,20 +798,33 @@ class OIDCClient:
                             "kty": candidate_key.get("kty"),
                         }
                         if self.verbose_debug_mode:
-                            _LOGGER.debug("Signature verified successfully with JWKS key: %s", selected_key_info)
+                            _LOGGER.debug(
+                                "Signature verified successfully with JWKS key: %s",
+                                selected_key_info,
+                            )
                         break  # Success! Proceed
                     except (joserfc_errors.JoseError, jwt.JWTClaimsError) as verify_err:
                         if self.verbose_debug_mode:
-                            _LOGGER.debug("Key candidate failed verification (kid=%s): %s", candidate_key.get("kid", "none"), verify_err)
+                            _LOGGER.debug(
+                                "Key candidate failed verification (kid=%s): %s",
+                                candidate_key.get("kid", "none"),
+                                verify_err,
+                            )
                         continue  # Try next
 
                 if decoded_token is None:
-                    _LOGGER.warning("No JWKS key verified the ID token signature (alg='%s', tried %d candidates; check JWKS rotation/provider config)", alg, len(candidates))
+                    _LOGGER.warning(
+                        "No JWKS key verified the ID token signature (alg='%s', tried %d candidates; check JWKS rotation/provider config)",
+                        alg,
+                        len(candidates),
+                    )
                     return None
 
                 # Log successful key selection
                 if self.verbose_debug_mode:
-                    _LOGGER.debug("Final selected key for verification: %s", selected_key_info)
+                    _LOGGER.debug(
+                        "Final selected key for verification: %s", selected_key_info
+                    )
 
             # Claims validation (post-signature verification)
             # Create Claims Registry for validation (aud/iss/sub/exp/nbf/iat + leeway)
@@ -815,7 +855,9 @@ class OIDCClient:
                     # Compute at_hash (OpenID Connect Core §3.1.3.6)
                     access_token_bytes = access_token.encode("utf-8")
                     hashed_access_token = hashlib.sha256(access_token_bytes).digest()
-                    left_half_hash = hashed_access_token[: len(hashed_access_token) // 2]
+                    left_half_hash = hashed_access_token[
+                        : len(hashed_access_token) // 2
+                    ]
                     expected_at_hash = self._base64url_encode(left_half_hash)
 
                     actual_at_hash = decoded_token.claims.get("at_hash")
@@ -888,7 +930,9 @@ class OIDCClient:
             _LOGGER.warning("Error generating authorization URL: %s", e)
             return None
 
-    async def parse_user_details(self, id_token_claims: dict, access_token: str) -> UserDetails:
+    async def parse_user_details(
+        self, id_token_claims: dict, access_token: str
+    ) -> UserDetails:
         """Parses the ID token and/or userinfo into user details."""
 
         # Fetch userinfo if there is an userinfo_endpoint available
@@ -925,7 +969,11 @@ class OIDCClient:
         # 2. Many RPs/OPs provide some level of claim matching / processing to increase flexibility.
         username_raw = id_token_claims.get(self.username_claim)
         username = username_raw
-        if (self.username_claim.lower() in ["email", "e-mail"]) and username_raw and "@" in username_raw:
+        if (
+            (self.username_claim.lower() in ["email", "e-mail"])
+            and username_raw
+            and "@" in username_raw
+        ):
             username = username_raw.split("@")[0]
             if self.verbose_debug_mode:
                 _LOGGER.debug(
@@ -951,7 +999,9 @@ class OIDCClient:
             # Only unique per issuer, so we combine it with the issuer and hash it.
             # This might allow multiple OIDC providers to be used with this integration.
             "sub": hashlib.sha256(
-                f"{discovery_document['issuer']}.{id_token_claims.get('sub')}".encode("utf-8")
+                f"{discovery_document['issuer']}.{id_token_claims.get('sub')}".encode(
+                    "utf-8"
+                )
             ).hexdigest(),
             # Display name, configurable
             "display_name": id_token_claims.get(self.display_name_claim),
@@ -999,7 +1049,9 @@ class OIDCClient:
             access_token = token_response.get("access_token")
 
             # Parse the id token to obtain the relevant details
-            id_token_claims = await self._parse_id_token(id_token_str, access_token=access_token)
+            id_token_claims = await self._parse_id_token(
+                id_token_str, access_token=access_token
+            )
             if id_token_claims is None:
                 _LOGGER.warning("ID token could not be parsed!")
                 return None

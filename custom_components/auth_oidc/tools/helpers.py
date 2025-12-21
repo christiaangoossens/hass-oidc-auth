@@ -100,10 +100,10 @@ async def capture_auth_flows(
         header: Prepend header comment to content (e.g., discovery endpoint info).
         is_request: If True, uses 'BEGIN REQUEST' header; else 'BEGIN RESPONSE'.
     """
-    
+
     # Unpack logger and log level
     logger, log_level = log_info
-    
+
     if verbose_debug_mode:
         logger.log(log_level, debug_msg)
 
@@ -118,4 +118,9 @@ async def capture_auth_flows(
         file_path = capture_dir / filename
         async with aiofiles.open(file_path, mode=mode, encoding="utf-8") as f:
             await f.write(full_content)
-        logger.log(log_level, "Check %s capture in: %s for more details...", filename, file_path)
+        logger.log(
+            log_level,
+            "Check %s capture in: %s for more details...",
+            filename,
+            file_path,
+        )
