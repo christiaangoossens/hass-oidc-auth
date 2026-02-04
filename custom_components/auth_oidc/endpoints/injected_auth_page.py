@@ -79,7 +79,7 @@ async def frontend_injection(hass: HomeAssistant, sso_name: str) -> None:
                 "/auth/oidc/static/style.css",
                 hass.config.path("custom_components/auth_oidc/static/style.css"),
                 cache_headers=False,
-            )
+            ),
         ]
     )
 
