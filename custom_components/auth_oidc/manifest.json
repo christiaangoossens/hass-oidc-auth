@@ -19,5 +19,5 @@
     "bcrypt",
     "joserfc"
   ],
-  "version": "0.7.0-rc3"
+  "version": "0.7.0-alpha-rc4"
 }
