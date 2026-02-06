@@ -149,4 +149,4 @@ async def test_frontend_injection(hass: HomeAssistant, hass_client):
     text = await resp.text()
 
     assert "<script src='/auth/oidc/static/injection.js" in text
-    assert "window.sso_name = \"OpenID Connect (SSO)\";" in text
+    assert 'window.sso_name = "OpenID Connect (SSO)";' in text

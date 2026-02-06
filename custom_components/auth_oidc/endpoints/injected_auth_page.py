@@ -64,7 +64,9 @@ async def frontend_injection(hass: HomeAssistant, sso_name: str) -> None:
     # Inject JS and register that route
     injection_js = "<script src='/auth/oidc/static/injection.js?v=3'></script>"
     sso_name_js = f"<script>window.sso_name = {json.dumps(sso_name)};</script>"
-    frontend_code = frontend_code.replace("</body>", f"{injection_js}{sso_name_js}</body>")
+    frontend_code = frontend_code.replace(
+        "</body>", f"{injection_js}{sso_name_js}</body>"
+    )
 
     await hass.http.async_register_static_paths(
         [

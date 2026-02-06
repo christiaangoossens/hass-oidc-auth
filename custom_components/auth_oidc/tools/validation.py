@@ -10,7 +10,7 @@ def validate_url(url: str) -> bool:
     try:
         parsed = urlparse(url.strip())
         return bool(parsed.scheme in ("http", "https") and parsed.netloc)
-    except (ValueError, TypeError, AttributeError):
+    except ValueError, TypeError, AttributeError:
         return False
 
 
@@ -23,7 +23,7 @@ def validate_discovery_url(url: str) -> bool:
             and parsed.netloc
             and parsed.path.endswith("/.well-known/openid-configuration")
         )
-    except (ValueError, TypeError, AttributeError):
+    except ValueError, TypeError, AttributeError:
         return False
 
 
