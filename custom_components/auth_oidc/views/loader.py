@@ -54,7 +54,9 @@ class AsyncTemplateRenderer:
         if template_name not in templates:
             raise ValueError(f"Template '{template_name}' not found.")
 
-        env = Environment(loader=DictLoader(templates), enable_async=True)
+        env = Environment(
+            loader=DictLoader(templates), enable_async=True, autoescape=True
+        )
         template = env.get_template(template_name)
 
         # Render template
