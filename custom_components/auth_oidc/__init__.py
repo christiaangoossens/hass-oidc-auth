@@ -41,6 +41,13 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config):
     """Add the OIDC Auth Provider to the providers in Home Assistant"""
+    if DOMAIN not in config:
+        _LOGGER.warning(
+            "Setup was triggered, but no configuration was found. "
+            + "Did you downgrade from 0.7+ without deleting the OIDC UI configuration?"
+        )
+        return False
+
     my_config = config[DOMAIN]
 
     providers = OrderedDict()
