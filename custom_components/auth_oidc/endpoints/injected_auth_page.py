@@ -1,5 +1,6 @@
 """Injected authorization page, replacing the original"""
 
+import json
 import logging
 from functools import partial
 from homeassistant.components.http import HomeAssistantView, StaticPathConfig
@@ -61,12 +62,9 @@ async def frontend_injection(hass: HomeAssistant, sso_name: str) -> None:
     frontend_code = await read_file(frontend_path)
 
     # Inject JS and register that route
-    frontend_code = frontend_code.replace(
-        "</body>",
-        "<script src='/auth/oidc/static/injection.js?v=3'></script><script>window.sso_name = '"
-        + sso_name
-        + "';</script></body>",
-    )
+    injection_js = "<script src='/auth/oidc/static/injection.js?v=3'></script>"
+    sso_name_js = f"<script>window.sso_name = {json.dumps(sso_name)};</script>"
+    frontend_code = frontend_code.replace("</body>", f"{injection_js}{sso_name_js}</body>")
 
     await hass.http.async_register_static_paths(
         [

@@ -15,8 +15,13 @@ async def test_real_template_render():
     """Test that view template can render an real existing template."""
 
     renderer = AsyncTemplateRenderer()
-    rendered = await renderer.render_template("welcome.html")
+    await renderer.fetch_templates()
+    rendered = await renderer.render_template(
+        "welcome.html", name="<script>alert(1)</script>"
+    )
     assert "<!DOCTYPE html>" in rendered
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in rendered
+    assert "<script>alert(1)</script>" not in rendered
 
 
 @pytest.mark.asyncio
