@@ -19,6 +19,7 @@ function showCode() {
 }
 
 let ssoButton = null
+let codeButton = null
 let codeMessage = null
 let codeToggle = null
 let codeToggleText = null
@@ -28,10 +29,18 @@ function update() {
   const loginHeader = document.querySelector(".card-content > ha-auth-flow > form > h1")
   const authForm = document.querySelector("ha-auth-form")
   const codeField = document.querySelector(".mdc-text-field__input[name=code]")
-  const loginButton = document.querySelector("ha-button:not(.sso)")
+  const haButtons = document.querySelectorAll("ha-button:not(.sso)")
   const errorAlert = document.querySelector("ha-auth-form ha-alert[alert-type=error]")
   const loginOptionList = document.querySelector("ha-pick-auth-provider")?.shadowRoot?.querySelector("ha-list")
   const forgotPasswordLink = document.querySelector(".forgot-password")
+
+  // Iterate over haButtons to find one with text "Login with code"
+  let loginButton = null
+  haButtons.forEach(button => {
+    if (button.textContent.trim() === "Log in") {
+      loginButton = button
+    }
+  })
 
   // ====
   // Code input
@@ -68,7 +77,6 @@ function update() {
     }
   
     authForm.style.display = showCode() ? "" : "none"
-    loginButton.style.display = showCode() ? "" : "none"
   }
 
   if (authForm && !codeMessage) {
@@ -80,8 +88,24 @@ function update() {
   if (codeMessage) {
     codeMessage.style.display = showCode() ? "" : "none"
   }
+  
+  if (showCode() && loginButton !== null && !codeButton) {
+    codeButton = document.createElement("ha-button")
+    codeButton.id = "code_button"
+    codeButton.classList.add("code")
+    codeButton.innerText = "Log in with code"
+    codeButton.setAttribute("raised", "")
+    codeButton.style.marginRight = "1em"
 
-  safeSetTextContent(loginButton, codeField ? "Log in with code" : "Log in")
+    // Copy the onclick handler the loginButton
+    codeButton.addEventListener("click", () => {
+      loginButton.click()
+    })
+    loginButton.parentElement.prepend(codeButton)
+  } else if (!showCode() && loginButton !== null &&codeButton) {
+    codeButton.remove()
+    codeButton = null
+  }
 
   // ====
   // Toggle button
@@ -125,7 +149,7 @@ function update() {
   const shouldShowSSOButton = !showCode() && !!codeField
   const isOurScreen = showCode() || shouldShowSSOButton
   
-  if (loginButton && !ssoButton) {
+  if (loginButton !== null && !ssoButton) {
     ssoButton = document.createElement("ha-button")
     ssoButton.id = "sso_button"
     ssoButton.classList.add("sso")
@@ -150,10 +174,16 @@ function update() {
     if (isOurScreen) {
       // Hide the header on our screens
       loginHeader.style.display = "none"
+      if (loginButton !== null) {
+        loginButton.style.display = "none"
+      }
       forgotPasswordLink.style.display = "none"
     } else {
       // Show the header on the login screen
       loginHeader.style.display = ""
+      if (loginButton !== null) {
+        loginButton.style.display = ""
+      }
       forgotPasswordLink.style.display = ""
     }
   }
