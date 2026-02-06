@@ -9,7 +9,7 @@
     "auth",
     "http"
   ],
-  "documentation": "https://github.com/christiaangoossens/hass-oidc-auth/blob/v0.6.3-alpha/docs/configuration.md",
+  "documentation": "https://github.com/christiaangoossens/hass-oidc-auth/blob/v0.6.4-alpha/docs/configuration.md",
   "integration_type": "service",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/christiaangoossens/hass-oidc-auth/issues",
@@ -19,5 +19,5 @@
     "bcrypt",
     "joserfc"
   ],
-  "version": "0.6.3"
+  "version": "0.6.4"
 }

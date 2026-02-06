@@ -1,6 +1,6 @@
 [project]
 name = "hass-oidc-auth"
-version = "0.6.3"
+version = "0.6.4"
 description = "OIDC component for Home Assistant"
 authors = [
     { name = "Christiaan Goossens", email = "contact@christiaangoossens.nl" }
@@ -9,15 +9,15 @@ license = "MIT"
 dependencies = [
     "aiofiles~=25.1",
     "jinja2~=3.1",
-    "bcrypt~=4.2",
-    "joserfc~=1.4.0",
+    "bcrypt~=5.0",
+    "joserfc~=1.6.0",
 ]
 readme = "README.md"
-requires-python = "~=3.13.7"
+requires-python = "~=3.14.2"
 
 [dependency-groups]
 dev = [
-    "homeassistant~=2025.10",
+    "homeassistant~=2026.1",
     "pylint~=4.0",
     "ruff~=0.12",
 ]
@@ -34,3 +34,6 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["custom_components/auth_oidc"]
+
+[tool.ruff]
+target-version = "py313"
