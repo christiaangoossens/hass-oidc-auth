@@ -24,11 +24,14 @@ class OIDCRedirectView(HomeAssistantView):
     async def get(self, _: web.Request) -> web.Response:
         """Receive response."""
 
-        redirect_uri = get_url("/auth/oidc/callback", self.force_https)
-        auth_url = await self.oidc_client.async_get_authorization_url(redirect_uri)
+        try:
+            redirect_uri = get_url("/auth/oidc/callback", self.force_https)
+            auth_url = await self.oidc_client.async_get_authorization_url(redirect_uri)
 
-        if auth_url:
-            return web.HTTPFound(auth_url)
+            if auth_url:
+                raise web.HTTPFound(auth_url)
+        except RuntimeError:
+            pass
 
         view_html = await get_view(
             "error",
