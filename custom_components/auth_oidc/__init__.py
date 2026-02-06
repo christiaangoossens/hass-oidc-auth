@@ -4,6 +4,7 @@ import logging
 from typing import OrderedDict
 
 from homeassistant.core import HomeAssistant
+from homeassistant.components.http import StaticPathConfig
 
 # Import and re-export config schema explictly
 # pylint: disable=useless-import-alias
@@ -105,6 +106,16 @@ async def async_setup(hass: HomeAssistant, config):
     hass.http.register_view(OIDCRedirectView(oidc_client, force_https))
     hass.http.register_view(OIDCCallbackView(oidc_client, provider, force_https))
     hass.http.register_view(OIDCFinishView())
+
+    await hass.http.async_register_static_paths(
+        [
+            StaticPathConfig(
+                "/auth/oidc/static/style.css",
+                hass.config.path("custom_components/auth_oidc/static/style.css"),
+                cache_headers=False,
+            ),
+        ]
+    )
 
     _LOGGER.info("Registered OIDC views")
 
