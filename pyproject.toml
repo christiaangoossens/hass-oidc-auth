@@ -43,3 +43,6 @@ packages = ["custom_components/auth_oidc"]
 asyncio_mode = "auto"
 addopts = "--cov=custom_components --cov-fail-under=0"
 log_level = "DEBUG"
+
+[tool.ruff]
+target-version = "py313"
