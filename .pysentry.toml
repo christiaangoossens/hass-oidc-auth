@@ -1,0 +1,50 @@
+version = 1
+
+[defaults]
+format = "human"
+severity = "low"
+fail_on = "medium"
+scope = "all"
+direct_only = false
+detailed = false
+include_withdrawn = false
+no_ci_detect = false
+
+[sources]
+enabled = [
+    "pypa",
+    "pypi",
+    "osv",
+]
+
+[resolver]
+type = "uv"
+
+[cache]
+enabled = true
+resolution_ttl = 24
+vulnerability_ttl = 48
+
+[ignore]
+ids = []
+while_no_fix = []
+
+[http]
+timeout = 120
+connect_timeout = 30
+max_retries = 3
+retry_initial_backoff = 1
+retry_max_backoff = 60
+show_progress = true
+
+[maintenance]
+enabled = true
+forbid_archived = false
+forbid_deprecated = false
+forbid_quarantined = false
+forbid_unmaintained = false
+check_direct_only = false
+cache_ttl = 1
+
+[notifications]
+enabled = true
