@@ -1,7 +1,6 @@
 """Code Store, stores the codes and their associated authenticated user temporarily."""
 
-import random
-import string
+import secrets
 
 from datetime import datetime, timedelta, timezone
 from typing import cast, Optional
@@ -37,8 +36,8 @@ class CodeStore:
             await self._store.async_save(self._data)
 
     def _generate_code(self) -> str:
-        """Generate a random six-digit code."""
-        return "".join(random.choices(string.digits, k=6))
+        """Generate a secure URL-safe code for temporary handoff."""
+        return secrets.token_urlsafe(16)
 
     async def async_generate_code_for_userinfo(self, user_info: UserDetails) -> str:
         """Generates a one time code and adds it to the database for 5 minutes."""
