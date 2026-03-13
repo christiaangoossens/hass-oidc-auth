@@ -213,7 +213,7 @@ async def test_options_flow_success(hass: HomeAssistant):
         options={},
         pref_disable_new_entities=False,
         pref_disable_polling=False,
-        discovery_keys=None,
+        discovery_keys=[],
         subentries_data=None,
     )
 
@@ -311,7 +311,7 @@ async def test_reconfigure_flow_success(hass: HomeAssistant):
         options={},
         pref_disable_new_entities=False,
         pref_disable_polling=False,
-        discovery_keys=None,
+        discovery_keys=[],
         subentries_data=None,
     )
 
