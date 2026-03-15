@@ -22,6 +22,7 @@ Here are some documentation links for specific providers that you may want to fo
 * [Pocket ID](./provider-configurations/pocket-id.md)
 * [Kanidm](./provider-configurations/kanidm.md)
 * [Microsoft Entra ID](./provider-configurations/microsoft-entra.md)
+* [Zitadel](./provider-configurations/zitadel.md)
 
 _Missing a provider? Submit your guide using a PR._
 
