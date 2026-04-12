@@ -28,7 +28,10 @@ function update() {
   const sso_name = window.sso_name || "Single Sign-On"
   const loginHeader = document.querySelector(".card-content > ha-auth-flow > form > h1")
   const authForm = document.querySelector("ha-auth-form")
+  // Support both old MDC text field (HA < 2026.4) and new ha-input web component (HA >= 2026.4)
   const codeField = document.querySelector(".mdc-text-field__input[name=code]")
+    || document.querySelector("ha-auth-form ha-input[type=text]")
+    || document.querySelector("ha-auth-form ha-auth-form-string ha-input")
   const haButtons = document.querySelectorAll("ha-button:not(.sso)")
   const errorAlert = document.querySelector("ha-auth-form ha-alert[alert-type=error]")
   const loginOptionList = document.querySelector("ha-pick-auth-provider")?.shadowRoot?.querySelector("ha-list")
@@ -45,7 +48,10 @@ function update() {
   // ====
   // Code input
   if (codeField) {
-    if (codeField.placeholder !== "One-time code") {
+    // Only manipulate placeholder/autofocus on old-style native <input> elements (MDC).
+    // New ha-input web components don't expose these properties directly.
+    const isNativeInput = codeField.tagName === 'INPUT'
+    if (isNativeInput && codeField.placeholder !== "One-time code") {
       codeField.placeholder = "One-time code"
       codeField.autofocus = false
       codeField.autocomplete = "off"
