@@ -506,30 +506,30 @@ wheels = [
 
 [[package]]
 name = "boto3"
-version = "1.42.87"
+version = "1.42.88"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "botocore" },
     { name = "jmespath" },
     { name = "s3transfer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cb/f6/3f908a1313a8c8d5bf19f0cae3c372dd757569d75e8e3eee4c57fcd4e286/boto3-1.42.87.tar.gz", hash = "sha256:b5b86a826f8f12c7d38679f35bd0135807a6867a21eb8be6dea7c27aeb14ec14", size = 112793, upload-time = "2026-04-09T19:39:50.194Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/da/bb/7d4435cca6fccf235dd40c891c731bcb9078e815917b57ebadd1e0ffabaf/boto3-1.42.88.tar.gz", hash = "sha256:2d22c70de5726918676a06f1a03acfb4d5d9ea92fc759354800b67b22aaeef19", size = 113238, upload-time = "2026-04-10T19:41:06.912Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3b/52/69ebde82ce8b47cdee52b2450b2cbf1b3b107e192a3223bf88a567373d85/boto3-1.42.87-py3-none-any.whl", hash = "sha256:15cc1404b3ccbcfe17bd5834d467b1b28d53d9aca44e3798dc44876ac57362e6", size = 140557, upload-time = "2026-04-09T19:39:47.669Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/2b/8bfddb39a19f5fbc16a869f1a394771e6223f07160dbc0ff6b38e05ea0ae/boto3-1.42.88-py3-none-any.whl", hash = "sha256:2d0f52c971503377e4370d2a83edee6f077ddb8e684366ff38df4f13581d9cfc", size = 140557, upload-time = "2026-04-10T19:41:05.309Z" },
 ]
 
 [[package]]
 name = "botocore"
-version = "1.42.87"
+version = "1.42.88"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jmespath" },
     { name = "python-dateutil" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/96/59/606c6cb6d42bf8ca3f422c6345401134e56d671385dc2b80fb4b09c51e67/botocore-1.42.87.tar.gz", hash = "sha256:1c6cc9555c1feec50b290a42de70ba6f04826c009562c2c12bb9990d0258482d", size = 15193113, upload-time = "2026-04-09T19:39:37.492Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/93/50/87966238f7aa3f7e5f87081185d5a407a95ede8b551e11bbe134ca3306dc/botocore-1.42.88.tar.gz", hash = "sha256:cbb59ee464662039b0c2c95a520cdf85b1e8ce00b72375ab9cd9f842cc001301", size = 15195331, upload-time = "2026-04-10T19:40:57.012Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ec/1f/94e1b020fd87b52f092fdd111d9800f2411dc113a0957d0d85b7d2c7f247/botocore-1.42.87-py3-none-any.whl", hash = "sha256:32832df27c039cc1a518289afe0f6006296d3df26603b5f66e911457e67f0146", size = 14871982, upload-time = "2026-04-09T19:39:32.847Z" },
+    { url = "https://files.pythonhosted.org/packages/2a/46/ad14e41245adb8b0c83663ba13e822b68a0df08999dd250e75b0750fdf6c/botocore-1.42.88-py3-none-any.whl", hash = "sha256:032375b213305b6b81eedb269eaeefdf96f674620799bbf96117dca86052cc1a", size = 14876640, upload-time = "2026-04-10T19:40:53.663Z" },
 ]
 
 [[package]]
@@ -1008,7 +1008,7 @@ wheels = [
 
 [[package]]
 name = "homeassistant"
-version = "2026.4.1"
+version = "2026.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiodns" },
@@ -1062,9 +1062,9 @@ dependencies = [
     { name = "yarl" },
     { name = "zeroconf" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/79/ae/7263c0ba555e8be33f3bd275e67359d880742ee1b079013ad507d9fa6cfb/homeassistant-2026.4.1.tar.gz", hash = "sha256:e671216d7159a78bbccd3c34d1f7765b73c169f3e1ca73f3a6617a0e3f86ecca", size = 32296399, upload-time = "2026-04-03T21:15:26.509Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bf/47/031d06d33af9545e68f33b808dedd823ba98e06e40ce59f77d804df177b4/homeassistant-2026.4.2.tar.gz", hash = "sha256:791770614fc3e008c66c87cd6ee9815017dbb2bfcfd22d64d0a45a0b9fb58df8", size = 32357303, upload-time = "2026-04-11T18:56:55.596Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/27/58/d28deeda60e0b1f34ba98f6216e929bac515530ab8d9d7a8214394358b68/homeassistant-2026.4.1-py3-none-any.whl", hash = "sha256:135957c636cecf71420a0161b101ad3c26ddfdbc5c44dcb5c7bb34278e630339", size = 53436377, upload-time = "2026-04-03T21:15:20.827Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/e5/b29b6d65baf0012a008359f50b25bf15e0cfaed49088371115da052456cf/homeassistant-2026.4.2-py3-none-any.whl", hash = "sha256:7ecd6e5de22515596eee05ba69c6147a4c95ba846b2b5440b87f926c45e9ebd9", size = 53530765, upload-time = "2026-04-11T18:56:49.946Z" },
 ]
 
 [[package]]
@@ -1867,7 +1867,7 @@ wheels = [
 
 [[package]]
 name = "pytest-homeassistant-custom-component"
-version = "0.13.322"
+version = "0.13.323"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohasupervisor" },
@@ -1898,9 +1898,9 @@ dependencies = [
     { name = "syrupy" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c0/68/829a0b0974af0a5afef74b8a3ee6a90d3c0b5dc3e8cb383c88d533959f60/pytest_homeassistant_custom_component-0.13.322.tar.gz", hash = "sha256:b316fb98ad45ab7854cc9509e03936dc206b0b232980f390879de3c7cc4a48ef", size = 69939, upload-time = "2026-04-04T05:29:25.77Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5a/a7/ee5fe414ba6ada3ebf27852082e5c42acdd4bf7c7340787583c7118ddf11/pytest_homeassistant_custom_component-0.13.323.tar.gz", hash = "sha256:ff0cdbfd39c26afdf021363f1a600367a29e96ff3d0ee68f5fba8cab9afeb0b6", size = 69948, upload-time = "2026-04-12T05:41:56.511Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/a3/319939ad1b925d65367fb9ca7a0e184ff717acc74da224c69b3f0e7d294c/pytest_homeassistant_custom_component-0.13.322-py3-none-any.whl", hash = "sha256:9163e7713759547e1c28da0f36f3a2fff998c7a5c5cfdd12f6c9c250942eec96", size = 75780, upload-time = "2026-04-04T05:29:24.304Z" },
+    { url = "https://files.pythonhosted.org/packages/1b/55/798e8f648cd7efeb723aabf0fee33f620522459eba229496709952bb6c21/pytest_homeassistant_custom_component-0.13.323-py3-none-any.whl", hash = "sha256:0061c442358dc0ff94a5e027b07c8f47a14817f4c708343d67f1690784ea2f94", size = 75787, upload-time = "2026-04-12T05:41:55.202Z" },
 ]
 
 [[package]]
@@ -2141,15 +2141,15 @@ wheels = [
 
 [[package]]
 name = "securetar"
-version = "2026.2.0"
+version = "2026.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
     { name = "pynacl" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6c/6c/0123a2a3b5eabb8980026ddd41eaa161a2477914292d87b3539a2ace85b3/securetar-2026.2.0.tar.gz", hash = "sha256:39ae0fff9f70080c967ae7980924abf1081c7f4a6e26b1a2737b68f7671a6ac6", size = 26907, upload-time = "2026-02-17T06:55:24.906Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cb/25/138e19209d8f04765e6e51f94997d7e1141448103bae8ba30af98a755595/securetar-2026.4.0.tar.gz", hash = "sha256:d6e8d8c747655ac4564543f35f7fc70a2ebc7426f23c77f16238e7cb763691e8", size = 28254, upload-time = "2026-04-07T13:25:20.925Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/58/0a/379b414a89932000ab10fa5da5eec4c1fbcc3e220fe8482dda8ced1da1d8/securetar-2026.2.0-py3-none-any.whl", hash = "sha256:34a41efa40be1eafaef02278b73f0cfb40599fb1b2cdc8b91b9e154579edfefb", size = 18645, upload-time = "2026-02-17T06:55:23.61Z" },
+    { url = "https://files.pythonhosted.org/packages/26/16/47a417d1264ad238191185ddd1a1d6585c6f33462e60408be09aee74147b/securetar-2026.4.0-py3-none-any.whl", hash = "sha256:72e09a864282ec96b05b5a61cc4febca7a1a7978b4083687369b6eb4835abe27", size = 19176, upload-time = "2026-04-07T13:25:19.803Z" },
 ]
 
 [[package]]
