@@ -1,10 +1,7 @@
 """Tests for the registered webpages"""
 
 import os
-from auth_oidc.config.const import (
-    DISCOVERY_URL,
-    CLIENT_ID
-)
+from auth_oidc.config.const import DISCOVERY_URL, CLIENT_ID
 import pytest
 
 from homeassistant.core import HomeAssistant
@@ -74,6 +71,7 @@ async def test_finish_registration(hass: HomeAssistant, hass_client):
     text = await resp.text()
 
     assert "Missing state cookie" in text
+
 
 @pytest.mark.asyncio
 async def test_finish_post(hass: HomeAssistant, hass_client):

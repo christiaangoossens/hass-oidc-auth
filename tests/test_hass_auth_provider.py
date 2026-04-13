@@ -72,7 +72,9 @@ async def get_login_state(hass: HomeAssistant, hass_client):
     client = await hass_client()
 
     redirect_uri = FAKE_REDIR_URL
-    encoded_redirect_uri = base64.b64encode(redirect_uri.encode("utf-8")).decode("utf-8")
+    encoded_redirect_uri = base64.b64encode(redirect_uri.encode("utf-8")).decode(
+        "utf-8"
+    )
     resp = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded_redirect_uri}",
         allow_redirects=False,

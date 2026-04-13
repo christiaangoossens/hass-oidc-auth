@@ -23,7 +23,9 @@ async def test_state_store_generate_and_receive_state(hass: HomeAssistant):
         redirect_uri = "https://example.com/callback"
         state_id = await state_store.async_create_state_from_url(redirect_uri)
         assert state_id in state_store.get_data()
-        assert await state_store.async_get_redirect_uri_for_state(state_id) == redirect_uri
+        assert (
+            await state_store.async_get_redirect_uri_for_state(state_id) == redirect_uri
+        )
 
         user_info = {
             "sub": "user1",
@@ -31,7 +33,9 @@ async def test_state_store_generate_and_receive_state(hass: HomeAssistant):
             "username": "testuser",
             "role": "system-users",
         }
-        assert await state_store.async_add_userinfo_to_state(state_id, user_info) is True
+        assert (
+            await state_store.async_add_userinfo_to_state(state_id, user_info) is True
+        )
         assert state_id in state_store.get_data()
         assert await state_store.async_is_state_ready(state_id) is True
         assert state_id in state_store.get_data()
@@ -51,8 +55,12 @@ async def test_state_store_generate_code_and_link_state(hass: HomeAssistant):
         store_mock.async_load.return_value = {}
         await state_store.async_load()
 
-        donor_state = await state_store.async_create_state_from_url("https://example.com/donor")
-        target_state = await state_store.async_create_state_from_url("https://example.com/target")
+        donor_state = await state_store.async_create_state_from_url(
+            "https://example.com/donor"
+        )
+        target_state = await state_store.async_create_state_from_url(
+            "https://example.com/target"
+        )
 
         code = await state_store.async_generate_code_for_state(target_state)
         assert code is not None
@@ -65,14 +73,20 @@ async def test_state_store_generate_code_and_link_state(hass: HomeAssistant):
             "username": "deviceuser",
             "role": "system-admin",
         }
-        assert await state_store.async_add_userinfo_to_state(donor_state, user_info) is True
+        assert (
+            await state_store.async_add_userinfo_to_state(donor_state, user_info)
+            is True
+        )
         assert donor_state in state_store.get_data()
 
         assert await state_store.async_link_state_to_code(donor_state, code) is True
         assert donor_state not in state_store.get_data()
         assert await state_store.async_is_state_ready(target_state) is True
         assert target_state in state_store.get_data()
-        assert await state_store.async_receive_userinfo_for_state(target_state) == user_info
+        assert (
+            await state_store.async_receive_userinfo_for_state(target_state)
+            == user_info
+        )
         assert target_state not in state_store.get_data()
 
 
@@ -86,8 +100,12 @@ async def test_state_store_link_state_returns_false_for_wrong_code(hass: HomeAss
         store_mock.async_load.return_value = {}
         await state_store.async_load()
 
-        donor_state = await state_store.async_create_state_from_url("https://example.com/donor")
-        target_state = await state_store.async_create_state_from_url("https://example.com/target")
+        donor_state = await state_store.async_create_state_from_url(
+            "https://example.com/donor"
+        )
+        target_state = await state_store.async_create_state_from_url(
+            "https://example.com/target"
+        )
         await state_store.async_generate_code_for_state(target_state)
 
         user_info = {
@@ -96,9 +114,14 @@ async def test_state_store_link_state_returns_false_for_wrong_code(hass: HomeAss
             "username": "wrongcode",
             "role": "system-users",
         }
-        assert await state_store.async_add_userinfo_to_state(donor_state, user_info) is True
+        assert (
+            await state_store.async_add_userinfo_to_state(donor_state, user_info)
+            is True
+        )
 
-        assert await state_store.async_link_state_to_code(donor_state, "000000") is False
+        assert (
+            await state_store.async_link_state_to_code(donor_state, "000000") is False
+        )
         assert donor_state in state_store.get_data()
         assert await state_store.async_is_state_ready(target_state) is False
 
@@ -113,7 +136,9 @@ async def test_state_store_expired_state(hass: HomeAssistant):
         store_mock.async_load.return_value = {}
         await state_store.async_load()
 
-        state_id = await state_store.async_create_state_from_url("https://example.com/expired")
+        state_id = await state_store.async_create_state_from_url(
+            "https://example.com/expired"
+        )
         state_store.get_data()[state_id]["expiration"] = (
             datetime.now(timezone.utc) - timedelta(minutes=10)
         ).isoformat()
@@ -153,6 +178,7 @@ async def test_state_store_data_not_loaded(hass: HomeAssistant):
         with pytest.raises(RuntimeError):
             await state_store.async_receive_userinfo_for_state("state")
 
+
 @pytest.mark.asyncio
 async def test_state_store_missing_keys(hass: HomeAssistant):
     """Test that missing keys raise correct responses."""
@@ -172,4 +198,7 @@ async def test_state_store_missing_keys(hass: HomeAssistant):
             "username": "missingkeys",
             "role": "system-users",
         }
-        assert await state_store.async_add_userinfo_to_state("nonexistent", user_info) is False
+        assert (
+            await state_store.async_add_userinfo_to_state("nonexistent", user_info)
+            is False
+        )

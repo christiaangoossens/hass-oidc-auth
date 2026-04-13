@@ -103,7 +103,7 @@ async def test_full_oidc_flow(hass: HomeAssistant, hass_client):
         resp = await client.get(
             f"/auth/oidc/callback?code={code}&state={state}", allow_redirects=False
         )
-    
+
         assert resp.status == 302
         assert resp.headers["Location"].endswith("/auth/oidc/finish")
 
@@ -119,9 +119,9 @@ async def discovery_test_through_redirect(
     """Test that discovery document retrieval fails gracefully through redirect endpoint."""
     with mock_oidc_responses(scenario):
         client = await hass_client()
-        encoded_redirect_uri = base64.b64encode(
-            FAKE_REDIR_URL.encode("utf-8")
-        ).decode("utf-8")
+        encoded_redirect_uri = base64.b64encode(FAKE_REDIR_URL.encode("utf-8")).decode(
+            "utf-8"
+        )
 
         await client.get(
             f"/auth/oidc/welcome?redirect_uri={encoded_redirect_uri}",
