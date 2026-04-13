@@ -12,27 +12,67 @@
                 dashboard</a></p>
     </div>
 
-    <div>
-        <button id="oidc-login-btn" class="
-                w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 
-                focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75
-                hover:cursor-pointer
-            ">
-            Login with {{ name }}
-        </button>
-    </div>
+    {% if code %}
+        <div>
+            <p>Please login to Home Assistant on another device and enter this code when asked:</p>
+            <div class="mt-4 text-3xl tracking-wide font-bold bg-gray-100 border border-gray-300 rounded-lg py-4 px-6 inline-block">
+                {{ code }}
+            </div>
+            <p class="mt-4 text-sm text-gray-600">
+                The login will continue automatically when you complete the login on your other device. Please keep the app open.
+            </p>
+            <p class="mt-6 text-sm text-gray-600 font-semibold">
+                Why can't I login directly in the app?
+            </p>
+            <p class="mt-2 text-sm text-gray-600">
+                The Home Assistant mobile app login screen does not support autofilling credentials, biometric, security keys and certificates. 
+                Additionally, it doesn't support many features modern websites need, which may prevent the login screens from rendering correctly.
+            </p>
+        </div>
+        <script>
+            const source = new EventSource('/auth/oidc/device-sse');
+
+            source.addEventListener('ready', function () {
+                source.close();
+
+                // Perform a POST request to the finish endpoint to complete the login.
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/auth/oidc/finish';
+                document.body.appendChild(form);
+                form.submit();
+            });
+
+            source.addEventListener('error', function () {
+                source.close();
+            });
+        </script>
+    {% else %}
+        <div>
+            <button id="oidc-login-btn" class="
+                    w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 
+                    focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75
+                    hover:cursor-pointer
+                ">
+                Login with {{ name }}
+            </button>
+        </div>
+    {% endif %}
 
     {% if other_link %}
-    <p class=" mt-4 text-sm text-center">
-        <a href="{{ other_link }}" class="text-gray-600 hover:underline">Use alternative sign-in method</a>
-    </p>
+        <p class=" mt-4 text-sm text-center">
+            <a href="{{ other_link }}" class="text-gray-600 hover:underline">Use alternative sign-in method</a>
+        </p>
     {% endif %}
 </div>
 <script>
     // Hide the login button and show the loader when clicked
-    document.getElementById('oidc-login-btn').addEventListener('click', function () {
-        window.location.href = '/auth/oidc/redirect';
-    });
+    const loginBtn = document.getElementById('oidc-login-btn');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', function () {
+            window.location.href = '/auth/oidc/redirect';
+        });
+    }
 
     // Show the direct login button if we already have a token
     if (localStorage.getItem('hassTokens')) {

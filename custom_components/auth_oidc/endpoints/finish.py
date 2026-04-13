@@ -15,7 +15,6 @@ class OIDCFinishView(HomeAssistantView):
     url = PATH
     name = "auth:oidc:finish"
 
-
     def __init__(
         self,
         oidc_provider: OpenIDAuthProvider,
@@ -51,9 +50,11 @@ class OIDCFinishView(HomeAssistantView):
                 },
             )
             return web.Response(text=view_html, content_type="text/html")
-        
+
         # Get redirect_uri from the state
-        redirect_uri = await self.oidc_provider.async_get_redirect_uri_for_state(state_id)
+        redirect_uri = await self.oidc_provider.async_get_redirect_uri_for_state(
+            state_id
+        )
 
         if not redirect_uri:
             view_html = await get_view(
@@ -76,18 +77,27 @@ class OIDCFinishView(HomeAssistantView):
                 separator = "&"
 
             # Redirect to this new URL for login
-            new_url = redirect_uri + separator + "storeToken=true&skip_oidc_redirect=true"
-            raise web.HTTPFound(
-                location=new_url
+            new_url = (
+                redirect_uri + separator + "storeToken=true&skip_oidc_redirect=true"
             )
-        
+            raise web.HTTPFound(location=new_url)
+
         # Check if we can link this device
-        view_html = await get_view(
+        linked = await self.oidc_provider.async_link_state_to_code(
+            state_id, device_code
+        )
+
+        if not linked:
+            view_html = await get_view(
                 "error",
                 {
-                    "error": "Not currently supported.",
+                    "error": "Failed to link state to device code, please restart login.",
                 },
             )
-        return web.Response(text=view_html, content_type="text/html")
-            
+            return web.Response(text=view_html, content_type="text/html")
 
+        view_html = await get_view(
+            "device_success",
+            {},
+        )
+        return web.Response(text=view_html, content_type="text/html")

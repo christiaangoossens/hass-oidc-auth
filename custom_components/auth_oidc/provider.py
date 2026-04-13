@@ -113,7 +113,7 @@ class OpenIDAuthProvider(AuthProvider):
 
         return await self._state_store.async_create_state_from_url(redirect_uri)
     
-    async def async_generate_device_code(self, state_id: str) -> str:
+    async def async_generate_device_code(self, state_id: str) -> Optional[str]:
         """Generate a device code for the state, used for device login."""
         if self._state_store is None:
             await self.async_initialize()
@@ -121,13 +121,13 @@ class OpenIDAuthProvider(AuthProvider):
 
         return await self._state_store.async_generate_code_for_state(state_id)
 
-    async def async_save_user_info(self, state_id: str, user_info: dict[str, dict | str]) -> None:
+    async def async_save_user_info(self, state_id: str, user_info: dict[str, dict | str]) -> bool:
         """Save user info to the given state."""
         if self._state_store is None:
             await self.async_initialize()
             assert self._state_store is not None
 
-        await self._state_store.async_add_userinfo_to_state(state_id, user_info)
+        return await self._state_store.async_add_userinfo_to_state(state_id, user_info)
 
     async def async_get_redirect_uri_for_state(self, state_id: str) -> Optional[str]:
         """Get the redirect_uri for the given state."""
@@ -136,6 +136,22 @@ class OpenIDAuthProvider(AuthProvider):
             assert self._state_store is not None
 
         return await self._state_store.async_get_redirect_uri_for_state(state_id)
+    
+    async def async_is_state_ready(self, state_id: str) -> bool:
+        """Check if the state has received the user info from the OIDC callback."""
+        if self._state_store is None:
+            await self.async_initialize()
+            assert self._state_store is not None
+
+        return await self._state_store.async_is_state_ready(state_id)
+    
+    async def async_link_state_to_code(self, state_id: str, code: str) -> bool:
+        """Link two states together by copying the user info from one to the other."""
+        if self._state_store is None:
+            await self.async_initialize()
+            assert self._state_store is not None
+
+        return await self._state_store.async_link_state_to_code(state_id, code)
     
     async def async_get_subject(self, state_id: str) -> Optional[str]:
         """Retrieve user from the state_id, return subject and save meta

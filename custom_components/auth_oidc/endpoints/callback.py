@@ -90,5 +90,15 @@ class OIDCCallbackView(HomeAssistantView):
             return web.Response(text=view_html, content_type="text/html")
 
         # Finalize on the state
-        await self.oidc_provider.async_save_user_info(state_id, user_details)
+        success = await self.oidc_provider.async_save_user_info(state_id, user_details)
+        if not success:
+            view_html = await get_view(
+                "error",
+                {
+                    "error": "Failed to save user information, "
+                    + "session probably expired. Please sign in again.",
+                },
+            )
+            return web.Response(text=view_html, content_type="text/html")
+
         raise web.HTTPFound(get_url("/auth/oidc/finish", self.force_https))

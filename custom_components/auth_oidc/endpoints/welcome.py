@@ -1,6 +1,7 @@
 """Welcome route to show the user the OIDC login button and give instructions."""
 
 import base64
+import binascii
 from urllib.parse import urlparse, parse_qs, unquote
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
@@ -29,8 +30,8 @@ class OIDCWelcomeView(HomeAssistantView):
         client_id = parse_qs(oauth2_url.query).get("client_id")
 
         # If the client_id starts with https://home-assistant.io/ we assume it's a mobile client
-        return client_id and client_id[0].startswith("https://home-assistant.io/")
-        #return True # Testing
+        return bool(client_id and client_id[0].startswith("https://home-assistant.io/"))
+
 
     async def get(self, req: web.Request) -> web.Response:
         """Receive response."""
@@ -43,9 +44,9 @@ class OIDCWelcomeView(HomeAssistantView):
         if redirect_uri:
             try:
                 # decodeURIComponent(btoa(...)) -> unquote first, then base64 decode
-                redirect_uri = base64.b64decode(unquote(redirect_uri)).decode("utf-8")
+                redirect_uri = base64.b64decode(unquote(redirect_uri), validate=True).decode("utf-8")
                 is_mobile = self.determine_if_mobile(redirect_uri)
-            except (UnicodeDecodeError, ValueError):
+            except (binascii.Error, UnicodeDecodeError, ValueError):
                 view_html = await get_view(
                     "error",
                     {"error": "Invalid redirect_uri, please restart login."},
@@ -75,6 +76,12 @@ class OIDCWelcomeView(HomeAssistantView):
         if is_mobile:
             # Create a code to login
             code = await self.oidc_provider.async_generate_device_code(state_id)
+            if not code:
+                view_html = await get_view(
+                    "error",
+                    {"error": "Failed to generate device code, please restart login."},
+                )
+                return web.Response(text=view_html, content_type="text/html")
 
         # And add the other link if we have other auth providers
         other_link = None
