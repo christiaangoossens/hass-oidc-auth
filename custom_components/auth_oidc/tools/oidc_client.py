@@ -289,9 +289,6 @@ class OIDCDiscoveryClient:
 class OIDCClient:
     """OIDC Client implementation for Python, including PKCE."""
 
-    # Flows stores the state, code_verifier and nonce of all current flows.
-    flows = {}
-
     # HTTP session to be used
     http_session: aiohttp.ClientSession = None
 
@@ -311,6 +308,9 @@ class OIDCClient:
         self.discovery_document = None
         self.client_id = client_id
         self.scope = scope
+
+        # Stores code_verifier and nonce for active authorization flows.
+        self.flows: dict[str, dict[str, str]] = {}
 
         # Optional parameters
         self.client_secret = kwargs.get("client_secret")
@@ -645,10 +645,9 @@ class OIDCClient:
         """Completes the OIDC token flow to obtain a user's details."""
 
         try:
-            if state not in self.flows:
+            flow = self.flows.pop(state, None)
+            if flow is None:
                 raise OIDCStateInvalid
-
-            flow = self.flows[state]
 
             discovery_document = await self._fetch_discovery_document()
             token_endpoint = discovery_document["token_endpoint"]

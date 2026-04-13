@@ -5,7 +5,7 @@ import binascii
 from urllib.parse import urlparse, parse_qs, unquote
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
-from ..tools.helpers import get_url, get_view
+from ..tools.helpers import error_response, get_url, template_response
 from ..provider import OpenIDAuthProvider
 
 PATH = "/auth/oidc/welcome"
@@ -54,11 +54,9 @@ class OIDCWelcomeView(HomeAssistantView):
                 ).decode("utf-8")
                 is_mobile = self.determine_if_mobile(redirect_uri)
             except (binascii.Error, UnicodeDecodeError, ValueError):
-                view_html = await get_view(
-                    "error",
-                    {"error": "Invalid redirect_uri, please restart login."},
+                return await error_response(
+                    "Invalid redirect_uri, please restart login."
                 )
-                return web.Response(text=view_html, content_type="text/html")
         else:
             # Backwards compatibility with older versions that directly go to /auth/oidc/welcome
             # If not set, redirect back to the main page and assume that this is a web client
@@ -84,11 +82,9 @@ class OIDCWelcomeView(HomeAssistantView):
             # Create a code to login
             code = await self.oidc_provider.async_generate_device_code(state_id)
             if not code:
-                view_html = await get_view(
-                    "error",
-                    {"error": "Failed to generate device code, please restart login."},
+                return await error_response(
+                    "Failed to generate device code, please restart login."
                 )
-                return web.Response(text=view_html, content_type="text/html")
 
         # And add the other link if we have other auth providers
         other_link = None
@@ -96,7 +92,7 @@ class OIDCWelcomeView(HomeAssistantView):
             other_link = get_url("/?skip_oidc_redirect=true", self.force_https)
 
         # And display
-        view_html = await get_view(
+        response = await template_response(
             "welcome",
             {
                 "name": self.name,
@@ -104,8 +100,5 @@ class OIDCWelcomeView(HomeAssistantView):
                 "code": code,
             },
         )
-        return web.Response(
-            text=view_html,
-            content_type="text/html",
-            headers=cookie_header,
-        )
+        response.headers.update(cookie_header)
+        return response

@@ -27,7 +27,8 @@ class OIDCState(dict):
     # User friendly device code
     device_code: str | None
 
-    # The redirect_uri associated with this state, to be able to redirect the user back after authentication
+    # The redirect_uri associated with this state,
+    # to be able to redirect the user back after authentication
     redirect_uri: str
 
     # User details, if available

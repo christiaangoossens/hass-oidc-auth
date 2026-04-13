@@ -4,7 +4,7 @@ from homeassistant.components.http import HomeAssistantView
 from aiohttp import web
 from ..tools.oidc_client import OIDCClient
 from ..provider import OpenIDAuthProvider
-from ..tools.helpers import get_url, get_view
+from ..tools.helpers import error_response, get_state_id, get_url
 
 PATH = "/auth/oidc/callback"
 
@@ -30,15 +30,9 @@ class OIDCCallbackView(HomeAssistantView):
         """Receive response."""
 
         # Get cookie to get the state_id
-        state_id = request.cookies.get("auth_oidc_state")
+        state_id = get_state_id(request)
         if not state_id:
-            view_html = await get_view(
-                "error",
-                {
-                    "error": "Missing state cookie, please restart login.",
-                },
-            )
-            return web.Response(text=view_html, content_type="text/html")
+            return await error_response("Missing state cookie, please restart login.")
 
         # Get the OIDC query parameters
         params = request.rel_url.query
@@ -46,23 +40,13 @@ class OIDCCallbackView(HomeAssistantView):
         state = params.get("state")
 
         if not (code and state):
-            view_html = await get_view(
-                "error",
-                {
-                    "error": "Missing code or state parameter.",
-                },
-            )
-            return web.Response(text=view_html, content_type="text/html")
+            return await error_response("Missing code or state parameter.")
 
         # Check if the states match
         if state != state_id:
-            view_html = await get_view(
-                "error",
-                {
-                    "error": "State parameter does not match, possible CSRF attack.",
-                },
+            return await error_response(
+                "State parameter does not match, possible CSRF attack."
             )
-            return web.Response(text=view_html, content_type="text/html")
 
         # Complete the OIDC flow to get user details
         redirect_uri = get_url("/auth/oidc/callback", self.force_https)
@@ -70,35 +54,21 @@ class OIDCCallbackView(HomeAssistantView):
             redirect_uri, code, state
         )
         if user_details is None:
-            view_html = await get_view(
-                "error",
-                {
-                    "error": "Failed to get user details, "
-                    + "see Home Assistant logs for more information.",
-                },
+            return await error_response(
+                "Failed to get user details, see Home Assistant logs for more information."
             )
-            return web.Response(text=view_html, content_type="text/html")
 
         if user_details.get("role") == "invalid":
-            view_html = await get_view(
-                "error",
-                {
-                    "error": "User is not in the correct group to access Home Assistant, "
-                    + "contact your administrator!",
-                },
+            return await error_response(
+                "User is not in the correct group to access Home Assistant, "
+                + "contact your administrator!"
             )
-            return web.Response(text=view_html, content_type="text/html")
 
         # Finalize on the state
         success = await self.oidc_provider.async_save_user_info(state_id, user_details)
         if not success:
-            view_html = await get_view(
-                "error",
-                {
-                    "error": "Failed to save user information, "
-                    + "session probably expired. Please sign in again.",
-                },
+            return await error_response(
+                "Failed to save user information, session probably expired. Please sign in again."
             )
-            return web.Response(text=view_html, content_type="text/html")
 
         raise web.HTTPFound(get_url("/auth/oidc/finish", self.force_https))

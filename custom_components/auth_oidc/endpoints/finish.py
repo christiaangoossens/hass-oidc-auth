@@ -3,7 +3,7 @@
 from homeassistant.components.http import HomeAssistantView
 from aiohttp import web
 from ..provider import OpenIDAuthProvider
-from ..tools.helpers import get_view
+from ..tools.helpers import error_response, get_state_id, template_response
 
 PATH = "/auth/oidc/finish"
 
@@ -24,32 +24,19 @@ class OIDCFinishView(HomeAssistantView):
     async def get(self, request: web.Request) -> web.Response:
         """Show the finish screen to pick between login & device code."""
         # Get cookie to get the state_id
-        state_id = request.cookies.get("auth_oidc_state")
+        state_id = get_state_id(request)
         if not state_id:
-            view_html = await get_view(
-                "error",
-                {
-                    "error": "Missing state cookie, please restart login.",
-                },
-            )
-            return web.Response(text=view_html, content_type="text/html")
+            return await error_response("Missing state cookie, please restart login.")
 
-        view_html = await get_view("finish", {})
-        return web.Response(text=view_html, content_type="text/html")
+        return await template_response("finish", {})
 
     async def post(self, request: web.Request) -> web.Response:
         """Receive response."""
 
         # Get cookie to get the state_id
-        state_id = request.cookies.get("auth_oidc_state")
+        state_id = get_state_id(request)
         if not state_id:
-            view_html = await get_view(
-                "error",
-                {
-                    "error": "Missing state cookie, please restart login.",
-                },
-            )
-            return web.Response(text=view_html, content_type="text/html")
+            return await error_response("Missing state cookie, please restart login.")
 
         # Get redirect_uri from the state
         redirect_uri = await self.oidc_provider.async_get_redirect_uri_for_state(
@@ -57,13 +44,7 @@ class OIDCFinishView(HomeAssistantView):
         )
 
         if not redirect_uri:
-            view_html = await get_view(
-                "error",
-                {
-                    "error": "Invalid state, please restart login.",
-                },
-            )
-            return web.Response(text=view_html, content_type="text/html")
+            return await error_response("Invalid state, please restart login.")
 
         # Get the message body
         data = await request.post()
@@ -88,16 +69,8 @@ class OIDCFinishView(HomeAssistantView):
         )
 
         if not linked:
-            view_html = await get_view(
-                "error",
-                {
-                    "error": "Failed to link state to device code, please restart login.",
-                },
+            return await error_response(
+                "Failed to link state to device code, please restart login."
             )
-            return web.Response(text=view_html, content_type="text/html")
 
-        view_html = await get_view(
-            "device_success",
-            {},
-        )
-        return web.Response(text=view_html, content_type="text/html")
+        return await template_response("device_success", {})

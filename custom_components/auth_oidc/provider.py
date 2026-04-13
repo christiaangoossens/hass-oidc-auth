@@ -192,10 +192,10 @@ class OpenIDAuthProvider(AuthProvider):
         """Get the cookie header to set the state_id cookie."""
         return {
             # Set a cookie for the other pages to know the state_id
-            # Set it to a short lifetime as we should finish quickly (60 seconds)
+            # Keep cookie lifetime aligned with state lifetime in storage (5 minutes).
             "set-cookie": f"{COOKIE_NAME}="
             + state_id
-            + "; Path=/auth/; SameSite=Strict; HttpOnly; Max-Age=60",
+            + "; Path=/auth/; SameSite=Strict; HttpOnly; Max-Age=300",
         }
 
     # ====
@@ -360,5 +360,6 @@ class OpenIdLoginFlow(LoginFlow):
                 except InvalidAuthError:
                     pass
 
-        # If no cookie is found, abort. User should either be redirected or start manually on the welcome
+        # If no cookie is found, abort.
+        # User should either be redirected or start manually on the welcome
         return self.async_abort(reason="no_oidc_cookie_found")

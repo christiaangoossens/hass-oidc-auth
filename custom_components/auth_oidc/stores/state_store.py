@@ -137,10 +137,11 @@ class StateStore:
 
                     # Delete the 'donor' state as it's one time use
                     self._data.pop(state_id)
-                    break
 
-            await self._async_save()
-            return True
+                    # Save and return true
+                    await self._async_save()
+                    return True
+
         return False
 
     async def async_receive_userinfo_for_state(
