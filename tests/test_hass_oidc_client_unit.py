@@ -412,10 +412,12 @@ async def test_parse_id_token_rejects_missing_header(hass: HomeAssistant):
 @pytest.mark.asyncio
 async def test_parse_id_token_rejects_invalid_registered_claims(hass: HomeAssistant):
     """Invalid aud/iss/sub style claim validation should fail closed."""
+    hs_secret = "top-secret-value"
+
     client = make_client(
         hass,
         id_token_signing_alg="HS256",
-        client_secret="top-secret",
+        client_secret=hs_secret,
     )
     client.discovery_document = {
         "issuer": "https://issuer",
@@ -424,7 +426,7 @@ async def test_parse_id_token_rejects_invalid_registered_claims(hass: HomeAssist
 
     now = int(time.time())
     token = make_signed_hs256_jwt(
-        "top-secret",
+        hs_secret,
         {
             "sub": "abc",
             "aud": "wrong-audience",
