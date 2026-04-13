@@ -87,9 +87,7 @@ async def test_welcome_rejects_invalid_encoded_redirect_uri(
 
 
 @pytest.mark.asyncio
-async def test_welcome_sets_strict_state_cookie_flags(
-    hass: HomeAssistant, hass_client
-):
+async def test_welcome_sets_strict_state_cookie_flags(hass: HomeAssistant, hass_client):
     """Welcome should set secure cookie flags for the OIDC state cookie."""
     await setup(hass)
 
@@ -132,7 +130,9 @@ async def test_welcome_mobile_device_code_generation_failure(
             allow_redirects=False,
         )
         assert resp.status == 500
-        assert "Failed to generate device code, please restart login." in await resp.text()
+        assert (
+            "Failed to generate device code, please restart login." in await resp.text()
+        )
 
 
 @pytest.mark.asyncio
@@ -160,11 +160,11 @@ async def test_welcome_desktop_auto_redirects_without_other_providers(
     hass: HomeAssistant, hass_client
 ):
     """Welcome should auto-redirect desktop clients when no other providers exist."""
-    
+
     # pylint: disable=protected-access
-    hass.auth._providers = [] # Clear initial providers out
+    hass.auth._providers = []  # Clear initial providers out
     await setup(hass)
-    
+
     client = await hass_client()
     redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
     encoded = encode_redirect_uri(redirect_uri)
@@ -177,7 +177,9 @@ async def test_welcome_desktop_auto_redirects_without_other_providers(
 
 
 @pytest.mark.asyncio
-async def test_redirect_without_cookie_goes_to_welcome(hass: HomeAssistant, hass_client):
+async def test_redirect_without_cookie_goes_to_welcome(
+    hass: HomeAssistant, hass_client
+):
     """Redirect endpoint should bounce to welcome when no state cookie exists."""
     await setup(hass)
 
@@ -468,15 +470,19 @@ async def test_device_sse_emits_timeout(hass: HomeAssistant, hass_client):
     fake_loop = MagicMock()
     fake_loop.time.side_effect = [0, 301]
 
-    with patch(
-        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_get_redirect_uri_for_state",
-        new=AsyncMock(return_value=redirect_uri),
-    ), patch(
-        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_ready",
-        new=AsyncMock(return_value=False),
-    ), patch(
-        "custom_components.auth_oidc.endpoints.device_sse.asyncio.get_running_loop",
-        return_value=fake_loop,
+    with (
+        patch(
+            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_get_redirect_uri_for_state",
+            new=AsyncMock(return_value=redirect_uri),
+        ),
+        patch(
+            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_ready",
+            new=AsyncMock(return_value=False),
+        ),
+        patch(
+            "custom_components.auth_oidc.endpoints.device_sse.asyncio.get_running_loop",
+            return_value=fake_loop,
+        ),
     ):
         resp = await client.get("/auth/oidc/device-sse", allow_redirects=False)
         assert resp.status == 200
@@ -500,12 +506,15 @@ async def test_device_sse_handles_runtime_error_and_returns_cleanly(
     )
     assert resp_welcome.status == 200
 
-    with patch(
-        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_get_redirect_uri_for_state",
-        new=AsyncMock(return_value=redirect_uri),
-    ), patch(
-        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_ready",
-        new=AsyncMock(side_effect=RuntimeError("disconnect")),
+    with (
+        patch(
+            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_get_redirect_uri_for_state",
+            new=AsyncMock(return_value=redirect_uri),
+        ),
+        patch(
+            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_ready",
+            new=AsyncMock(side_effect=RuntimeError("disconnect")),
+        ),
     ):
         resp = await client.get("/auth/oidc/device-sse", allow_redirects=False)
         assert resp.status == 200
@@ -527,12 +536,15 @@ async def test_device_sse_ignores_write_eof_connection_reset(
     )
     assert resp_welcome.status == 200
 
-    with patch(
-        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_get_redirect_uri_for_state",
-        new=AsyncMock(return_value=None),
-    ), patch(
-        "custom_components.auth_oidc.endpoints.device_sse.web.StreamResponse.write_eof",
-        new=AsyncMock(side_effect=ConnectionResetError),
+    with (
+        patch(
+            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_get_redirect_uri_for_state",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
+            "custom_components.auth_oidc.endpoints.device_sse.web.StreamResponse.write_eof",
+            new=AsyncMock(side_effect=ConnectionResetError),
+        ),
     ):
         resp = await client.get("/auth/oidc/device-sse", allow_redirects=False)
         assert resp.status == 200

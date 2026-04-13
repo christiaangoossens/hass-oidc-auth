@@ -28,6 +28,7 @@ MOBILE_CLIENT_ID = "https://home-assistant.io/Android"
 
 # Helper functions
 
+
 def encode_redirect_uri(redirect_uri: str) -> str:
     """Helper to encode redirect URI for welcome page."""
     return base64.b64encode(redirect_uri.encode("utf-8")).decode("utf-8")
@@ -94,11 +95,16 @@ async def complete_callback_and_finish(client, code: str, state: str):
     assert resp_finish.status == 200
     assert "Login to Home Assistant on this device" in await resp_finish.text()
 
+
 async def verify_back_redirect(client, expected_redirect_uri: str):
     """Verify that POST to finish without body redirects back to the original redirect_uri."""
     resp_finish_post = await client.post("/auth/oidc/finish", allow_redirects=False)
     assert resp_finish_post.status == 302
-    assert resp_finish_post.headers["Location"] == unquote(expected_redirect_uri) + "&storeToken=true&skip_oidc_redirect=true"
+    assert (
+        resp_finish_post.headers["Location"]
+        == unquote(expected_redirect_uri) + "&storeToken=true&skip_oidc_redirect=true"
+    )
+
 
 async def listen_for_sse_events(
     resp_sse,
@@ -118,7 +124,7 @@ async def listen_for_sse_events(
 
     if resp_sse is None:
         raise ValueError("resp_sse cannot be None")
-    
+
     received_events = []
 
     async def stream_reader():
@@ -153,8 +159,10 @@ async def listen_for_sse_events(
         if result:
             return received_events
     except asyncio.TimeoutError as exc:
-        raise AssertionError(f"Timeout after {timeout_seconds}s waiting for '{expected_event}' event") from exc
-    
+        raise AssertionError(
+            f"Timeout after {timeout_seconds}s waiting for '{expected_event}' event"
+        ) from exc
+
     raise AssertionError(f"Failed to receive '{expected_event}' event")
 
 
@@ -170,7 +178,9 @@ async def setup(hass: HomeAssistant):
     result = await async_setup_component(hass, DOMAIN, mock_config)
     assert result
 
+
 # Actual tests
+
 
 @pytest.mark.asyncio
 async def test_full_oidc_flow(hass: HomeAssistant, hass_client):
@@ -468,7 +478,9 @@ async def test_device_login_flow_two_browsers(hass: HomeAssistant, hass_client):
             r'id=["\']device-code["\'][^>]*>\s*([^<\s]+)\s*<',
             mobile_html,
         )
-        assert device_code_match is not None, "Device code should be generated for mobile client"
+        assert device_code_match is not None, (
+            "Device code should be generated for mobile client"
+        )
         mobile_device_code = device_code_match.group(1)
         assert len(mobile_device_code) > 0
 
@@ -575,9 +587,12 @@ async def test_callback_shows_error_if_userinfo_save_fails(
     """Callback should return error page when state save fails after successful token flow."""
     await setup(hass)
 
-    with mock_oidc_responses(), patch(
-        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_save_user_info",
-        new=AsyncMock(return_value=False),
+    with (
+        mock_oidc_responses(),
+        patch(
+            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_save_user_info",
+            new=AsyncMock(return_value=False),
+        ),
     ):
         client = await hass_client()
         redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
@@ -603,16 +618,19 @@ async def test_callback_rejects_nonce_mismatch(hass: HomeAssistant, hass_client)
     """Callback should fail closed when the returned nonce does not match the stored flow nonce."""
     await setup(hass)
 
-    with mock_oidc_responses(), patch(
-        "custom_components.auth_oidc.tools.oidc_client.OIDCClient._parse_id_token",
-        new=AsyncMock(
-            return_value={
-                "sub": "test-user",
-                "nonce": "mismatched-nonce",
-                "name": "Test Name",
-                "preferred_username": "testuser",
-                "groups": [],
-            }
+    with (
+        mock_oidc_responses(),
+        patch(
+            "custom_components.auth_oidc.tools.oidc_client.OIDCClient._parse_id_token",
+            new=AsyncMock(
+                return_value={
+                    "sub": "test-user",
+                    "nonce": "mismatched-nonce",
+                    "name": "Test Name",
+                    "preferred_username": "testuser",
+                    "groups": [],
+                }
+            ),
         ),
     ):
         client = await hass_client()

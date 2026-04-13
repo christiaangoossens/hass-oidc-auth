@@ -85,18 +85,22 @@ async def test_complete_token_flow_rejects_nonce_mismatch(hass: HomeAssistant):
     client = make_client(hass)
     client.flows["state-1"] = {"code_verifier": "verifier", "nonce": "expected"}
 
-    with patch.object(
-        client,
-        "_fetch_discovery_document",
-        new=AsyncMock(return_value={"token_endpoint": "https://issuer/token"}),
-    ), patch.object(
-        client,
-        "_make_token_request",
-        new=AsyncMock(return_value={"id_token": "id", "access_token": "access"}),
-    ), patch.object(
-        client,
-        "_parse_id_token",
-        new=AsyncMock(return_value={"sub": "abc", "nonce": "wrong"}),
+    with (
+        patch.object(
+            client,
+            "_fetch_discovery_document",
+            new=AsyncMock(return_value={"token_endpoint": "https://issuer/token"}),
+        ),
+        patch.object(
+            client,
+            "_make_token_request",
+            new=AsyncMock(return_value={"id_token": "id", "access_token": "access"}),
+        ),
+        patch.object(
+            client,
+            "_parse_id_token",
+            new=AsyncMock(return_value={"sub": "abc", "nonce": "wrong"}),
+        ),
     ):
         result = await client.async_complete_token_flow(
             "https://example.com/callback", "code", "state-1"
@@ -112,14 +116,17 @@ async def test_complete_token_flow_handles_token_request_failure(hass: HomeAssis
     client = make_client(hass)
     client.flows["state-2"] = {"code_verifier": "verifier", "nonce": "nonce"}
 
-    with patch.object(
-        client,
-        "_fetch_discovery_document",
-        new=AsyncMock(return_value={"token_endpoint": "https://issuer/token"}),
-    ), patch.object(
-        client,
-        "_make_token_request",
-        new=AsyncMock(side_effect=OIDCTokenResponseInvalid()),
+    with (
+        patch.object(
+            client,
+            "_fetch_discovery_document",
+            new=AsyncMock(return_value={"token_endpoint": "https://issuer/token"}),
+        ),
+        patch.object(
+            client,
+            "_make_token_request",
+            new=AsyncMock(side_effect=OIDCTokenResponseInvalid()),
+        ),
     ):
         result = await client.async_complete_token_flow(
             "https://example.com/callback", "code", "state-2"
@@ -160,24 +167,27 @@ async def test_parse_user_details_uses_userinfo_for_missing_claims(
     """Missing claims in id_token should be filled from userinfo when available."""
     client = make_client(hass)
 
-    with patch.object(
-        client,
-        "_fetch_discovery_document",
-        new=AsyncMock(
-            return_value={
-                "issuer": "https://issuer",
-                "userinfo_endpoint": "https://issuer/userinfo",
-            }
+    with (
+        patch.object(
+            client,
+            "_fetch_discovery_document",
+            new=AsyncMock(
+                return_value={
+                    "issuer": "https://issuer",
+                    "userinfo_endpoint": "https://issuer/userinfo",
+                }
+            ),
         ),
-    ), patch.object(
-        client,
-        "_get_userinfo",
-        new=AsyncMock(
-            return_value={
-                "name": "From UserInfo",
-                "preferred_username": "userinfo-user",
-                "groups": ["admins"],
-            }
+        patch.object(
+            client,
+            "_get_userinfo",
+            new=AsyncMock(
+                return_value={
+                    "name": "From UserInfo",
+                    "preferred_username": "userinfo-user",
+                    "groups": ["admins"],
+                }
+            ),
         ),
     ):
         details = await client.parse_user_details({"sub": "subject"}, "access-token")
@@ -247,7 +257,9 @@ async def test_get_authorization_url_omits_pkce_when_disabled(
     with patch.object(
         client,
         "_fetch_discovery_document",
-        new=AsyncMock(return_value={"authorization_endpoint": "https://issuer/authorize"}),
+        new=AsyncMock(
+            return_value={"authorization_endpoint": "https://issuer/authorize"}
+        ),
     ):
         url = await client.async_get_authorization_url(
             "https://example.com/callback", "state-xyz"
@@ -267,7 +279,10 @@ async def test_get_authorization_url_omits_pkce_when_disabled(
 async def test_parse_id_token_returns_none_when_kid_missing(hass: HomeAssistant):
     """ID token without kid should be rejected."""
     client = make_client(hass)
-    client.discovery_document = {"issuer": "https://issuer", "jwks_uri": "https://issuer/jwks"}
+    client.discovery_document = {
+        "issuer": "https://issuer",
+        "jwks_uri": "https://issuer/jwks",
+    }
 
     token = make_jwt({"alg": "RS256"})
 
@@ -285,7 +300,10 @@ async def test_parse_id_token_returns_none_when_kid_missing(hass: HomeAssistant)
 async def test_parse_id_token_returns_none_when_kid_not_found(hass: HomeAssistant):
     """ID token with unknown kid should be rejected."""
     client = make_client(hass)
-    client.discovery_document = {"issuer": "https://issuer", "jwks_uri": "https://issuer/jwks"}
+    client.discovery_document = {
+        "issuer": "https://issuer",
+        "jwks_uri": "https://issuer/jwks",
+    }
 
     token = make_jwt({"alg": "RS256", "kid": "missing"})
 
@@ -303,7 +321,10 @@ async def test_parse_id_token_returns_none_when_kid_not_found(hass: HomeAssistan
 async def test_parse_id_token_rejects_hs_without_client_secret(hass: HomeAssistant):
     """HMAC-signed id_token requires client_secret and must fail otherwise."""
     client = make_client(hass, id_token_signing_alg="HS256")
-    client.discovery_document = {"issuer": "https://issuer", "jwks_uri": "https://issuer/jwks"}
+    client.discovery_document = {
+        "issuer": "https://issuer",
+        "jwks_uri": "https://issuer/jwks",
+    }
 
     token = make_jwt({"alg": "HS256"})
 
@@ -320,20 +341,27 @@ async def test_parse_id_token_rejects_hs_without_client_secret(hass: HomeAssista
 async def test_parse_id_token_returns_none_when_decode_fails_jose(hass: HomeAssistant):
     """Jose decode/verification failures should be handled without raising to callers."""
     client = make_client(hass)
-    client.discovery_document = {"issuer": "https://issuer", "jwks_uri": "https://issuer/jwks"}
+    client.discovery_document = {
+        "issuer": "https://issuer",
+        "jwks_uri": "https://issuer/jwks",
+    }
 
     token = make_jwt({"alg": "RS256", "kid": "kid1"})
 
-    with patch.object(
-        client,
-        "_fetch_jwks",
-        new=AsyncMock(return_value={"keys": [{"kid": "kid1", "kty": "RSA"}]}),
-    ), patch(
-        "custom_components.auth_oidc.tools.oidc_client.jwk.import_key",
-        return_value=object(),
-    ), patch(
-        "custom_components.auth_oidc.tools.oidc_client.jwt.decode",
-        side_effect=joserfc_errors.JoseError("bad token"),
+    with (
+        patch.object(
+            client,
+            "_fetch_jwks",
+            new=AsyncMock(return_value={"keys": [{"kid": "kid1", "kty": "RSA"}]}),
+        ),
+        patch(
+            "custom_components.auth_oidc.tools.oidc_client.jwk.import_key",
+            return_value=object(),
+        ),
+        patch(
+            "custom_components.auth_oidc.tools.oidc_client.jwt.decode",
+            side_effect=joserfc_errors.JoseError("bad token"),
+        ),
     ):
         parsed = await client._parse_id_token(token)
 
@@ -344,7 +372,10 @@ async def test_parse_id_token_returns_none_when_decode_fails_jose(hass: HomeAssi
 async def test_parse_id_token_rejects_wrong_signing_algorithm(hass: HomeAssistant):
     """ID token signed with unexpected alg should be rejected."""
     client = make_client(hass, id_token_signing_alg="RS256")
-    client.discovery_document = {"issuer": "https://issuer", "jwks_uri": "https://issuer/jwks"}
+    client.discovery_document = {
+        "issuer": "https://issuer",
+        "jwks_uri": "https://issuer/jwks",
+    }
 
     token = make_jwt({"alg": "HS256"})
 
@@ -361,7 +392,10 @@ async def test_parse_id_token_rejects_wrong_signing_algorithm(hass: HomeAssistan
 async def test_parse_id_token_rejects_missing_header(hass: HomeAssistant):
     """ID token without protected header should be rejected."""
     client = make_client(hass)
-    client.discovery_document = {"issuer": "https://issuer", "jwks_uri": "https://issuer/jwks"}
+    client.discovery_document = {
+        "issuer": "https://issuer",
+        "jwks_uri": "https://issuer/jwks",
+    }
 
     token = make_jwt(None)
 
@@ -383,7 +417,10 @@ async def test_parse_id_token_rejects_invalid_registered_claims(hass: HomeAssist
         id_token_signing_alg="HS256",
         client_secret="top-secret",
     )
-    client.discovery_document = {"issuer": "https://issuer", "jwks_uri": "https://issuer/jwks"}
+    client.discovery_document = {
+        "issuer": "https://issuer",
+        "jwks_uri": "https://issuer/jwks",
+    }
 
     now = int(time.time())
     token = make_signed_hs256_jwt(
@@ -435,22 +472,34 @@ async def test_complete_token_flow_omits_code_verifier_when_pkce_disabled(
     client = make_client(hass, features={"disable_rfc7636": True})
     client.flows["state-3"] = {"code_verifier": "verifier", "nonce": "nonce"}
 
-    with patch.object(
-        client,
-        "_fetch_discovery_document",
-        new=AsyncMock(return_value={"token_endpoint": "https://issuer/token"}),
-    ), patch.object(
-        client,
-        "_make_token_request",
-        new=AsyncMock(return_value={"id_token": "id", "access_token": "access"}),
-    ) as make_token_request, patch.object(
-        client,
-        "_parse_id_token",
-        new=AsyncMock(return_value={"sub": "abc", "nonce": "nonce"}),
-    ), patch.object(
-        client,
-        "parse_user_details",
-        new=AsyncMock(return_value={"sub": "abc", "display_name": "n", "username": "u", "role": "system-users"}),
+    with (
+        patch.object(
+            client,
+            "_fetch_discovery_document",
+            new=AsyncMock(return_value={"token_endpoint": "https://issuer/token"}),
+        ),
+        patch.object(
+            client,
+            "_make_token_request",
+            new=AsyncMock(return_value={"id_token": "id", "access_token": "access"}),
+        ) as make_token_request,
+        patch.object(
+            client,
+            "_parse_id_token",
+            new=AsyncMock(return_value={"sub": "abc", "nonce": "nonce"}),
+        ),
+        patch.object(
+            client,
+            "parse_user_details",
+            new=AsyncMock(
+                return_value={
+                    "sub": "abc",
+                    "display_name": "n",
+                    "username": "u",
+                    "role": "system-users",
+                }
+            ),
+        ),
     ):
         result = await client.async_complete_token_flow(
             "https://example.com/callback", "code", "state-3"
@@ -506,12 +555,15 @@ async def test_get_http_session_applies_tls_verify_flag(hass: HomeAssistant):
     """Session helper should pass tls_verify setting into TCP connector."""
     client = make_client(hass, network={"tls_verify": False})
 
-    with patch(
-        "custom_components.auth_oidc.tools.oidc_client.aiohttp.TCPConnector",
-        return_value=MagicMock(),
-    ) as tcp_connector, patch(
-        "custom_components.auth_oidc.tools.oidc_client.aiohttp.ClientSession",
-        return_value=MagicMock(),
+    with (
+        patch(
+            "custom_components.auth_oidc.tools.oidc_client.aiohttp.TCPConnector",
+            return_value=MagicMock(),
+        ) as tcp_connector,
+        patch(
+            "custom_components.auth_oidc.tools.oidc_client.aiohttp.ClientSession",
+            return_value=MagicMock(),
+        ),
     ):
         await client._get_http_session()
 
@@ -527,16 +579,20 @@ async def test_get_http_session_uses_custom_ca_path(hass: HomeAssistant):
     )
     fake_ssl_context = object()
 
-    with patch.object(
-        hass.loop,
-        "run_in_executor",
-        new=AsyncMock(return_value=fake_ssl_context),
-    ) as run_in_executor, patch(
-        "custom_components.auth_oidc.tools.oidc_client.aiohttp.TCPConnector",
-        return_value=MagicMock(),
-    ) as tcp_connector, patch(
-        "custom_components.auth_oidc.tools.oidc_client.aiohttp.ClientSession",
-        return_value=MagicMock(),
+    with (
+        patch.object(
+            hass.loop,
+            "run_in_executor",
+            new=AsyncMock(return_value=fake_ssl_context),
+        ) as run_in_executor,
+        patch(
+            "custom_components.auth_oidc.tools.oidc_client.aiohttp.TCPConnector",
+            return_value=MagicMock(),
+        ) as tcp_connector,
+        patch(
+            "custom_components.auth_oidc.tools.oidc_client.aiohttp.ClientSession",
+            return_value=MagicMock(),
+        ),
     ):
         await client._get_http_session()
 
@@ -558,7 +614,9 @@ async def test_make_token_request_returns_json_on_success(hass: HomeAssistant):
     session.post.return_value = context_manager
 
     with patch.object(client, "_get_http_session", new=AsyncMock(return_value=session)):
-        payload = await client._make_token_request("https://issuer/token", {"code": "abc"})
+        payload = await client._make_token_request(
+            "https://issuer/token", {"code": "abc"}
+        )
 
     assert payload == {"access_token": "token"}
 
