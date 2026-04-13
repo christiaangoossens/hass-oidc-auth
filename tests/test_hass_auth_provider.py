@@ -2,7 +2,9 @@
 
 import base64
 import re
+from types import SimpleNamespace
 from urllib.parse import parse_qs, unquote, urlparse
+from unittest.mock import patch
 import pytest
 
 from homeassistant.core import HomeAssistant
@@ -264,5 +266,38 @@ async def test_login_shows_form(hass: HomeAssistant):
     flow = await provider.async_login_flow({})
 
     result = await flow.async_step_init({})
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "no_oidc_cookie_found"
+
+
+@pytest.mark.asyncio
+async def test_login_with_invalid_cookie_aborts(hass: HomeAssistant):
+    """A cookie that does not map to a valid state should fail closed."""
+    await setup(
+        hass,
+        {
+            CLIENT_ID: "dummy",
+            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: False,
+                FEATURES_AUTOMATIC_USER_LINKING: False,
+            },
+        },
+        True,
+    )
+
+    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    flow = await provider.async_login_flow({})
+
+    fake_request = SimpleNamespace(
+        cookies={"auth_oidc_state": "missing-state"}, remote="127.0.0.1"
+    )
+    with patch(
+        "custom_components.auth_oidc.provider.http.current_request"
+    ) as current_request:
+        current_request.get.return_value = fake_request
+
+        result = await flow.async_step_init({})
+
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "no_oidc_cookie_found"

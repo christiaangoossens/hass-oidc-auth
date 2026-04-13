@@ -359,6 +359,172 @@ async def test_reconfigure_flow_success(hass: HomeAssistant):
 
 
 @pytest.mark.asyncio
+async def test_reconfigure_flow_rejects_invalid_client_id(hass: HomeAssistant):
+    """Reconfigure should keep the form open when the client ID is invalid."""
+    initial_data = {
+        "provider": "authentik",
+        CLIENT_ID: DEMO_CLIENT_ID,
+        CLIENT_SECRET: DEMO_CLIENT_SECRET,
+        DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+        DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["name"],
+        FEATURES: {
+            FEATURES_AUTOMATIC_USER_LINKING: False,
+            FEATURES_AUTOMATIC_PERSON_CREATION: True,
+            FEATURES_INCLUDE_GROUPS_SCOPE: True,
+        },
+        CLAIMS: {
+            CLAIMS_DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["claims"]["display_name"],
+            CLAIMS_USERNAME: OIDC_PROVIDERS["authentik"]["claims"]["username"],
+            CLAIMS_GROUPS: OIDC_PROVIDERS["authentik"]["claims"]["groups"],
+        },
+        ROLES: {ROLE_ADMINS: DEMO_ADMIN_ROLE, ROLE_USERS: DEMO_USER_ROLE},
+    }
+
+    entry = config_entries.ConfigEntry(
+        version=1,
+        minor_version=0,
+        domain=DOMAIN,
+        title=OIDC_PROVIDERS["authentik"]["name"],
+        data=initial_data,
+        source=config_entries.SOURCE_USER,
+        entry_id="1",
+        unique_id="test_unique_id",
+        options={},
+        pref_disable_new_entities=False,
+        pref_disable_polling=False,
+        discovery_keys=[],
+        subentries_data=None,
+    )
+
+    await hass.config_entries.async_add(entry)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={
+            "source": config_entries.SOURCE_RECONFIGURE,
+            "entry_id": entry.entry_id,
+        },
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {"client_id": "   ", "client_secret": DEMO_CLIENT_SECRET},
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+    assert result["errors"]["client_id"] == "invalid_client_id"
+
+
+@pytest.mark.asyncio
+async def test_reconfigure_flow_keeps_client_secret_when_blank(hass: HomeAssistant):
+    """Submitting a blank secret should keep the existing client secret."""
+    initial_data = {
+        "provider": "authentik",
+        CLIENT_ID: DEMO_CLIENT_ID,
+        CLIENT_SECRET: DEMO_CLIENT_SECRET,
+        DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+        DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["name"],
+        FEATURES: {
+            FEATURES_AUTOMATIC_USER_LINKING: False,
+            FEATURES_AUTOMATIC_PERSON_CREATION: True,
+            FEATURES_INCLUDE_GROUPS_SCOPE: True,
+        },
+        CLAIMS: {
+            CLAIMS_DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["claims"]["display_name"],
+            CLAIMS_USERNAME: OIDC_PROVIDERS["authentik"]["claims"]["username"],
+            CLAIMS_GROUPS: OIDC_PROVIDERS["authentik"]["claims"]["groups"],
+        },
+        ROLES: {ROLE_ADMINS: DEMO_ADMIN_ROLE, ROLE_USERS: DEMO_USER_ROLE},
+    }
+
+    entry = config_entries.ConfigEntry(
+        version=1,
+        minor_version=0,
+        domain=DOMAIN,
+        title=OIDC_PROVIDERS["authentik"]["name"],
+        data=initial_data,
+        source=config_entries.SOURCE_USER,
+        entry_id="1",
+        unique_id="test_unique_id",
+        options={},
+        pref_disable_new_entities=False,
+        pref_disable_polling=False,
+        discovery_keys=[],
+        subentries_data=None,
+    )
+
+    await hass.config_entries.async_add(entry)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={
+            "source": config_entries.SOURCE_RECONFIGURE,
+            "entry_id": entry.entry_id,
+        },
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {"client_id": DEMO_CLIENT_ID, "client_secret": ""},
+    )
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+
+    updated_entry = hass.config_entries.async_get_entry(entry.entry_id)
+    assert updated_entry is not None
+    assert updated_entry.data[CLIENT_SECRET] == DEMO_CLIENT_SECRET
+
+
+@pytest.mark.asyncio
+async def test_validation_actions_route_to_other_steps(hass: HomeAssistant):
+    """Validation actions should route to the requested flow step."""
+    with mock_oidc_responses():
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"provider": "authentik"}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {"discovery_url": MockOIDCServer.get_discovery_url()},
+        )
+
+        assert result["type"] == FlowResultType.FORM
+        assert result["step_id"] == "validate_connection"
+
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"action": "fix_discovery"}
+        )
+        assert result["type"] == FlowResultType.FORM
+        assert result["step_id"] == "discovery_url"
+
+    with mock_oidc_responses():
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"provider": "authentik"}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {"discovery_url": MockOIDCServer.get_discovery_url()},
+        )
+
+        assert result["type"] == FlowResultType.FORM
+        assert result["step_id"] == "validate_connection"
+
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"action": "change_provider"}
+        )
+
+        assert result["type"] == FlowResultType.FORM
+        assert result["step_id"] == "user"
+
+
+@pytest.mark.asyncio
 async def test_user_flow_aborts_when_yaml_configured(hass: HomeAssistant):
     """The user flow should abort when YAML config already owns the provider."""
     hass.data[DOMAIN] = {"yaml_config": {"client_id": DEMO_CLIENT_ID}}
