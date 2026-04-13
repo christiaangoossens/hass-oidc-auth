@@ -19,28 +19,25 @@ async def setup(hass: HomeAssistant, config: dict, expect_success: bool) -> bool
 
 
 @pytest.mark.asyncio
-async def test_setup_success_yaml(hass: HomeAssistant):
-    """Test successful setup of a YAML configuration."""
-    await setup(
-        hass,
+@pytest.mark.parametrize(
+    "config",
+    [
         {
             "client_id": "dummy",
             "discovery_url": "https://example.com/.well-known/openid-configuration",
         },
-        True,
-    )
-
-
-@pytest.mark.asyncio
-async def test_setup_success_yaml_with_optional(hass: HomeAssistant):
-    """Test successful setup of a YAML configuration with optional parameters."""
-    await setup(
-        hass,
         {
             "client_id": "dummy",
             "discovery_url": "https://example.com/.well-known/openid-configuration",
             ADDITIONAL_SCOPES: "email phone",
         },
+    ],
+)
+async def test_setup_success_yaml(hass: HomeAssistant, config: dict):
+    """YAML setup should succeed for minimal and optional-scope configurations."""
+    await setup(
+        hass,
+        config,
         True,
     )
 

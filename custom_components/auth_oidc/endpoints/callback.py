@@ -4,7 +4,7 @@ from homeassistant.components.http import HomeAssistantView
 from aiohttp import web
 from ..tools.oidc_client import OIDCClient
 from ..provider import OpenIDAuthProvider
-from ..tools.helpers import get_url, get_view
+from ..tools.helpers import error_response, get_url, get_valid_state_id
 
 PATH = "/auth/oidc/callback"
 
@@ -29,42 +29,49 @@ class OIDCCallbackView(HomeAssistantView):
     async def get(self, request: web.Request) -> web.Response:
         """Receive response."""
 
+        # Get cookie to get the state_id
+        state_id = await get_valid_state_id(request, self.oidc_provider)
+        if not state_id:
+            return await error_response("Missing state cookie, please restart login.")
+
+        # Get the OIDC query parameters
         params = request.rel_url.query
         code = params.get("code")
         state = params.get("state")
 
         if not (code and state):
-            view_html = await get_view(
-                "error",
-                {
-                    "error": "Missing code or state parameter.",
-                },
-            )
-            return web.Response(text=view_html, content_type="text/html")
+            return await error_response("Missing code or state parameter.")
 
+        # Check if the states match
+        if state != state_id:
+            return await error_response(
+                "State parameter does not match, possible CSRF attack."
+            )
+
+        # Complete the OIDC flow to get user details
         redirect_uri = get_url("/auth/oidc/callback", self.force_https)
         user_details = await self.oidc_client.async_complete_token_flow(
             redirect_uri, code, state
         )
         if user_details is None:
-            view_html = await get_view(
-                "error",
-                {
-                    "error": "Failed to get user details, "
-                    + "see Home Assistant logs for more information.",
-                },
+            return await error_response(
+                "Failed to get user details, see Home Assistant logs for more information.",
+                status=500,
             )
-            return web.Response(text=view_html, content_type="text/html")
 
         if user_details.get("role") == "invalid":
-            view_html = await get_view(
-                "error",
-                {
-                    "error": "User is not in the correct group to access Home Assistant, "
-                    + "contact your administrator!",
-                },
+            return await error_response(
+                "User is not in the correct group to access Home Assistant, "
+                + "contact your administrator!",
+                status=403,
             )
-            return web.Response(text=view_html, content_type="text/html")
 
-        code = await self.oidc_provider.async_save_user_info(user_details)
-        raise web.HTTPFound(get_url("/auth/oidc/finish?code=" + code, self.force_https))
+        # Finalize on the state
+        success = await self.oidc_provider.async_save_user_info(state_id, user_details)
+        if not success:
+            return await error_response(
+                "Failed to save user information, session probably expired. Please sign in again.",
+                status=500,
+            )
+
+        raise web.HTTPFound(get_url("/auth/oidc/finish", self.force_https))

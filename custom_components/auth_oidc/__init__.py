@@ -27,7 +27,6 @@ from .config import (
     ROLES,
     NETWORK,
     FEATURES_INCLUDE_GROUPS_SCOPE,
-    FEATURES_DISABLE_FRONTEND_INJECTION,
     FEATURES_FORCE_HTTPS,
     REQUIRED_SCOPES,
 )
@@ -40,6 +39,7 @@ from .endpoints import (
     OIDCFinishView,
     OIDCCallbackView,
     OIDCInjectedAuthPage,
+    OIDCDeviceSSE,
 )
 from .tools.oidc_client import OIDCClient
 from .provider import OpenIDAuthProvider
@@ -96,6 +96,10 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
     provider = OpenIDAuthProvider(hass, hass.auth._store, my_config)
 
     providers[(provider.type, provider.id)] = provider
+
+    # Get current provider count
+    has_other_auth_providers = len(hass.auth._providers) > 0
+
     providers.update(hass.auth._providers)
     hass.auth._providers = providers
     # pylint: enable=protected-access
@@ -137,33 +141,22 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
     )
 
     # Register the views
-    is_frontend_injection_enabled = (
-        features_config.get(FEATURES_DISABLE_FRONTEND_INJECTION, False) is False
-    )
     name = display_name
     name = re.sub(r"[^A-Za-z0-9 _\-\(\)]", "", name)
 
     force_https = features_config.get(FEATURES_FORCE_HTTPS, False)
 
     hass.http.register_view(
-        OIDCWelcomeView(
-            name,
-            # Welcome view is not enabled if frontend injection is enabled
-            not is_frontend_injection_enabled,
-            force_https,
-        )
+        OIDCWelcomeView(provider, name, force_https, has_other_auth_providers)
     )
-    hass.http.register_view(OIDCRedirectView(oidc_client, force_https))
+    hass.http.register_view(OIDCDeviceSSE(provider))
+    hass.http.register_view(OIDCRedirectView(oidc_client, provider, force_https))
     hass.http.register_view(OIDCCallbackView(oidc_client, provider, force_https))
-    hass.http.register_view(OIDCFinishView())
+    hass.http.register_view(OIDCFinishView(provider))
 
     _LOGGER.info("Registered OIDC views")
 
-    # Inject OIDC code into the frontend for /auth/authorize if the user has the
-    # frontend injection feature enabled
-    if is_frontend_injection_enabled:
-        await OIDCInjectedAuthPage.inject(hass, name)
-    else:
-        _LOGGER.info("OIDC frontend changes are disabled, skipping injection")
+    # Inject OIDC code into the frontend for /auth/authorize for automatic redirect
+    await OIDCInjectedAuthPage.inject(hass)
 
     return True

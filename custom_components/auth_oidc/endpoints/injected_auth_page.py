@@ -1,6 +1,5 @@
 """Injected authorization page, replacing the original"""
 
-import json
 import logging
 from functools import partial
 from homeassistant.components.http import HomeAssistantView, StaticPathConfig
@@ -19,7 +18,7 @@ async def read_file(path: str) -> str:
         return await f.read()
 
 
-async def frontend_injection(hass: HomeAssistant, sso_name: str) -> None:
+async def frontend_injection(hass: HomeAssistant) -> None:
     """Inject new frontend code into /auth/authorize."""
     router = hass.http.app.router
     frontend_path = None
@@ -62,11 +61,8 @@ async def frontend_injection(hass: HomeAssistant, sso_name: str) -> None:
     frontend_code = await read_file(frontend_path)
 
     # Inject JS and register that route
-    injection_js = "<script src='/auth/oidc/static/injection.js?v=3'></script>"
-    sso_name_js = f"<script>window.sso_name = {json.dumps(sso_name)};</script>"
-    frontend_code = frontend_code.replace(
-        "</body>", f"{injection_js}{sso_name_js}</body>"
-    )
+    injection_js = "<script src='/auth/oidc/static/injection.js?v=4'></script>"
+    frontend_code = frontend_code.replace("</body>", f"{injection_js}</body>")
 
     await hass.http.async_register_static_paths(
         [
@@ -100,10 +96,10 @@ class OIDCInjectedAuthPage(HomeAssistantView):
         self.html = html
 
     @staticmethod
-    async def inject(hass: HomeAssistant, sso_name: str) -> None:
+    async def inject(hass: HomeAssistant) -> None:
         """Inject the OIDC auth page into the frontend."""
         try:
-            await frontend_injection(hass, sso_name)
+            await frontend_injection(hass)
         except Exception as e:  # pylint: disable=broad-except
             _LOGGER.error("Failed to inject OIDC auth page: %s", e)
 

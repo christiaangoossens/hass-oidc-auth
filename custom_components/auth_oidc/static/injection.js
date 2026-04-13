@@ -1,215 +1,82 @@
-function safeSetTextContent(element, value) {
-  if (!element) return
-  var textNode = Array.from(element.childNodes).find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0)
-  if (!textNode || textNode.textContent === value) return
-  textNode.textContent = value
+/**
+ * OIDC Frontend Redirect injection script
+ * This script is injected because the 'hass-oidc-auth' custom component is active.
+ */
+
+function attempt_oidc_redirect() {
+  // Get URL parameters
+  const urlParams = new URLSearchParams(window.location.search);
+
+  // Check if we have skip_oidc_redirect directly here
+  if (urlParams.get('skip_oidc_redirect') === 'true') {
+      // No console log because this is intended behavior
+      return;
+  }
+
+  const originalUrl = urlParams.get('redirect_uri');
+  if (!originalUrl) {
+    console.warn('[OIDC] No OAuth2 redirect_uri parameter found in the URL. Frontend redirect cancelled.');
+    return;
+  }
+
+  try {
+    // Parse the redirect URI
+    const redirectUrl = new URL(originalUrl);
+
+    // Check if redirect URI has a query parameter to stop OIDC injection
+    if (redirectUrl.searchParams.get('skip_oidc_redirect') === 'true') {
+      // No console log because this is intended behavior
+      return;
+    }
+  } catch (error) {
+    console.error('[OIDC] Invalid redirect_uri parameter:', error);
+  }
+
+  window.stop(); // Stop loading the current page before redirecting
+
+  // Redirect to the OIDC auth URL
+  const base64encodeUrl = btoa(window.location.href);
+  const oidcAuthUrl = '/auth/oidc/welcome?redirect_uri=' + encodeURIComponent(base64encodeUrl);
+  window.location.href = oidcAuthUrl;
 }
 
-let firstFocus = true
-let showCodeOverride = null
+function click_alternative_provider_instead() {
+  setTimeout(() => {
+    // Find ha-auth-flow
+    const authFlowElement = document.querySelector('ha-auth-flow');
 
-function isMobile() {
-  const clientId = new URL(location.href).searchParams.get("client_id")
-  return clientId && clientId.startsWith("https://home-assistant.io/iOS") || clientId.startsWith("https://home-assistant.io/android")
+    if (!authFlowElement) {
+      console.warn("[OIDC] ha-auth-flow element not found. Not automatically selecting HA provider.");
+      return;
+    }
+
+    // Check if the text "Login aborted" is present on the page
+    if (!authFlowElement.innerText.includes('Login aborted')) {
+      console.warn("[OIDC] 'Login aborted' text not found. Not automatically selecting HA provider.");
+      return;
+    }
+
+    // Find the ha-pick-auth-provider element
+    const authProviderElement = document.querySelector('ha-pick-auth-provider');
+
+    if (!authProviderElement) {
+      console.warn("[OIDC] ha-pick-auth-provider not found. Not automatically selecting HA provider.");
+      return;
+    }
+
+    // Click the first ha-list-item element inside the ha-pick-auth-provider
+    const firstListItem = authProviderElement.shadowRoot?.querySelector('ha-list-item');
+    if (!firstListItem) {
+      console.warn("[OIDC] No ha-list-item found inside ha-pick-auth-provider. Not automatically selecting HA provider.");
+      return;
+    }
+
+    firstListItem.click();
+  }, 500);
 }
 
-function showCode() {
-  if (showCodeOverride !== null) return showCodeOverride
-  return isMobile()
-}
-
-let ssoButton = null
-let codeButton = null
-let codeMessage = null
-let codeToggle = null
-let codeToggleText = null
-
-function update() {
-  const sso_name = window.sso_name || "Single Sign-On"
-  const loginHeader = document.querySelector(".card-content > ha-auth-flow > form > h1")
-  const authForm = document.querySelector("ha-auth-form")
-  const codeField = document.querySelector(".mdc-text-field__input[name=code]")
-  const haButtons = document.querySelectorAll("ha-button:not(.sso)")
-  const errorAlert = document.querySelector("ha-auth-form ha-alert[alert-type=error]")
-  const loginOptionList = document.querySelector("ha-pick-auth-provider")?.shadowRoot?.querySelector("ha-list")
-  const forgotPasswordLink = document.querySelector(".forgot-password")
-
-  // Iterate over haButtons to find one with text "Login with code"
-  let loginButton = null
-  haButtons.forEach(button => {
-    if (button.textContent.trim() === "Log in") {
-      loginButton = button
-    }
-  })
-
-  // ====
-  // Code input
-  if (codeField) {
-    if (codeField.placeholder !== "One-time code") {
-      codeField.placeholder = "One-time code"
-      codeField.autofocus = false
-      codeField.autocomplete = "off"
-
-      if (firstFocus) {
-        firstFocus = false
-
-        if (document.activeElement === codeField) {
-          setTimeout(() => {
-            codeField.blur()
-            let check = setInterval(() => {
-              const helperText = document.querySelector("#helper-text")
-              const invalidTextField = document.querySelector(".mdc-text-field--invalid")
-              const validationMsg = document.querySelector(".mdc-text-field-helper-text--validation-msg")
-              if (helperText && invalidTextField && validationMsg) {
-                clearInterval(check)
-                safeSetTextContent(helperText, "")
-                invalidTextField.classList.remove("mdc-text-field--invalid")
-                validationMsg.classList.remove("mdc-text-field-helper-text--validation-msg")
-              }
-            }, 1)
-          }, 0)
-        }
-      }
-    }
-  
-    if (errorAlert && errorAlert.textContent.trim().length === 0) {
-      errorAlert.setAttribute("title", "Invalid Code")
-    }
-  
-    authForm.style.display = showCode() ? "" : "none"
-  }
-
-  if (authForm && !codeMessage) {
-    codeMessage = document.createElement("p")
-    codeMessage.innerHTML = `<b>Please login on a different device to continue.</b><br/>You can also use your mobile webbrowser.`
-    authForm.parentElement.insertBefore(codeMessage, authForm)
-  }
-
-  if (codeMessage) {
-    codeMessage.style.display = showCode() ? "" : "none"
-  }
-  
-  if (showCode() && loginButton !== null && !codeButton) {
-    codeButton = document.createElement("ha-button")
-    codeButton.id = "code_button"
-    codeButton.classList.add("code")
-    codeButton.innerText = "Log in with code"
-    codeButton.setAttribute("raised", "")
-    codeButton.style.marginRight = "1em"
-
-    // Copy the onclick handler the loginButton
-    codeButton.addEventListener("click", () => {
-      loginButton.click()
-    })
-    loginButton.parentElement.prepend(codeButton)
-  } else if (!showCode() && loginButton !== null &&codeButton) {
-    codeButton.remove()
-    codeButton = null
-  }
-
-  // ====
-  // Toggle button
-  if (loginOptionList && !codeToggle && !isMobile()) {
-    codeToggle = document.createElement("ha-list-item")
-    codeToggle.setAttribute("hasmeta", "")
-    codeToggleText = document.createTextNode("")
-    codeToggle.appendChild(codeToggleText)
-    const codeToggleIcon = document.createElement("ha-icon-next")
-    codeToggleIcon.setAttribute("slot", "meta")
-    codeToggle.appendChild(codeToggleIcon)
-
-    let ranHandler = false;
-    codeToggle.addEventListener("click", () => {
-      ranHandler = true;
-      showCodeOverride = !showCode()
-      update()
-    })
-
-    loginOptionList.addEventListener("click", (ev) => {
-      if (!ranHandler) {
-        showCodeOverride = false;
-        codeMessage = null;
-      }
-      ranHandler = false;
-    })
-  
-    loginOptionList.appendChild(codeToggle)
-  }
-
-  if (codeToggle) {
-    codeToggle.style.display = codeField ? "" : "none"
-  }
-
-  if (codeToggleText) {
-    codeToggleText.textContent = showCode() ? "Single-Sign On" : "One-time device code"
-  }
-
-  // ====
-  // SSO Page
-  const shouldShowSSOButton = !showCode() && !!codeField
-  const isOurScreen = showCode() || shouldShowSSOButton
-  
-  if (loginButton !== null && !ssoButton) {
-    ssoButton = document.createElement("ha-button")
-    ssoButton.id = "sso_button"
-    ssoButton.classList.add("sso")
-    ssoButton.innerText = "Log in with " + sso_name
-    ssoButton.setAttribute("raised", "")
-    ssoButton.style.marginRight = "1em"
-    ssoButton.addEventListener("click", () => {
-      location.href = "/auth/oidc/redirect"
-      ssoButton.innerHTML = "Redirecting, please wait..."
-      ssoButton.disabled = true
-    })
-    loginButton.parentElement.prepend(ssoButton)
-  }
-
-  if (ssoButton) {
-    ssoButton.style.display = (!showCode() && codeField) ? "" : "none"
-  }
-
-  // ====
-  // Header hidden on our screens
-  if (loginHeader) {
-    if (isOurScreen) {
-      // Hide the header on our screens
-      loginHeader.style.display = "none"
-      if (loginButton !== null) {
-        loginButton.style.display = "none"
-      }
-      forgotPasswordLink.style.display = "none"
-    } else {
-      // Show the header on the login screen
-      loginHeader.style.display = ""
-      if (loginButton !== null) {
-        loginButton.style.display = ""
-      }
-      forgotPasswordLink.style.display = ""
-    }
-  }
-}
-
-// Hide the content until ready
-let ready = false
-document.querySelector(".content").style.display = "none"
-
-const observer = new MutationObserver((mutationsList, observer) => {
-  update()
-
-  if (!ready) {
-    ready = Boolean(ssoButton && codeMessage && codeToggle && codeToggleText)
-    if (ready) document.querySelector(".content").style.display = ""
-  }
-})
-
-observer.observe(document.body, { childList: true, subtree: true })
-
-setTimeout(() => {
-  if (!ready) {
-    console.warn("hass-oidc-auth: Document was not ready after 300ms seconds, force displaying. This may indicate a problem with the UI injection.")
-  }
-
-  // Force display the content
-  document.querySelector(".content").style.display = "";
-  update();
-}, 300)
+// Run OIDC injection upon load
+(() => {
+  attempt_oidc_redirect();
+  click_alternative_provider_instead();
+})();

@@ -2,7 +2,12 @@
 
 from homeassistant.components.http import HomeAssistantView
 from aiohttp import web
-from ..tools.helpers import get_view
+from ..provider import OpenIDAuthProvider
+from ..tools.helpers import (
+    error_response,
+    get_valid_state_id,
+    template_response,
+)
 
 PATH = "/auth/oidc/finish"
 
@@ -14,41 +19,62 @@ class OIDCFinishView(HomeAssistantView):
     url = PATH
     name = "auth:oidc:finish"
 
+    def __init__(
+        self,
+        oidc_provider: OpenIDAuthProvider,
+    ) -> None:
+        self.oidc_provider = oidc_provider
+
     async def get(self, request: web.Request) -> web.Response:
-        """Show the finish screen to allow the user to view their code."""
+        """Show the finish screen to pick between login & device code."""
+        # Get cookie to get the state_id
+        state_id = await get_valid_state_id(request, self.oidc_provider)
+        if not state_id:
+            return await error_response("Missing state cookie, please restart login.")
 
-        code = request.query.get("code")
-
-        if not code:
-            view_html = await get_view(
-                "error",
-                {"error": "Missing code to show the finish screen."},
-            )
-            return web.Response(text=view_html, content_type="text/html")
-
-        view_html = await get_view("finish", {"code": code})
-        return web.Response(text=view_html, content_type="text/html")
+        return await template_response("finish", {})
 
     async def post(self, request: web.Request) -> web.Response:
         """Receive response."""
 
-        # Get code from the message body
-        data = await request.post()
-        code = data.get("code")
+        # Get cookie to get the state_id
+        state_id = await get_valid_state_id(request, self.oidc_provider)
+        if not state_id:
+            return await error_response("Missing state cookie, please restart login.")
 
-        if not code:
-            return web.Response(text="No code received", status=500)
-
-        # Return redirect to the main page for sign in with a cookie
-        raise web.HTTPFound(
-            location="/?storeToken=true",
-            headers={
-                # Set a cookie to enable autologin on only the specific path used
-                # for the POST request, with all strict parameters set
-                # This cookie should not be read by any Javascript or any other paths.
-                # It can be really short lifetime as we redirect immediately (5 seconds)
-                "set-cookie": "auth_oidc_code="
-                + code
-                + "; Path=/auth/login_flow; SameSite=Strict; HttpOnly; Max-Age=5",
-            },
+        # Get redirect_uri from the state
+        redirect_uri = await self.oidc_provider.async_get_redirect_uri_for_state(
+            state_id
         )
+
+        if not redirect_uri:
+            return await error_response("Invalid state, please restart login.")
+
+        # Get the message body
+        data = await request.post()
+        device_code = data.get("device_code")
+
+        # We are trying sign-in on this browser
+        if not device_code:
+            # Add to the URL correctly (also handle case where it's just the root)
+            separator = "?"
+            if "?" in redirect_uri:
+                separator = "&"
+
+            # Redirect to this new URL for login
+            new_url = (
+                redirect_uri + separator + "storeToken=true&skip_oidc_redirect=true"
+            )
+            raise web.HTTPFound(location=new_url)
+
+        # Check if we can link this device
+        linked = await self.oidc_provider.async_link_state_to_code(
+            state_id, device_code
+        )
+
+        if not linked:
+            return await error_response(
+                "Failed to link state to device code, please restart login."
+            )
+
+        return await template_response("device_success", {})

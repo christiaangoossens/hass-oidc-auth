@@ -621,21 +621,18 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["client_id"] = "invalid_client_id"
             return errors, None
 
-        # Determine confidentiality by presence of client secret
-        client_secret = user_input.get(CONF_CLIENT_SECRET, "").strip()
-        # If secret is empty, keep the existing one (if any)
-        if not client_secret:
-            client_secret = entry.data.get("client_secret")
-
         # Build updated data
         data_updates = {"client_id": client_id}
 
-        if client_secret:
-            data_updates["client_secret"] = client_secret
-        elif "client_secret" in entry.data and not client_secret:
-            # Remove client secret if switching from confidential to public
-            data_updates = {**entry.data, **data_updates}
-            data_updates.pop("client_secret", None)
+        # The optional secret field is submitted explicitly when the form is used.
+        # An empty value means the user wants to keep the existing secret.
+        if CONF_CLIENT_SECRET in user_input:
+            client_secret = user_input.get(CONF_CLIENT_SECRET, "").strip()
+
+            if client_secret:
+                data_updates["client_secret"] = client_secret
+        elif "client_secret" in entry.data:
+            data_updates["client_secret"] = entry.data["client_secret"]
 
         return errors, data_updates
 

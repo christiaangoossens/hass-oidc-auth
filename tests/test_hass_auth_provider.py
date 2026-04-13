@@ -1,6 +1,10 @@
 """Tests for the Auth Provider registration in HA"""
 
-from urllib.parse import urlparse, parse_qs
+import base64
+import re
+from types import SimpleNamespace
+from urllib.parse import parse_qs, unquote, urlparse
+from unittest.mock import patch
 import pytest
 
 from homeassistant.core import HomeAssistant
@@ -18,6 +22,8 @@ from custom_components.auth_oidc.config.const import (
     FEATURES_AUTOMATIC_USER_LINKING,
 )
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
+
+FAKE_REDIR_URL = "http://example.com/auth/authorize?response_type=code&redirect_uri=http%3A%2F%2Fexample.com%3A8123%2F%3Fauth_callback%3D1&client_id=http%3A%2F%2Fexample.com%3A8123%2F&state=example"
 
 
 async def setup(hass: HomeAssistant, config: dict, expect_success: bool) -> bool:
@@ -45,23 +51,63 @@ async def test_setup_success_auth_provider_registration(hass: HomeAssistant):
     auth_providers = hass.auth.get_auth_providers(DOMAIN)
     assert len(auth_providers) == 1
 
+    # Public auth-provider contract: OIDC provider does not support HA MFA
+    assert auth_providers[0].support_mfa is False
 
-async def login_user(hass: HomeAssistant, code: str):
-    """Helper to login a user."""
+
+@pytest.mark.asyncio
+async def test_provider_ip_fallback_fails_closed_without_request_context(
+    hass: HomeAssistant,
+):
+    """Provider should not invent a shared IP when request context is missing."""
+    await setup(
+        hass,
+        {
+            CLIENT_ID: "dummy",
+            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
+        },
+        True,
+    )
 
     provider = hass.auth.get_auth_providers(DOMAIN)[0]
-    flow = await provider.async_login_flow({})
 
-    result = await flow.async_step_init({"code": code})
-    assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert result["data"] is not None
+    with patch(
+        "custom_components.auth_oidc.provider.http.current_request"
+    ) as current_request:
+        current_request.get.return_value = None
+        assert provider._resolve_ip() is None
 
-    data = result["data"]
-    sub = data["sub"]
+
+@pytest.mark.asyncio
+async def test_provider_cookie_header_sets_secure_when_requested(hass: HomeAssistant):
+    """Cookie header should include Secure when HTTPS is in use."""
+    await setup(
+        hass,
+        {
+            CLIENT_ID: "dummy",
+            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
+        },
+        True,
+    )
+
+    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    cookie_header = provider.get_cookie_header("state-id", secure=True)["set-cookie"]
+
+    assert "SameSite=Strict" in cookie_header
+    assert "HttpOnly" in cookie_header
+    assert "Secure" in cookie_header
+
+
+async def login_user(hass: HomeAssistant, state_id: str):
+    """Helper to login a user from the stored OIDC state."""
+
+    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    # This helper runs outside an HTTP request, so pass the known local test IP.
+    sub = await provider.async_get_subject(state_id, "127.0.0.1")
     assert sub == MockOIDCServer.get_final_subject()
 
     # Get credentials
-    credentials = await provider.async_get_or_create_credentials(data)
+    credentials = await provider.async_get_or_create_credentials({"sub": sub})
     assert credentials is not None
     assert credentials.data["sub"] == sub
 
@@ -70,36 +116,49 @@ async def login_user(hass: HomeAssistant, code: str):
     return user
 
 
-async def get_login_code(hass: HomeAssistant, hass_client):
-    """Helper to get a login code."""
+async def get_login_state(hass: HomeAssistant, hass_client):
+    """Helper to complete the browser login flow and return the OIDC state id."""
     client = await hass_client()
+
+    redirect_uri = FAKE_REDIR_URL
+    encoded_redirect_uri = base64.b64encode(redirect_uri.encode("utf-8")).decode(
+        "utf-8"
+    )
+    resp = await client.get(
+        f"/auth/oidc/welcome?redirect_uri={encoded_redirect_uri}",
+        allow_redirects=False,
+    )
+    assert resp.status == 200
+    state_id = resp.cookies["auth_oidc_state"].value
+
     resp = await client.get("/auth/oidc/redirect", allow_redirects=False)
-    assert resp.status == 302
-    location = resp.headers["Location"]
-    parsed_url = urlparse(location)
+    assert resp.status == 200
+    html = await resp.text()
+    match = re.search(r'decodeURIComponent\("([^"]+)"\)', html)
+    assert match is not None
+    auth_url = unquote(match.group(1))
+
+    parsed_url = urlparse(auth_url)
     query_params = parse_qs(parsed_url.query)
-    state = query_params["state"][0]
+    assert query_params["state"][0] == state_id
 
     session = async_get_clientsession(hass)
-    resp = session.get(location, allow_redirects=False)
+    resp = session.get(auth_url, allow_redirects=False)
     assert resp.status == 200
 
+    # Mock OIDC returns JSON
     json_parsed = await resp.json()
     assert "code" in json_parsed and json_parsed["code"]
 
     code = json_parsed["code"]
-    client = await hass_client()
     resp = await client.get(
-        f"/auth/oidc/callback?code={code}&state={state}", allow_redirects=False
+        f"/auth/oidc/callback?code={code}&state={state_id}", allow_redirects=False
     )
 
     assert resp.status == 302
-    location = resp.headers["Location"]
-    assert "/auth/oidc/finish?code=" in location
+    assert resp.headers["Location"].endswith("/auth/oidc/finish")
 
-    # Get the code from the finish URL
-    code = location.split("code=")[1]
-    return code
+    return state_id
 
 
 @pytest.mark.asyncio
@@ -120,16 +179,16 @@ async def test_full_login(hass: HomeAssistant, hass_client):
 
     with mock_oidc_responses():
         # Actually start the login and get a code
-        code = await get_login_code(hass, hass_client)
+        state_id = await get_login_state(hass, hass_client)
 
-        # Use the code to login directly with the registered auth provider
+        # Use the stored state to login directly with the registered auth provider
         # Inspired by tests for the built-in providers
-        user = await login_user(hass, code)
+        user = await login_user(hass, state_id)
         assert user.name == "Test Name"
 
         # Login again to see if we trigger the re-use path
-        code2 = await get_login_code(hass, hass_client)
-        user2 = await login_user(hass, code2)
+        state_id2 = await get_login_state(hass, hass_client)
+        user2 = await login_user(hass, state_id2)
         assert user2.id == user.id
 
 
@@ -161,10 +220,10 @@ async def test_login_with_linking(hass: HomeAssistant, hass_client):
         await hass.auth.async_link_user(user, credential)
 
         # Actually start the login and get a code
-        code = await get_login_code(hass, hass_client)
+        state_id = await get_login_state(hass, hass_client)
 
-        # Use the code to login directly with the registered auth provider
-        user2 = await login_user(hass, code)
+        # Use the stored state to login directly with the registered auth provider
+        user2 = await login_user(hass, state_id)
         assert user2.id == user.id  # Assert that the user was linked
 
 
@@ -187,8 +246,8 @@ async def test_login_with_person_create(hass: HomeAssistant, hass_client):
     await async_setup_component(hass, PERSON_DOMAIN, {})
 
     with mock_oidc_responses():
-        code = await get_login_code(hass, hass_client)
-        user = await login_user(hass, code)
+        state_id = await get_login_state(hass, hass_client)
+        user = await login_user(hass, state_id)
         assert user.is_active
 
         # Find the person associated to this user using the PersonRegistry API
@@ -198,6 +257,36 @@ async def test_login_with_person_create(hass: HomeAssistant, hass_client):
 
         person = persons[0]
         assert person["user_id"] == user.id
+
+
+@pytest.mark.asyncio
+async def test_login_without_person_create_does_not_create_person(
+    hass: HomeAssistant, hass_client
+):
+    """Test that person creation can be disabled."""
+    await setup(
+        hass,
+        {
+            CLIENT_ID: "dummy",
+            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: False,
+                FEATURES_AUTOMATIC_USER_LINKING: False,
+            },
+        },
+        True,
+    )
+
+    await async_setup_component(hass, PERSON_DOMAIN, {})
+
+    with mock_oidc_responses():
+        state_id = await get_login_state(hass, hass_client)
+        user = await login_user(hass, state_id)
+        assert user.is_active
+
+        person_store = hass.data[PERSON_DOMAIN][1]
+        persons = person_store.async_items()
+        assert len(persons) == 0
 
 
 @pytest.mark.asyncio
@@ -220,10 +309,38 @@ async def test_login_shows_form(hass: HomeAssistant):
     flow = await provider.async_login_flow({})
 
     result = await flow.async_step_init({})
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "mfa"
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "no_oidc_cookie_found"
 
-    # Attempt an invalid code
-    result = await flow.async_step_init({"code": "invalid"})
-    assert result["type"] == FlowResultType.FORM
-    assert result["errors"] == {"base": "invalid_auth"}
+
+@pytest.mark.asyncio
+async def test_login_with_invalid_cookie_aborts(hass: HomeAssistant):
+    """A cookie that does not map to a valid state should fail closed."""
+    await setup(
+        hass,
+        {
+            CLIENT_ID: "dummy",
+            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: False,
+                FEATURES_AUTOMATIC_USER_LINKING: False,
+            },
+        },
+        True,
+    )
+
+    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    flow = await provider.async_login_flow({})
+
+    fake_request = SimpleNamespace(
+        cookies={"auth_oidc_state": "missing-state"}, remote="127.0.0.1"
+    )
+    with patch(
+        "custom_components.auth_oidc.provider.http.current_request"
+    ) as current_request:
+        current_request.get.return_value = fake_request
+
+        result = await flow.async_step_init({})
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "no_oidc_cookie_found"
