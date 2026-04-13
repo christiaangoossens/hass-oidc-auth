@@ -1,6 +1,6 @@
 [project]
 name = "hass-oidc-auth"
-version = "0.7.0"
+version = "1.0.0"
 description = "OIDC component for Home Assistant"
 authors = [
     { name = "Christiaan Goossens", email = "contact@christiaangoossens.nl" }
@@ -33,7 +33,7 @@ build-backend = "hatchling.build"
 [tool.uv]
 managed = true
 override-dependencies = [
-    "orjson>=3.11.6,<3.12.0",
+    "orjson>=3.11.8,<3.12.0",
     "pyjwt>=2.12.0,<2.13.0",
     "pillow>=12.2.0,<12.3.0",
     "pytest>=9.0.3,<9.1.0",

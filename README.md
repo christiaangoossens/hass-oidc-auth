@@ -41,9 +41,6 @@
   </p>
 </div>
 
-> [!CAUTION]
-> This is an alpha release. I give no guarantees about code quality, error handling or security at this stage. Use at your own risk.
-
 Provides an OpenID Connect (OIDC) implementation for Home Assistant through a custom component/integration. Through this integration, you can create an SSO (single-sign-on) environment within your self-hosted application stack / homelab.
 
 ### Background
