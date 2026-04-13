@@ -93,7 +93,10 @@ async def complete_callback_and_finish(client, code: str, state: str):
 
     resp_finish = await client.get("/auth/oidc/finish", allow_redirects=False)
     assert resp_finish.status == 200
-    assert "Login to Home Assistant on this device" in await resp_finish.text()
+    finish_html = await resp_finish.text()
+    assert 'id="continue-on-this-device"' in finish_html
+    assert 'id="device-code-input"' in finish_html
+    assert 'id="approve-login-button"' in finish_html
 
 
 async def verify_back_redirect(client, expected_redirect_uri: str):
@@ -467,10 +470,8 @@ async def test_device_login_flow_two_browsers(hass: HomeAssistant, hass_client):
         )
         assert status == 200
         assert mobile_state is not None
-        assert (
-            "Please login to Home Assistant on another device and enter this code when asked"
-            in mobile_html
-        )
+        assert 'id="device-instructions"' in mobile_html
+        assert 'id="device-code"' in mobile_html
 
         # Extract device code from the welcome page.
         # The code is rendered in a div with id="device-code".
@@ -528,7 +529,8 @@ async def test_device_login_flow_two_browsers(hass: HomeAssistant, hass_client):
         assert resp_code.status == 200
         assert resp_code.headers.get("Content-Type", "").startswith("text/html")
         html_code = await resp_code.text()
-        assert "successfully logged in on your mobile device" in html_code
+        assert 'id="mobile-success-message"' in html_code
+        assert 'id="restart-login-button"' in html_code
 
         # ==================== Mobile Device Receives Ready Event ====================
         # After desktop flow is completed, mobile SSE should receive a ready event on same connection

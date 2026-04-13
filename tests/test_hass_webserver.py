@@ -151,7 +151,8 @@ async def test_welcome_shows_alternative_sign_in_link_when_other_providers_exist
     )
     assert resp.status == 200
     text = await resp.text()
-    assert "Use alternative sign-in method" in text
+    assert 'id="login-button"' in text
+    assert 'id="alternative-sign-in-link"' in text
     assert "skip_oidc_redirect=true" in text
 
 

@@ -48,7 +48,7 @@ class StateStore:
     def _is_expired(self, state: OIDCState) -> bool:
         """Check if a state is expired."""
         return datetime.fromisoformat(state["expiration"]) < datetime.now(timezone.utc)
-    
+
     def _is_valid(self, state: OIDCState, ip: str) -> bool:
         """Check if a state is valid"""
         return (
@@ -104,7 +104,9 @@ class StateStore:
         except KeyError:
             return False
 
-    async def async_get_redirect_uri_for_state(self, state_id: str, ip: str) -> Optional[str]:
+    async def async_get_redirect_uri_for_state(
+        self, state_id: str, ip: str
+    ) -> Optional[str]:
         """Get the redirect_uri for a given state_id."""
         if self._data is None:
             raise RuntimeError("Data not loaded")

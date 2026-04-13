@@ -14,7 +14,6 @@ from .const import (
     FEATURES_AUTOMATIC_PERSON_CREATION,
     FEATURES_DISABLE_PKCE,
     FEATURES_INCLUDE_GROUPS_SCOPE,
-    FEATURES_DISABLE_FRONTEND_INJECTION,
     FEATURES_FORCE_HTTPS,
     CLAIMS,
     CLAIMS_DISPLAY_NAME,
@@ -71,10 +70,6 @@ CONFIG_SCHEMA = vol.Schema(
                         # Boolean which activates and deactivates scope 'groups'
                         vol.Optional(
                             FEATURES_INCLUDE_GROUPS_SCOPE, default=True
-                        ): vol.Coerce(bool),
-                        # Disable frontend injection of OIDC login button
-                        vol.Optional(
-                            FEATURES_DISABLE_FRONTEND_INJECTION, default=False
                         ): vol.Coerce(bool),
                         # Force HTTPS on all generated URLs (like redirect_uri)
                         vol.Optional(FEATURES_FORCE_HTTPS, default=False): vol.Coerce(

@@ -11,7 +11,8 @@
         <h2 class="mb-2 text-lg font-semibold text-gray-800">Continue on this device</h2>
         <p class="mb-4 text-sm text-gray-600">Tap Continue to login to Home Assistant on this device.</p>
         <form method="post">
-            <button 
+            <button
+                id="continue-on-this-device"
                 type="submit"
                 class="w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg 
                     shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 
@@ -35,7 +36,7 @@
                 <div>
                     <input 
                         type="tel" 
-                        id="device_code"
+                        id="device-code-input"
                         name="device_code"
                         required
                         minlength="6"
@@ -49,6 +50,7 @@
                         >
                 </div>
                 <button 
+                    id="approve-login-button"
                     type="submit"
                     class="w-full py-2 px-4 bg-white text-blue-600 
                         font-semibold rounded-lg border border-blue-500 shadow-md hover:bg-gray-100

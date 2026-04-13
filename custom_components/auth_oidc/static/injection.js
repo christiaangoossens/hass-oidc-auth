@@ -72,7 +72,7 @@ function click_alternative_provider_instead() {
     }
 
     firstListItem.click();
-  }, 300);
+  }, 500);
 }
 
 // Run OIDC injection upon load

@@ -111,7 +111,6 @@ class OpenIDAuthProvider(AuthProvider):
 
         req = http.current_request.get()
         if req and req.remote:
-            _LOGGER.debug("Resolved client IP from request: %s", req.remote)
             return req.remote
 
         return "unknown"
@@ -175,7 +174,9 @@ class OpenIDAuthProvider(AuthProvider):
             await self.async_initialize()
             assert self._state_store is not None
 
-        return await self._state_store.async_is_state_ready(state_id, self._resolve_ip(ip))
+        return await self._state_store.async_is_state_ready(
+            state_id, self._resolve_ip(ip)
+        )
 
     async def async_link_state_to_code(
         self, state_id: str, code: str, ip: str | None = None
@@ -189,7 +190,9 @@ class OpenIDAuthProvider(AuthProvider):
             state_id, code, self._resolve_ip(ip)
         )
 
-    async def async_get_subject(self, state_id: str, ip: str | None = None) -> Optional[str]:
+    async def async_get_subject(
+        self, state_id: str, ip: str | None = None
+    ) -> Optional[str]:
         """Retrieve user from the state_id, return subject and save meta
         for later use with this provider instance."""
         if self._state_store is None:
