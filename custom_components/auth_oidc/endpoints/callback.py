@@ -29,6 +29,18 @@ class OIDCCallbackView(HomeAssistantView):
     async def get(self, request: web.Request) -> web.Response:
         """Receive response."""
 
+        # Get cookie to get the state_id
+        state_id = request.cookies.get("auth_oidc_state")
+        if not state_id:
+            view_html = await get_view(
+                "error",
+                {
+                    "error": "Missing state cookie, please restart login.",
+                },
+            )
+            return web.Response(text=view_html, content_type="text/html")
+
+        # Get the OIDC query parameters
         params = request.rel_url.query
         code = params.get("code")
         state = params.get("state")
@@ -41,7 +53,18 @@ class OIDCCallbackView(HomeAssistantView):
                 },
             )
             return web.Response(text=view_html, content_type="text/html")
+        
+        # Check if the states match
+        if state != state_id:
+            view_html = await get_view(
+                "error",
+                {
+                    "error": "State parameter does not match, possible CSRF attack.",
+                },
+            )
+            return web.Response(text=view_html, content_type="text/html")
 
+        # Complete the OIDC flow to get user details
         redirect_uri = get_url("/auth/oidc/callback", self.force_https)
         user_details = await self.oidc_client.async_complete_token_flow(
             redirect_uri, code, state
@@ -66,5 +89,6 @@ class OIDCCallbackView(HomeAssistantView):
             )
             return web.Response(text=view_html, content_type="text/html")
 
-        code = await self.oidc_provider.async_save_user_info(user_details)
-        raise web.HTTPFound(get_url("/auth/oidc/finish?code=" + code, self.force_https))
+        # Finalize on the state
+        await self.oidc_provider.async_save_user_info(state_id, user_details)
+        raise web.HTTPFound(get_url("/auth/oidc/finish", self.force_https))

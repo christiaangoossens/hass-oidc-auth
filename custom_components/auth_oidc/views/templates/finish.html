@@ -6,12 +6,10 @@
 {% block content %}
 <div class="text-center">
     <div class="my-6">
-        <h2 class="text-xl font-semibold mb-6 text-gray-800">I want to login to this browser</h2>
         <form method="post">
-            <input type="hidden" name="code" value="{{ code }}">
-            <button type="submit"
-                class="w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75">
-                Login to Home Assistant in this browser
+            <button type="submit" class="w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 
+                focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 hover:cursor-pointer">
+                Login to Home Assistant on this device
             </button>
         </form>
     </div>
@@ -19,13 +17,20 @@
     <hr class="my-12">
 
     <div class="my-6">
-        <h2 class="text-xl font-semibold mb-4 text-gray-800">I am on a mobile device</h2>
-        <p class="mb-4">Your one-time code is: <b class="text-blue-600 text-xl">{{ code }}</b></p>
-        <p class="mb-4 text-sm">You have 5 minutes to use this code on any device.<br />The code can only
-            be used once.</p>
-        <p class="mb-4 text-sm">Please type the code into your app manually. If you don't see a code input, select
-            'Login with
-            OpenID Connect (SSO)' first.</p>
+        <h2 class="text-xl font-semibold mb-6 text-gray-800">I want to login on another device</h2>
+        <p class="text-md text-gray-600">Please try to sign in to your mobile app. It will show a code that you can
+            enter below.</p>
+        <form method="post" class="mt-4">
+            <div class="mb-4">
+                <label for="device_code" class="block text-gray-700 font-medium mb-2">Device Code</label>
+                <input type="text" id="device_code" name="device_code" required class="border border-gray-300 rounded-md py-2 px-4 
+                focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75">
+            </div>
+            <button type="submit" class="w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none 
+                focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 hover:cursor-pointer">
+                Login to Home Assistant on another device
+            </button>
+        </form>
     </div>
 </div>
 {% endblock %}

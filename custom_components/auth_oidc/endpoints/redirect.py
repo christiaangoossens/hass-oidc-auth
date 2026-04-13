@@ -1,6 +1,7 @@
 """Redirect route to redirect the user to the external OIDC server,
 can either be linked to directly or accessed through the welcome page."""
 
+from urllib.parse import quote
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
@@ -21,15 +22,24 @@ class OIDCRedirectView(HomeAssistantView):
         self.oidc_client = oidc_client
         self.force_https = force_https
 
-    async def get(self, _: web.Request) -> web.Response:
+    async def get(self, req: web.Request) -> web.Response:
         """Receive response."""
+
+        # Get cookie to get the state_id
+        state_id = req.cookies.get("auth_oidc_state")
+
+        if not state_id:
+            # Direct access to the redirect endpoint, go to welcome page instead
+            welcome_url = get_url("/auth/oidc/welcome", self.force_https)
+            raise web.HTTPFound(welcome_url)
 
         try:
             redirect_uri = get_url("/auth/oidc/callback", self.force_https)
-            auth_url = await self.oidc_client.async_get_authorization_url(redirect_uri)
+            auth_url = await self.oidc_client.async_get_authorization_url(redirect_uri, state_id)
 
             if auth_url:
-                raise web.HTTPFound(auth_url)
+                view_html = await get_view("redirect", {"url": quote(auth_url)})
+                return web.Response(text=view_html, content_type="text/html")
         except RuntimeError:
             pass
 
@@ -39,6 +49,6 @@ class OIDCRedirectView(HomeAssistantView):
         )
         return web.Response(text=view_html, content_type="text/html")
 
-    async def post(self, request: web.Request) -> web.Response:
+    async def post(self, req: web.Request) -> web.Response:
         """POST"""
-        return await self.get(request)
+        return await self.get(req)

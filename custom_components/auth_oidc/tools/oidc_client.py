@@ -544,7 +544,7 @@ class OIDCClient:
             _LOGGER.warning("JWT verification failed: %s", e)
             return None
 
-    async def async_get_authorization_url(self, redirect_uri: str) -> Optional[str]:
+    async def async_get_authorization_url(self, redirect_uri: str, state: str) -> Optional[str]:
         """Generates the authorization URL for the OIDC flow."""
         try:
             discovery_document = await self._fetch_discovery_document()
@@ -552,7 +552,6 @@ class OIDCClient:
 
             # Generate random nonce & state
             nonce = self._generate_random_url_string()
-            state = self._generate_random_url_string()
 
             # Generate PKCE (RFC 7636) parameters
             code_verifier = self._generate_random_url_string(32)

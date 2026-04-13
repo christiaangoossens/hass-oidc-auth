@@ -16,3 +16,21 @@ class UserDetails(dict):
     username: str
     # Home Assistant role to assign to this user
     role: Literal["system-admin", "system-users", "invalid"]
+
+class OIDCState(dict):
+    """OIDC State representation"""
+
+    # ID of this state
+    id: str
+
+    # User friendly device code
+    device_code: str | None
+
+    # The redirect_uri associated with this state, to be able to redirect the user back after authentication
+    redirect_uri: str
+
+    # User details, if available
+    user_details: UserDetails | None
+
+    # Expiration time of this state, in ISO format
+    expiration: str

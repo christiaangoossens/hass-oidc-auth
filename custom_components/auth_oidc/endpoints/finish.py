@@ -2,6 +2,7 @@
 
 from homeassistant.components.http import HomeAssistantView
 from aiohttp import web
+from ..provider import OpenIDAuthProvider
 from ..tools.helpers import get_view
 
 PATH = "/auth/oidc/finish"
@@ -14,41 +15,79 @@ class OIDCFinishView(HomeAssistantView):
     url = PATH
     name = "auth:oidc:finish"
 
+
+    def __init__(
+        self,
+        oidc_provider: OpenIDAuthProvider,
+    ) -> None:
+        self.oidc_provider = oidc_provider
+
     async def get(self, request: web.Request) -> web.Response:
-        """Show the finish screen to allow the user to view their code."""
-
-        code = request.query.get("code")
-
-        if not code:
+        """Show the finish screen to pick between login & device code."""
+        # Get cookie to get the state_id
+        state_id = request.cookies.get("auth_oidc_state")
+        if not state_id:
             view_html = await get_view(
                 "error",
-                {"error": "Missing code to show the finish screen."},
+                {
+                    "error": "Missing state cookie, please restart login.",
+                },
             )
             return web.Response(text=view_html, content_type="text/html")
 
-        view_html = await get_view("finish", {"code": code})
+        view_html = await get_view("finish", {})
         return web.Response(text=view_html, content_type="text/html")
 
     async def post(self, request: web.Request) -> web.Response:
         """Receive response."""
 
-        # Get code from the message body
+        # Get cookie to get the state_id
+        state_id = request.cookies.get("auth_oidc_state")
+        if not state_id:
+            view_html = await get_view(
+                "error",
+                {
+                    "error": "Missing state cookie, please restart login.",
+                },
+            )
+            return web.Response(text=view_html, content_type="text/html")
+        
+        # Get redirect_uri from the state
+        redirect_uri = await self.oidc_provider.async_get_redirect_uri_for_state(state_id)
+
+        if not redirect_uri:
+            view_html = await get_view(
+                "error",
+                {
+                    "error": "Invalid state, please restart login.",
+                },
+            )
+            return web.Response(text=view_html, content_type="text/html")
+
+        # Get the message body
         data = await request.post()
-        code = data.get("code")
+        device_code = data.get("device_code")
 
-        if not code:
-            return web.Response(text="No code received", status=500)
+        # We are trying sign-in on this browser
+        if not device_code:
+            # Add to the URL correctly (also handle case where it's just the root)
+            separator = "?"
+            if "?" in redirect_uri:
+                separator = "&"
 
-        # Return redirect to the main page for sign in with a cookie
-        raise web.HTTPFound(
-            location="/?storeToken=true",
-            headers={
-                # Set a cookie to enable autologin on only the specific path used
-                # for the POST request, with all strict parameters set
-                # This cookie should not be read by any Javascript or any other paths.
-                # It can be really short lifetime as we redirect immediately (5 seconds)
-                "set-cookie": "auth_oidc_code="
-                + code
-                + "; Path=/auth/login_flow; SameSite=Strict; HttpOnly; Max-Age=5",
-            },
-        )
+            # Redirect to this new URL for login
+            new_url = redirect_uri + separator + "storeToken=true&skip_oidc_redirect=true"
+            raise web.HTTPFound(
+                location=new_url
+            )
+        
+        # Check if we can link this device
+        view_html = await get_view(
+                "error",
+                {
+                    "error": "Not currently supported.",
+                },
+            )
+        return web.Response(text=view_html, content_type="text/html")
+            
+
