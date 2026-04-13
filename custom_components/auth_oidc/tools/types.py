@@ -38,4 +38,4 @@ class OIDCState(dict):
     expiration: str
 
     # IP address
-    ip_address: str
+    ip_address: str | None

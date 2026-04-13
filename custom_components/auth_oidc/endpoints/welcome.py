@@ -65,7 +65,9 @@ class OIDCWelcomeView(HomeAssistantView):
 
         # Create OIDC state with the redirect_uri so we can use it later in the flow
         state_id = await self.oidc_provider.async_create_state(redirect_uri)
-        cookie_header = self.oidc_provider.get_cookie_header(state_id)
+        cookie_header = self.oidc_provider.get_cookie_header(
+            state_id, secure=self.force_https or req.url.scheme == "https"
+        )
 
         # If this is the only provider and we are on desktop,
         # automatically go through the OIDC login

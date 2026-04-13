@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.core import HomeAssistant
 
-from auth_oidc.stores.state_store import StateStore
+from auth_oidc.stores.state_store import MAX_DEVICE_CODE_ATTEMPTS, StateStore
 
 TEST_IP = "127.0.0.1"
 
@@ -131,6 +131,47 @@ async def test_state_store_link_state_returns_false_for_wrong_code(hass: HomeAss
         )
         assert donor_state in state_store.get_data()
         assert await state_store.async_is_state_ready(target_state, TEST_IP) is False
+
+
+@pytest.mark.asyncio
+async def test_state_store_throttles_device_code_link_attempts(hass: HomeAssistant):
+    """Test that repeated wrong device codes are throttled per state."""
+    store_mock = AsyncMock()
+    with patch("homeassistant.helpers.storage.Store", return_value=store_mock):
+        state_store = StateStore(hass)
+
+        store_mock.async_load.return_value = {}
+        await state_store.async_load()
+
+        donor_state = await state_store.async_create_state_from_url(
+            "https://example.com/donor", TEST_IP
+        )
+        target_state = await state_store.async_create_state_from_url(
+            "https://example.com/target", TEST_IP
+        )
+        code = await state_store.async_generate_code_for_state(target_state)
+        assert code is not None
+
+        user_info = {
+            "sub": "user-throttle",
+            "display_name": "Throttle User",
+            "username": "throttle",
+            "role": "system-users",
+        }
+        assert await state_store.async_add_userinfo_to_state(donor_state, user_info)
+
+        for _ in range(MAX_DEVICE_CODE_ATTEMPTS):
+            assert (
+                await state_store.async_link_state_to_code(
+                    donor_state, "000000", TEST_IP
+                )
+                is False
+            )
+
+        assert (
+            await state_store.async_link_state_to_code(donor_state, code, TEST_IP)
+            is False
+        )
 
 
 @pytest.mark.asyncio

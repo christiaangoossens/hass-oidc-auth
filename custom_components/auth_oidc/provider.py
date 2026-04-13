@@ -104,7 +104,7 @@ class OpenIDAuthProvider(AuthProvider):
         # Listen for user creation events
         self.hass.bus.async_listen(EVENT_USER_ADDED, self.async_user_created)
 
-    def _resolve_ip(self, ip: str | None = None) -> str:
+    def _resolve_ip(self, ip: str | None = None) -> str | None:
         """Resolve client IP from explicit input or current request context."""
         if ip:
             return ip
@@ -113,7 +113,7 @@ class OpenIDAuthProvider(AuthProvider):
         if req and req.remote:
             return req.remote
 
-        return "unknown"
+        return None
 
     async def async_create_state(self, redirect_uri: str, ip: str | None = None) -> str:
         """Create a new OIDC state and return the state id."""
@@ -228,14 +228,16 @@ class OpenIDAuthProvider(AuthProvider):
 
         return None
 
-    def get_cookie_header(self, state_id: str):
+    def get_cookie_header(self, state_id: str, secure: bool = False):
         """Get the cookie header to set the state_id cookie."""
+        secure_flag = "; Secure" if secure else ""
         return {
             # Set a cookie for the other pages to know the state_id
             # Keep cookie lifetime aligned with state lifetime in storage (5 minutes).
             "set-cookie": f"{COOKIE_NAME}="
             + state_id
-            + "; Path=/auth/; SameSite=Strict; HttpOnly; Max-Age=300",
+            + "; Path=/auth/; SameSite=Strict; HttpOnly; Max-Age=300"
+            + secure_flag,
         }
 
     # ====

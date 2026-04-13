@@ -55,6 +55,49 @@ async def test_setup_success_auth_provider_registration(hass: HomeAssistant):
     assert auth_providers[0].support_mfa is False
 
 
+@pytest.mark.asyncio
+async def test_provider_ip_fallback_fails_closed_without_request_context(
+    hass: HomeAssistant,
+):
+    """Provider should not invent a shared IP when request context is missing."""
+    await setup(
+        hass,
+        {
+            CLIENT_ID: "dummy",
+            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
+        },
+        True,
+    )
+
+    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+
+    with patch(
+        "custom_components.auth_oidc.provider.http.current_request"
+    ) as current_request:
+        current_request.get.return_value = None
+        assert provider._resolve_ip() is None
+
+
+@pytest.mark.asyncio
+async def test_provider_cookie_header_sets_secure_when_requested(hass: HomeAssistant):
+    """Cookie header should include Secure when HTTPS is in use."""
+    await setup(
+        hass,
+        {
+            CLIENT_ID: "dummy",
+            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
+        },
+        True,
+    )
+
+    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    cookie_header = provider.get_cookie_header("state-id", secure=True)["set-cookie"]
+
+    assert "SameSite=Strict" in cookie_header
+    assert "HttpOnly" in cookie_header
+    assert "Secure" in cookie_header
+
+
 async def login_user(hass: HomeAssistant, state_id: str):
     """Helper to login a user from the stored OIDC state."""
 

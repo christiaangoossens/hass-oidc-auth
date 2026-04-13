@@ -13,6 +13,7 @@ from ..tools.types import OIDCState, UserDetails
 
 STORAGE_VERSION = 1
 STORAGE_KEY = "auth_provider.auth_oidc.states"
+MAX_DEVICE_CODE_ATTEMPTS = 10
 
 
 class StateStore:
@@ -49,11 +50,12 @@ class StateStore:
         """Check if a state is expired."""
         return datetime.fromisoformat(state["expiration"]) < datetime.now(timezone.utc)
 
-    def _is_valid(self, state: OIDCState, ip: str) -> bool:
+    def _is_valid(self, state: OIDCState, ip: str | None) -> bool:
         """Check if a state is valid"""
         return (
             not self._is_expired(state)
             and bool(state["redirect_uri"])
+            and ip is not None
             and state["ip_address"] == ip
         )
 
@@ -69,6 +71,7 @@ class StateStore:
             "id": state_id,
             "redirect_uri": redirect_uri,
             "device_code": None,
+            "device_code_attempts": 0,
             "user_details": None,
             "expiration": expiration.isoformat(),
             "ip_address": ip,
@@ -129,7 +132,9 @@ class StateStore:
             and self._is_valid(state, ip)
         )
 
-    async def async_link_state_to_code(self, state_id: str, code: str, ip: str) -> bool:
+    async def async_link_state_to_code(
+        self, state_id: str, code: str, ip: str | None
+    ) -> bool:
         """Link a state to a device code, used for mobile sign-in."""
         if self._data is None:
             raise RuntimeError("Data not loaded")
@@ -140,6 +145,10 @@ class StateStore:
             and self._is_valid(state_data, ip)
             and state_data["user_details"] is not None
         ):
+            attempts = state_data.get("device_code_attempts", 0)
+            if attempts >= MAX_DEVICE_CODE_ATTEMPTS:
+                return False
+
             # Find the state with the matching device code and link it
             for state in self._data.values():
                 if state["device_code"] == code and not self._is_expired(state):
@@ -152,6 +161,9 @@ class StateStore:
                     # Save and return true
                     await self._async_save()
                     return True
+
+            state_data["device_code_attempts"] = attempts + 1
+            await self._async_save()
 
         return False
 
