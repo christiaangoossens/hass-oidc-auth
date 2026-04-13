@@ -104,7 +104,6 @@ class OpenIDAuthProvider(AuthProvider):
         # Listen for user creation events
         self.hass.bus.async_listen(EVENT_USER_ADDED, self.async_user_created)
 
-
     async def async_create_state(self, redirect_uri: str) -> str:
         """Create a new OIDC state and return the state id."""
         if self._state_store is None:
@@ -112,7 +111,7 @@ class OpenIDAuthProvider(AuthProvider):
             assert self._state_store is not None
 
         return await self._state_store.async_create_state_from_url(redirect_uri)
-    
+
     async def async_generate_device_code(self, state_id: str) -> Optional[str]:
         """Generate a device code for the state, used for device login."""
         if self._state_store is None:
@@ -121,7 +120,9 @@ class OpenIDAuthProvider(AuthProvider):
 
         return await self._state_store.async_generate_code_for_state(state_id)
 
-    async def async_save_user_info(self, state_id: str, user_info: dict[str, dict | str]) -> bool:
+    async def async_save_user_info(
+        self, state_id: str, user_info: dict[str, dict | str]
+    ) -> bool:
         """Save user info to the given state."""
         if self._state_store is None:
             await self.async_initialize()
@@ -136,7 +137,7 @@ class OpenIDAuthProvider(AuthProvider):
             assert self._state_store is not None
 
         return await self._state_store.async_get_redirect_uri_for_state(state_id)
-    
+
     async def async_is_state_ready(self, state_id: str) -> bool:
         """Check if the state has received the user info from the OIDC callback."""
         if self._state_store is None:
@@ -144,7 +145,7 @@ class OpenIDAuthProvider(AuthProvider):
             assert self._state_store is not None
 
         return await self._state_store.async_is_state_ready(state_id)
-    
+
     async def async_link_state_to_code(self, state_id: str, code: str) -> bool:
         """Link two states together by copying the user info from one to the other."""
         if self._state_store is None:
@@ -152,7 +153,7 @@ class OpenIDAuthProvider(AuthProvider):
             assert self._state_store is not None
 
         return await self._state_store.async_link_state_to_code(state_id, code)
-    
+
     async def async_get_subject(self, state_id: str) -> Optional[str]:
         """Retrieve user from the state_id, return subject and save meta
         for later use with this provider instance."""
@@ -186,15 +187,15 @@ class OpenIDAuthProvider(AuthProvider):
                     return user
 
         return None
-    
+
     def get_cookie_header(self, state_id: str):
         """Get the cookie header to set the state_id cookie."""
         return {
             # Set a cookie for the other pages to know the state_id
             # Set it to a short lifetime as we should finish quickly (60 seconds)
             "set-cookie": f"{COOKIE_NAME}="
-                + state_id
-                + "; Path=/auth/; SameSite=Strict; HttpOnly; Max-Age=60",
+            + state_id
+            + "; Path=/auth/; SameSite=Strict; HttpOnly; Max-Age=60",
         }
 
     # ====

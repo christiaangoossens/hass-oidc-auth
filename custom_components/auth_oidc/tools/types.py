@@ -17,6 +17,7 @@ class UserDetails(dict):
     # Home Assistant role to assign to this user
     role: Literal["system-admin", "system-users", "invalid"]
 
+
 class OIDCState(dict):
     """OIDC State representation"""
 

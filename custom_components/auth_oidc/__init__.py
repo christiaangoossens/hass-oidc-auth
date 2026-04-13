@@ -27,7 +27,6 @@ from .config import (
     ROLES,
     NETWORK,
     FEATURES_INCLUDE_GROUPS_SCOPE,
-    FEATURES_DISABLE_FRONTEND_INJECTION,
     FEATURES_FORCE_HTTPS,
     REQUIRED_SCOPES,
 )
@@ -148,12 +147,7 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
     force_https = features_config.get(FEATURES_FORCE_HTTPS, False)
 
     hass.http.register_view(
-        OIDCWelcomeView(
-            provider,
-            name,
-            force_https,
-            has_other_auth_providers
-        )
+        OIDCWelcomeView(provider, name, force_https, has_other_auth_providers)
     )
     hass.http.register_view(OIDCDeviceSSE(provider))
     hass.http.register_view(OIDCRedirectView(oidc_client, force_https))

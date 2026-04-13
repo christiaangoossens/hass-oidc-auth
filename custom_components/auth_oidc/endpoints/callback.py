@@ -53,7 +53,7 @@ class OIDCCallbackView(HomeAssistantView):
                 },
             )
             return web.Response(text=view_html, content_type="text/html")
-        
+
         # Check if the states match
         if state != state_id:
             view_html = await get_view(

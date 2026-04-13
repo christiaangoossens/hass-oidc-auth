@@ -14,6 +14,7 @@ from ..tools.types import OIDCState, UserDetails
 STORAGE_VERSION = 1
 STORAGE_KEY = "auth_provider.auth_oidc.states"
 
+
 class StateStore:
     """Holds the authentication states and associated data"""
 
@@ -43,7 +44,7 @@ class StateStore:
     def _generate_code(self) -> str:
         """Generate a random six-digit code."""
         return "".join(random.choices(string.digits, k=6))
-    
+
     def _is_expired(self, state: OIDCState) -> bool:
         """Check if a state is expired."""
         return datetime.fromisoformat(state["expiration"]) < datetime.now(timezone.utc)
@@ -61,17 +62,17 @@ class StateStore:
             "redirect_uri": redirect_uri,
             "device_code": None,
             "user_details": None,
-            "expiration": expiration.isoformat()
+            "expiration": expiration.isoformat(),
         }
 
         await self._async_save()
         return state_id
-    
+
     async def async_generate_code_for_state(self, state_id: str) -> Optional[str]:
         """Generates a one time code for the state to link device clients."""
         if self._data is None:
             raise RuntimeError("Data not loaded")
-        
+
         try:
             code = self._generate_code()
             self._data[state_id]["device_code"] = code
@@ -80,11 +81,13 @@ class StateStore:
         except KeyError:
             return None
 
-    async def async_add_userinfo_to_state(self, state_id: str, user_info: UserDetails) -> bool:
+    async def async_add_userinfo_to_state(
+        self, state_id: str, user_info: UserDetails
+    ) -> bool:
         """Add userinfo to existing state to complete login"""
         if self._data is None:
             raise RuntimeError("Data not loaded")
-        
+
         try:
             self._data[state_id]["user_details"] = user_info
             await self._async_save()
@@ -102,15 +105,18 @@ class StateStore:
             return state["redirect_uri"]
 
         return None
-    
+
     async def async_is_state_ready(self, state_id: str) -> bool:
         """Check if the state has received the user info from the OIDC callback."""
         if self._data is None:
             raise RuntimeError("Data not loaded")
 
         state = self._data.get(state_id)
-        return state is not None and state["user_details"] is not None and not self._is_expired(state)
-    
+        return (
+            state is not None
+            and state["user_details"] is not None
+            and not self._is_expired(state)
+        )
 
     async def async_link_state_to_code(self, state_id: str, code: str) -> bool:
         """Link a state to a device code, used for mobile sign-in."""
@@ -118,7 +124,11 @@ class StateStore:
             raise RuntimeError("Data not loaded")
 
         state_data = self._data.get(state_id)
-        if state_data and not self._is_expired(state_data) and state_data['user_details'] is not None:
+        if (
+            state_data
+            and not self._is_expired(state_data)
+            and state_data["user_details"] is not None
+        ):
             # Find the state with the matching device code and link it
             for state in self._data.values():
                 if state["device_code"] == code and not self._is_expired(state):
@@ -133,7 +143,9 @@ class StateStore:
             return True
         return False
 
-    async def async_receive_userinfo_for_state(self, state_id: str) -> Optional[OIDCState]:
+    async def async_receive_userinfo_for_state(
+        self, state_id: str
+    ) -> Optional[OIDCState]:
         """Retrieve user info based on the state_id."""
         if self._data is None:
             raise RuntimeError("Data not loaded")

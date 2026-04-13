@@ -18,7 +18,13 @@ class OIDCWelcomeView(HomeAssistantView):
     url = PATH
     name = "auth:oidc:welcome"
 
-    def __init__(self, oidc_provider: OpenIDAuthProvider, name: str, force_https: bool, has_other_auth_providers: bool) -> None:
+    def __init__(
+        self,
+        oidc_provider: OpenIDAuthProvider,
+        name: str,
+        force_https: bool,
+        has_other_auth_providers: bool,
+    ) -> None:
         self.oidc_provider = oidc_provider
         self.name = name
         self.force_https = force_https
@@ -32,19 +38,20 @@ class OIDCWelcomeView(HomeAssistantView):
         # If the client_id starts with https://home-assistant.io/ we assume it's a mobile client
         return bool(client_id and client_id[0].startswith("https://home-assistant.io/"))
 
-
     async def get(self, req: web.Request) -> web.Response:
         """Receive response."""
 
         # Get the query parameter with the redirect_uri
         redirect_uri = req.query.get("redirect_uri")
 
-        # If set, determine if this is a mobile client based on the redirect_uri, 
+        # If set, determine if this is a mobile client based on the redirect_uri,
         # otherwise assume it's not mobile
         if redirect_uri:
             try:
                 # decodeURIComponent(btoa(...)) -> unquote first, then base64 decode
-                redirect_uri = base64.b64decode(unquote(redirect_uri), validate=True).decode("utf-8")
+                redirect_uri = base64.b64decode(
+                    unquote(redirect_uri), validate=True
+                ).decode("utf-8")
                 is_mobile = self.determine_if_mobile(redirect_uri)
             except (binascii.Error, UnicodeDecodeError, ValueError):
                 view_html = await get_view(
@@ -62,14 +69,14 @@ class OIDCWelcomeView(HomeAssistantView):
         state_id = await self.oidc_provider.async_create_state(redirect_uri)
         cookie_header = self.oidc_provider.get_cookie_header(state_id)
 
-        # If this is the only provider and we are on desktop, 
+        # If this is the only provider and we are on desktop,
         # automatically go through the OIDC login
         if not is_mobile and not self.has_other_auth_providers:
             raise web.HTTPFound(
                 location=get_url("/auth/oidc/redirect", self.force_https),
                 headers=cookie_header,
             )
-        
+
         # Otherwise display the screen with either mobile sign in or the buttons
         # First generate code if mobile
         code = None
@@ -89,13 +96,16 @@ class OIDCWelcomeView(HomeAssistantView):
             other_link = get_url("/?skip_oidc_redirect=true", self.force_https)
 
         # And display
-        view_html = await get_view("welcome", {
-            "name": self.name, 
-            "other_link": other_link,
-            "code": code,
-        })
+        view_html = await get_view(
+            "welcome",
+            {
+                "name": self.name,
+                "other_link": other_link,
+                "code": code,
+            },
+        )
         return web.Response(
-            text=view_html, 
+            text=view_html,
             content_type="text/html",
             headers=cookie_header,
         )
