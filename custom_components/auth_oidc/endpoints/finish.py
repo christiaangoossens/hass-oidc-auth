@@ -3,7 +3,11 @@
 from homeassistant.components.http import HomeAssistantView
 from aiohttp import web
 from ..provider import OpenIDAuthProvider
-from ..tools.helpers import error_response, get_state_id, template_response
+from ..tools.helpers import (
+    error_response,
+    get_valid_state_id,
+    template_response,
+)
 
 PATH = "/auth/oidc/finish"
 
@@ -24,7 +28,7 @@ class OIDCFinishView(HomeAssistantView):
     async def get(self, request: web.Request) -> web.Response:
         """Show the finish screen to pick between login & device code."""
         # Get cookie to get the state_id
-        state_id = get_state_id(request)
+        state_id = await get_valid_state_id(request, self.oidc_provider)
         if not state_id:
             return await error_response("Missing state cookie, please restart login.")
 
@@ -34,7 +38,7 @@ class OIDCFinishView(HomeAssistantView):
         """Receive response."""
 
         # Get cookie to get the state_id
-        state_id = get_state_id(request)
+        state_id = await get_valid_state_id(request, self.oidc_provider)
         if not state_id:
             return await error_response("Missing state cookie, please restart login.")
 

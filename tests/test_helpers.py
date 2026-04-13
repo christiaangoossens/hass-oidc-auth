@@ -1,11 +1,21 @@
 """Tests for the helpers and validation tools"""
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aiohttp.test_utils import make_mocked_request
+from aiohttp import web
 
-from custom_components.auth_oidc.tools.helpers import get_url, get_view
+from custom_components.auth_oidc.tools.helpers import (
+    STATE_COOKIE_NAME,
+    error_response,
+    get_state_id,
+    get_url,
+    get_valid_state_id,
+    get_view,
+    html_response,
+    template_response,
+)
 from custom_components.auth_oidc.tools.validation import (
     validate_client_id,
     sanitize_client_secret,
@@ -36,6 +46,85 @@ async def test_get_view():
 
     data = await get_view("welcome")
     assert data.startswith("<!DOCTYPE html>")
+
+
+@pytest.mark.asyncio
+async def test_get_state_id():
+    """State cookie helper should return cookie value when present."""
+    request = make_mocked_request(
+        "GET", "/", headers={"Cookie": f"{STATE_COOKIE_NAME}=abc"}
+    )
+    assert get_state_id(request) == "abc"
+
+    request_without_cookie = make_mocked_request("GET", "/")
+    assert get_state_id(request_without_cookie) is None
+
+
+@pytest.mark.asyncio
+async def test_get_valid_state_id():
+    """Valid-state helper should return only existing and valid cookie states."""
+    provider = MagicMock()
+    provider.async_is_state_valid = AsyncMock(return_value=True)
+
+    request = make_mocked_request(
+        "GET", "/", headers={"Cookie": f"{STATE_COOKIE_NAME}=state-1"}
+    )
+    state_id = await get_valid_state_id(request, provider)
+
+    assert state_id == "state-1"
+    provider.async_is_state_valid.assert_awaited_once_with("state-1")
+
+
+@pytest.mark.asyncio
+async def test_get_valid_state_id_invalid_or_missing_cookie():
+    """Valid-state helper should reject missing and invalid states."""
+    provider = MagicMock()
+    provider.async_is_state_valid = AsyncMock(return_value=False)
+
+    request = make_mocked_request(
+        "GET", "/", headers={"Cookie": f"{STATE_COOKIE_NAME}=state-2"}
+    )
+    assert await get_valid_state_id(request, provider) is None
+    provider.async_is_state_valid.assert_awaited_once_with("state-2")
+
+    request_without_cookie = make_mocked_request("GET", "/")
+    provider.async_is_state_valid.reset_mock()
+    assert await get_valid_state_id(request_without_cookie, provider) is None
+    provider.async_is_state_valid.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_html_response_and_template_helpers():
+    """Response helpers should preserve status and render HTML views."""
+    response = html_response("<p>ok</p>", status=418)
+    assert isinstance(response, web.Response)
+    assert response.status == 418
+    assert response.content_type == "text/html"
+    assert response.text == "<p>ok</p>"
+
+    with patch(
+        "custom_components.auth_oidc.tools.helpers.get_view",
+        new=AsyncMock(return_value="<p>rendered</p>"),
+    ) as mocked_get_view:
+        rendered = await template_response("welcome", {"name": "OIDC"})
+
+    assert rendered.status == 200
+    assert rendered.text == "<p>rendered</p>"
+    mocked_get_view.assert_awaited_once_with("welcome", {"name": "OIDC"})
+
+
+@pytest.mark.asyncio
+async def test_error_response():
+    """Error response helper should render the shared error template with status."""
+    with patch(
+        "custom_components.auth_oidc.tools.helpers.get_view",
+        new=AsyncMock(return_value="<p>error</p>"),
+    ) as mocked_get_view:
+        rendered = await error_response("boom", status=500)
+
+    assert rendered.status == 500
+    assert rendered.text == "<p>error</p>"
+    mocked_get_view.assert_awaited_once_with("error", {"error": "boom"})
 
 
 @pytest.mark.asyncio

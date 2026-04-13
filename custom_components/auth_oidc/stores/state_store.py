@@ -48,8 +48,16 @@ class StateStore:
     def _is_expired(self, state: OIDCState) -> bool:
         """Check if a state is expired."""
         return datetime.fromisoformat(state["expiration"]) < datetime.now(timezone.utc)
+    
+    def _is_valid(self, state: OIDCState, ip: str) -> bool:
+        """Check if a state is valid"""
+        return (
+            not self._is_expired(state)
+            and bool(state["redirect_uri"])
+            and state["ip_address"] == ip
+        )
 
-    async def async_create_state_from_url(self, redirect_uri: str) -> str:
+    async def async_create_state_from_url(self, redirect_uri: str, ip: str) -> str:
         """Generates a the OIDC state adds it to the database for 5 minutes."""
         if self._data is None:
             raise RuntimeError("Data not loaded")
@@ -63,6 +71,7 @@ class StateStore:
             "device_code": None,
             "user_details": None,
             "expiration": expiration.isoformat(),
+            "ip_address": ip,
         }
 
         await self._async_save()
@@ -95,18 +104,18 @@ class StateStore:
         except KeyError:
             return False
 
-    async def async_get_redirect_uri_for_state(self, state_id: str) -> Optional[str]:
+    async def async_get_redirect_uri_for_state(self, state_id: str, ip: str) -> Optional[str]:
         """Get the redirect_uri for a given state_id."""
         if self._data is None:
             raise RuntimeError("Data not loaded")
 
         state = self._data.get(state_id)
-        if state and not self._is_expired(state):
+        if state and self._is_valid(state, ip):
             return state["redirect_uri"]
 
         return None
 
-    async def async_is_state_ready(self, state_id: str) -> bool:
+    async def async_is_state_ready(self, state_id: str, ip: str) -> bool:
         """Check if the state has received the user info from the OIDC callback."""
         if self._data is None:
             raise RuntimeError("Data not loaded")
@@ -115,10 +124,10 @@ class StateStore:
         return (
             state is not None
             and state["user_details"] is not None
-            and not self._is_expired(state)
+            and self._is_valid(state, ip)
         )
 
-    async def async_link_state_to_code(self, state_id: str, code: str) -> bool:
+    async def async_link_state_to_code(self, state_id: str, code: str, ip: str) -> bool:
         """Link a state to a device code, used for mobile sign-in."""
         if self._data is None:
             raise RuntimeError("Data not loaded")
@@ -126,7 +135,7 @@ class StateStore:
         state_data = self._data.get(state_id)
         if (
             state_data
-            and not self._is_expired(state_data)
+            and self._is_valid(state_data, ip)
             and state_data["user_details"] is not None
         ):
             # Find the state with the matching device code and link it
@@ -145,7 +154,7 @@ class StateStore:
         return False
 
     async def async_receive_userinfo_for_state(
-        self, state_id: str
+        self, state_id: str, ip: str
     ) -> Optional[OIDCState]:
         """Retrieve user info based on the state_id."""
         if self._data is None:
@@ -158,7 +167,7 @@ class StateStore:
             self._data.pop(state_id)
             await self._async_save()
 
-        if user_data and not self._is_expired(user_data):
+        if user_data and self._is_valid(user_data, ip):
             return user_data["user_details"]
 
         return None

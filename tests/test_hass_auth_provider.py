@@ -57,7 +57,8 @@ async def login_user(hass: HomeAssistant, state_id: str):
     """Helper to login a user from the stored OIDC state."""
 
     provider = hass.auth.get_auth_providers(DOMAIN)[0]
-    sub = await provider.async_get_subject(state_id)
+    # This helper runs outside an HTTP request, so pass the known local test IP.
+    sub = await provider.async_get_subject(state_id, "127.0.0.1")
     assert sub == MockOIDCServer.get_final_subject()
 
     # Get credentials

@@ -36,3 +36,6 @@ class OIDCState(dict):
 
     # Expiration time of this state, in ISO format
     expiration: str
+
+    # IP address
+    ip_address: str

@@ -5,8 +5,9 @@ from urllib.parse import quote
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
+from ..provider import OpenIDAuthProvider
 from ..tools.oidc_client import OIDCClient
-from ..tools.helpers import error_response, get_url, get_view
+from ..tools.helpers import error_response, get_url, get_valid_state_id, get_view
 
 PATH = "/auth/oidc/redirect"
 
@@ -18,15 +19,21 @@ class OIDCRedirectView(HomeAssistantView):
     url = PATH
     name = "auth:oidc:redirect"
 
-    def __init__(self, oidc_client: OIDCClient, force_https: bool) -> None:
+    def __init__(
+        self,
+        oidc_client: OIDCClient,
+        oidc_provider: OpenIDAuthProvider,
+        force_https: bool,
+    ) -> None:
         self.oidc_client = oidc_client
+        self.oidc_provider = oidc_provider
         self.force_https = force_https
 
     async def get(self, req: web.Request) -> web.Response:
         """Receive response."""
 
         # Get cookie to get the state_id
-        state_id = req.cookies.get("auth_oidc_state")
+        state_id = await get_valid_state_id(req, self.oidc_provider)
 
         if not state_id:
             # Direct access to the redirect endpoint, go to welcome page instead

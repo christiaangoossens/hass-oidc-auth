@@ -4,7 +4,7 @@ import asyncio
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from ..provider import OpenIDAuthProvider
-from ..tools.helpers import get_state_id
+from ..tools.helpers import get_valid_state_id
 
 PATH = "/auth/oidc/device-sse"
 
@@ -21,7 +21,7 @@ class OIDCDeviceSSE(HomeAssistantView):
 
     async def get(self, req: web.Request) -> web.Response:
         """Check for mobile sign-in completion with short server-side polling."""
-        state_id = get_state_id(req)
+        state_id = await get_valid_state_id(req, self.oidc_provider)
         if not state_id:
             raise web.HTTPBadRequest(text="Missing session cookie")
 

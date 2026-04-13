@@ -4,7 +4,7 @@ from homeassistant.components.http import HomeAssistantView
 from aiohttp import web
 from ..tools.oidc_client import OIDCClient
 from ..provider import OpenIDAuthProvider
-from ..tools.helpers import error_response, get_state_id, get_url
+from ..tools.helpers import error_response, get_url, get_valid_state_id
 
 PATH = "/auth/oidc/callback"
 
@@ -30,7 +30,7 @@ class OIDCCallbackView(HomeAssistantView):
         """Receive response."""
 
         # Get cookie to get the state_id
-        state_id = get_state_id(request)
+        state_id = await get_valid_state_id(request, self.oidc_provider)
         if not state_id:
             return await error_response("Missing state cookie, please restart login.")
 

@@ -8,6 +8,8 @@ from homeassistant.core import HomeAssistant
 
 from auth_oidc.stores.state_store import StateStore
 
+TEST_IP = "127.0.0.1"
+
 
 @pytest.mark.asyncio
 async def test_state_store_generate_and_receive_state(hass: HomeAssistant):
@@ -21,10 +23,11 @@ async def test_state_store_generate_and_receive_state(hass: HomeAssistant):
         assert state_store.get_data() == {}
 
         redirect_uri = "https://example.com/callback"
-        state_id = await state_store.async_create_state_from_url(redirect_uri)
+        state_id = await state_store.async_create_state_from_url(redirect_uri, TEST_IP)
         assert state_id in state_store.get_data()
         assert (
-            await state_store.async_get_redirect_uri_for_state(state_id) == redirect_uri
+            await state_store.async_get_redirect_uri_for_state(state_id, TEST_IP)
+            == redirect_uri
         )
 
         user_info = {
@@ -37,10 +40,10 @@ async def test_state_store_generate_and_receive_state(hass: HomeAssistant):
             await state_store.async_add_userinfo_to_state(state_id, user_info) is True
         )
         assert state_id in state_store.get_data()
-        assert await state_store.async_is_state_ready(state_id) is True
+        assert await state_store.async_is_state_ready(state_id, TEST_IP) is True
         assert state_id in state_store.get_data()
 
-        result = await state_store.async_receive_userinfo_for_state(state_id)
+        result = await state_store.async_receive_userinfo_for_state(state_id, TEST_IP)
         assert result == user_info
         assert state_id not in state_store.get_data()
 
@@ -56,10 +59,10 @@ async def test_state_store_generate_code_and_link_state(hass: HomeAssistant):
         await state_store.async_load()
 
         donor_state = await state_store.async_create_state_from_url(
-            "https://example.com/donor"
+            "https://example.com/donor", TEST_IP
         )
         target_state = await state_store.async_create_state_from_url(
-            "https://example.com/target"
+            "https://example.com/target", TEST_IP
         )
 
         code = await state_store.async_generate_code_for_state(target_state)
@@ -79,12 +82,12 @@ async def test_state_store_generate_code_and_link_state(hass: HomeAssistant):
         )
         assert donor_state in state_store.get_data()
 
-        assert await state_store.async_link_state_to_code(donor_state, code) is True
+        assert await state_store.async_link_state_to_code(donor_state, code, TEST_IP) is True
         assert donor_state not in state_store.get_data()
-        assert await state_store.async_is_state_ready(target_state) is True
+        assert await state_store.async_is_state_ready(target_state, TEST_IP) is True
         assert target_state in state_store.get_data()
         assert (
-            await state_store.async_receive_userinfo_for_state(target_state)
+            await state_store.async_receive_userinfo_for_state(target_state, TEST_IP)
             == user_info
         )
         assert target_state not in state_store.get_data()
@@ -101,10 +104,10 @@ async def test_state_store_link_state_returns_false_for_wrong_code(hass: HomeAss
         await state_store.async_load()
 
         donor_state = await state_store.async_create_state_from_url(
-            "https://example.com/donor"
+            "https://example.com/donor", TEST_IP
         )
         target_state = await state_store.async_create_state_from_url(
-            "https://example.com/target"
+            "https://example.com/target", TEST_IP
         )
         await state_store.async_generate_code_for_state(target_state)
 
@@ -120,10 +123,11 @@ async def test_state_store_link_state_returns_false_for_wrong_code(hass: HomeAss
         )
 
         assert (
-            await state_store.async_link_state_to_code(donor_state, "000000") is False
+            await state_store.async_link_state_to_code(donor_state, "000000", TEST_IP)
+            is False
         )
         assert donor_state in state_store.get_data()
-        assert await state_store.async_is_state_ready(target_state) is False
+        assert await state_store.async_is_state_ready(target_state, TEST_IP) is False
 
 
 @pytest.mark.asyncio
@@ -137,15 +141,15 @@ async def test_state_store_expired_state(hass: HomeAssistant):
         await state_store.async_load()
 
         state_id = await state_store.async_create_state_from_url(
-            "https://example.com/expired"
+            "https://example.com/expired", TEST_IP
         )
         state_store.get_data()[state_id]["expiration"] = (
             datetime.now(timezone.utc) - timedelta(minutes=10)
         ).isoformat()
 
-        assert await state_store.async_get_redirect_uri_for_state(state_id) is None
-        assert await state_store.async_is_state_ready(state_id) is False
-        assert await state_store.async_receive_userinfo_for_state(state_id) is None
+        assert await state_store.async_get_redirect_uri_for_state(state_id, TEST_IP) is None
+        assert await state_store.async_is_state_ready(state_id, TEST_IP) is False
+        assert await state_store.async_receive_userinfo_for_state(state_id, TEST_IP) is None
 
 
 @pytest.mark.asyncio
@@ -156,7 +160,7 @@ async def test_state_store_data_not_loaded(hass: HomeAssistant):
         state_store = StateStore(hass)
 
         with pytest.raises(RuntimeError):
-            await state_store.async_create_state_from_url("https://example.com")
+            await state_store.async_create_state_from_url("https://example.com", TEST_IP)
         with pytest.raises(RuntimeError):
             await state_store.async_generate_code_for_state("state")
         with pytest.raises(RuntimeError):
@@ -170,13 +174,13 @@ async def test_state_store_data_not_loaded(hass: HomeAssistant):
                 },
             )
         with pytest.raises(RuntimeError):
-            await state_store.async_get_redirect_uri_for_state("state")
+            await state_store.async_get_redirect_uri_for_state("state", TEST_IP)
         with pytest.raises(RuntimeError):
-            await state_store.async_is_state_ready("state")
+            await state_store.async_is_state_ready("state", TEST_IP)
         with pytest.raises(RuntimeError):
-            await state_store.async_link_state_to_code("state", "123456")
+            await state_store.async_link_state_to_code("state", "123456", TEST_IP)
         with pytest.raises(RuntimeError):
-            await state_store.async_receive_userinfo_for_state("state")
+            await state_store.async_receive_userinfo_for_state("state", TEST_IP)
 
 
 @pytest.mark.asyncio

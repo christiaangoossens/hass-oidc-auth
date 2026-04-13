@@ -150,7 +150,7 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
         OIDCWelcomeView(provider, name, force_https, has_other_auth_providers)
     )
     hass.http.register_view(OIDCDeviceSSE(provider))
-    hass.http.register_view(OIDCRedirectView(oidc_client, force_https))
+    hass.http.register_view(OIDCRedirectView(oidc_client, provider, force_https))
     hass.http.register_view(OIDCCallbackView(oidc_client, provider, force_https))
     hass.http.register_view(OIDCFinishView(provider))
 

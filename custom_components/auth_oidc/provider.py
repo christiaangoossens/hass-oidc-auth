@@ -104,13 +104,27 @@ class OpenIDAuthProvider(AuthProvider):
         # Listen for user creation events
         self.hass.bus.async_listen(EVENT_USER_ADDED, self.async_user_created)
 
-    async def async_create_state(self, redirect_uri: str) -> str:
+    def _resolve_ip(self, ip: str | None = None) -> str:
+        """Resolve client IP from explicit input or current request context."""
+        if ip:
+            return ip
+
+        req = http.current_request.get()
+        if req and req.remote:
+            _LOGGER.debug("Resolved client IP from request: %s", req.remote)
+            return req.remote
+
+        return "unknown"
+
+    async def async_create_state(self, redirect_uri: str, ip: str | None = None) -> str:
         """Create a new OIDC state and return the state id."""
         if self._state_store is None:
             await self.async_initialize()
             assert self._state_store is not None
 
-        return await self._state_store.async_create_state_from_url(redirect_uri)
+        return await self._state_store.async_create_state_from_url(
+            redirect_uri, self._resolve_ip(ip)
+        )
 
     async def async_generate_device_code(self, state_id: str) -> Optional[str]:
         """Generate a device code for the state, used for device login."""
@@ -130,31 +144,52 @@ class OpenIDAuthProvider(AuthProvider):
 
         return await self._state_store.async_add_userinfo_to_state(state_id, user_info)
 
-    async def async_get_redirect_uri_for_state(self, state_id: str) -> Optional[str]:
+    async def async_get_redirect_uri_for_state(
+        self, state_id: str, ip: str | None = None
+    ) -> Optional[str]:
         """Get the redirect_uri for the given state."""
         if self._state_store is None:
             await self.async_initialize()
             assert self._state_store is not None
 
-        return await self._state_store.async_get_redirect_uri_for_state(state_id)
+        return await self._state_store.async_get_redirect_uri_for_state(
+            state_id, self._resolve_ip(ip)
+        )
 
-    async def async_is_state_ready(self, state_id: str) -> bool:
+    async def async_is_state_valid(self, state_id: str, ip: str | None = None) -> bool:
+        """Check if a state exists, belongs to this IP, and is not expired."""
+        if self._state_store is None:
+            await self.async_initialize()
+            assert self._state_store is not None
+
+        return (
+            await self._state_store.async_get_redirect_uri_for_state(
+                state_id, self._resolve_ip(ip)
+            )
+            is not None
+        )
+
+    async def async_is_state_ready(self, state_id: str, ip: str | None = None) -> bool:
         """Check if the state has received the user info from the OIDC callback."""
         if self._state_store is None:
             await self.async_initialize()
             assert self._state_store is not None
 
-        return await self._state_store.async_is_state_ready(state_id)
+        return await self._state_store.async_is_state_ready(state_id, self._resolve_ip(ip))
 
-    async def async_link_state_to_code(self, state_id: str, code: str) -> bool:
+    async def async_link_state_to_code(
+        self, state_id: str, code: str, ip: str | None = None
+    ) -> bool:
         """Link two states together by copying the user info from one to the other."""
         if self._state_store is None:
             await self.async_initialize()
             assert self._state_store is not None
 
-        return await self._state_store.async_link_state_to_code(state_id, code)
+        return await self._state_store.async_link_state_to_code(
+            state_id, code, self._resolve_ip(ip)
+        )
 
-    async def async_get_subject(self, state_id: str) -> Optional[str]:
+    async def async_get_subject(self, state_id: str, ip: str | None = None) -> Optional[str]:
         """Retrieve user from the state_id, return subject and save meta
         for later use with this provider instance."""
         if self._state_store is None:
@@ -162,7 +197,9 @@ class OpenIDAuthProvider(AuthProvider):
             assert self._state_store is not None
 
         # This also deletes the state as we are using it for sign-in
-        user_data = await self._state_store.async_receive_userinfo_for_state(state_id)
+        user_data = await self._state_store.async_receive_userinfo_for_state(
+            state_id, self._resolve_ip(ip)
+        )
         if user_data is None:
             return None
 
