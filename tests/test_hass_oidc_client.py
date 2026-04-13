@@ -3,6 +3,7 @@
 import base64
 import asyncio
 import re
+from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, unquote, urlparse, urlencode
 import pytest
 from homeassistant.core import HomeAssistant
@@ -127,12 +128,18 @@ async def listen_for_sse_events(
 
                 # Check if this is an event line
                 if decoded_line.startswith("event:"):
-                    event_type = decoded_line.split(":")[1].strip()
+                    event_type = decoded_line.split(":", 1)[1].strip()
                     if event_type == expected_event:
-                        # Found the expected event, return successfully
+                        # Found the expected event, return successfully.
                         return True
-                    elif event_type != expected_event:
-                        raise AssertionError(f"Unexpected event type '{event_type}'. Expected: {expected_event}")
+
+                    # Device SSE may emit multiple waiting events before ready.
+                    if expected_event == "ready" and event_type == "waiting":
+                        continue
+
+                    raise AssertionError(
+                        f"Unexpected event type '{event_type}'. Expected: {expected_event}"
+                    )
         except asyncio.CancelledError:
             pass
         return False
@@ -495,10 +502,6 @@ async def test_device_login_flow_two_browsers(hass: HomeAssistant, hass_client):
         # Listen for waiting events for up to 5 seconds
         await listen_for_sse_events(resp_sse, "waiting", timeout_seconds=5)
 
-        # ==================== Desktop Completes Flow ====================
-        # Desktop completes callback, shows finish screen, and gets redirected back to redirect_uri
-        #await complete_callback_and_finish(desktop_client, desktop_code, desktop_state)
-
         # Actually submit the mobile code using POST
         resp_code = await desktop_client.post(
             "/auth/oidc/finish",
@@ -516,3 +519,75 @@ async def test_device_login_flow_two_browsers(hass: HomeAssistant, hass_client):
 
         # POST to finish without any POST body should result in 302 back to the original redirect_uri
         await verify_back_redirect(mobile_client, mobile_redirect_uri)
+
+
+@pytest.mark.asyncio
+async def test_finish_rejects_device_code_when_state_not_ready(
+    hass: HomeAssistant, hass_client
+):
+    """Submitting a device code must fail if callback did not complete for this browser."""
+    await setup(hass)
+
+    with mock_oidc_responses():
+        # Device session that owns the device code.
+        mobile_client = await hass_client()
+        mobile_redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID)
+        _, mobile_html, status = await get_welcome_for_client(
+            mobile_client, mobile_redirect_uri
+        )
+        assert status == 200
+
+        device_code_match = re.search(
+            r'id=["\']device-code["\'][^>]*>\s*([^<\s]+)\s*<',
+            mobile_html,
+        )
+        assert device_code_match is not None
+        mobile_device_code = device_code_match.group(1)
+
+        # Separate browser starts but does not complete callback flow.
+        desktop_client = await hass_client()
+        desktop_redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+        _, _, desktop_status = await get_welcome_for_client(
+            desktop_client, desktop_redirect_uri
+        )
+        assert desktop_status in [200, 302]
+
+        # Negative branch: try to finalize before desktop state has user info.
+        resp = await desktop_client.post(
+            "/auth/oidc/finish",
+            data={"device_code": mobile_device_code},
+            allow_redirects=False,
+        )
+        assert resp.status == 200
+        text = await resp.text()
+        assert "Failed to link state to device code" in text
+
+
+@pytest.mark.asyncio
+async def test_callback_shows_error_if_userinfo_save_fails(
+    hass: HomeAssistant, hass_client
+):
+    """Callback should return error page when state save fails after successful token flow."""
+    await setup(hass)
+
+    with mock_oidc_responses(), patch(
+        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_save_user_info",
+        new=AsyncMock(return_value=False),
+    ):
+        client = await hass_client()
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+        state, _, status = await get_welcome_for_client(client, redirect_uri)
+        assert status == 200
+
+        authorization_url = await get_redirect_auth_url(client)
+        session = async_get_clientsession(hass)
+        resp_auth = session.get(authorization_url, allow_redirects=False)
+        json_auth = await resp_auth.json()
+
+        resp = await client.get(
+            f"/auth/oidc/callback?code={json_auth['code']}&state={state}",
+            allow_redirects=False,
+        )
+        assert resp.status == 200
+        text = await resp.text()
+        assert "Failed to save user information, session probably expired." in text

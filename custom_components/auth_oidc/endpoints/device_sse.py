@@ -57,7 +57,7 @@ class OIDCDeviceSSE(HomeAssistantView):
                     break
 
                 await response.write(b"event: waiting\ndata: false\n\n")
-                await asyncio.sleep(2)
+                await asyncio.sleep(0.5)
         except (ConnectionResetError, RuntimeError):
             # Client disconnected while listening for state changes.
             pass
