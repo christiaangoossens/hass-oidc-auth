@@ -87,6 +87,32 @@ async def test_welcome_rejects_invalid_encoded_redirect_uri(
 
 
 @pytest.mark.asyncio
+async def test_welcome_sets_strict_state_cookie_flags(
+    hass: HomeAssistant, hass_client
+):
+    """Welcome should set secure cookie flags for the OIDC state cookie."""
+    await setup(hass)
+
+    client = await hass_client()
+    redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+    encoded = encode_redirect_uri(redirect_uri)
+
+    resp = await client.get(
+        f"/auth/oidc/welcome?redirect_uri={encoded}",
+        allow_redirects=False,
+    )
+
+    assert resp.status in (200, 302)
+    assert "auth_oidc_state" in resp.cookies
+
+    set_cookie = resp.headers.get("Set-Cookie", "")
+    assert "Path=/auth/" in set_cookie
+    assert "SameSite=Strict" in set_cookie
+    assert "HttpOnly" in set_cookie
+    assert "Max-Age=300" in set_cookie
+
+
+@pytest.mark.asyncio
 async def test_welcome_mobile_device_code_generation_failure(
     hass: HomeAssistant, hass_client
 ):

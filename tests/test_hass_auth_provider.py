@@ -49,6 +49,9 @@ async def test_setup_success_auth_provider_registration(hass: HomeAssistant):
     auth_providers = hass.auth.get_auth_providers(DOMAIN)
     assert len(auth_providers) == 1
 
+    # Public auth-provider contract: OIDC provider does not support HA MFA
+    assert auth_providers[0].support_mfa is False
+
 
 async def login_user(hass: HomeAssistant, state_id: str):
     """Helper to login a user from the stored OIDC state."""
@@ -208,6 +211,36 @@ async def test_login_with_person_create(hass: HomeAssistant, hass_client):
 
         person = persons[0]
         assert person["user_id"] == user.id
+
+
+@pytest.mark.asyncio
+async def test_login_without_person_create_does_not_create_person(
+    hass: HomeAssistant, hass_client
+):
+    """Test that person creation can be disabled."""
+    await setup(
+        hass,
+        {
+            CLIENT_ID: "dummy",
+            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: False,
+                FEATURES_AUTOMATIC_USER_LINKING: False,
+            },
+        },
+        True,
+    )
+
+    await async_setup_component(hass, PERSON_DOMAIN, {})
+
+    with mock_oidc_responses():
+        state_id = await get_login_state(hass, hass_client)
+        user = await login_user(hass, state_id)
+        assert user.is_active
+
+        person_store = hass.data[PERSON_DOMAIN][1]
+        persons = person_store.async_items()
+        assert len(persons) == 0
 
 
 @pytest.mark.asyncio
