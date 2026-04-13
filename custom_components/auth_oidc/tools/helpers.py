@@ -33,9 +33,9 @@ def get_state_id(request: web.Request) -> str | None:
     return request.cookies.get(STATE_COOKIE_NAME)
 
 
-def html_response(html: str) -> web.Response:
+def html_response(html: str, status: int = 200) -> web.Response:
     """Return an HTML response with the standard content type."""
-    return web.Response(text=html, content_type="text/html")
+    return web.Response(text=html, content_type="text/html", status=status)
 
 
 async def template_response(
@@ -45,6 +45,6 @@ async def template_response(
     return html_response(await get_view(template, parameters))
 
 
-async def error_response(message: str) -> web.Response:
+async def error_response(message: str, status: int = 400) -> web.Response:
     """Render the shared error view."""
-    return await template_response("error", {"error": message})
+    return html_response(await get_view("error", {"error": message}), status=status)

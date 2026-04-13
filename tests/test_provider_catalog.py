@@ -29,9 +29,7 @@ def test_get_provider_config_and_name(provider_key, expected_name, expected_supp
 @pytest.mark.parametrize("provider_key", [None, "unknown", ""])
 def test_provider_fallbacks(provider_key):
     """Unknown providers should fall back to neutral defaults."""
-    assert get_provider_config(provider_key or "unknown") == OIDC_PROVIDERS.get(
-        provider_key or "unknown", {}
-    )
+    assert get_provider_config(provider_key or "unknown") == {}
     assert get_provider_name(provider_key) == "Unknown Provider"
     assert get_provider_docs_url(provider_key) == f"{REPO_ROOT_URL}/docs/configuration.md"
 

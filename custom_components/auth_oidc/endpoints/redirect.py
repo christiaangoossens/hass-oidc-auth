@@ -6,7 +6,7 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from ..tools.oidc_client import OIDCClient
-from ..tools.helpers import get_url, get_view
+from ..tools.helpers import error_response, get_url, get_view
 
 PATH = "/auth/oidc/redirect"
 
@@ -45,11 +45,10 @@ class OIDCRedirectView(HomeAssistantView):
         except RuntimeError:
             pass
 
-        view_html = await get_view(
-            "error",
-            {"error": "Integration is misconfigured, discovery could not be obtained."},
+        return await error_response(
+            "Integration is misconfigured, discovery could not be obtained.",
+            status=500,
         )
-        return web.Response(text=view_html, content_type="text/html")
 
     async def post(self, req: web.Request) -> web.Response:
         """POST"""

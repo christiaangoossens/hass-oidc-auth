@@ -82,7 +82,7 @@ async def test_welcome_rejects_invalid_encoded_redirect_uri(
         "/auth/oidc/welcome?redirect_uri=%25%25%25",
         allow_redirects=False,
     )
-    assert resp.status == 200
+    assert resp.status == 400
     assert "Invalid redirect_uri, please restart login." in await resp.text()
 
 
@@ -131,7 +131,7 @@ async def test_welcome_mobile_device_code_generation_failure(
             f"/auth/oidc/welcome?redirect_uri={encoded}",
             allow_redirects=False,
         )
-        assert resp.status == 200
+        assert resp.status == 500
         assert "Failed to generate device code, please restart login." in await resp.text()
 
 
@@ -208,7 +208,7 @@ async def test_redirect_shows_error_on_oidc_runtime_error(
         new=AsyncMock(side_effect=RuntimeError("broken discovery")),
     ):
         resp = await client.get("/auth/oidc/redirect", allow_redirects=False)
-        assert resp.status == 200
+        assert resp.status == 500
         assert (
             "Integration is misconfigured, discovery could not be obtained."
             in await resp.text()
@@ -236,7 +236,7 @@ async def test_redirect_shows_error_when_auth_url_empty(
         new=AsyncMock(return_value=None),
     ):
         resp = await client.get("/auth/oidc/redirect", allow_redirects=False)
-        assert resp.status == 200
+        assert resp.status == 500
         assert (
             "Integration is misconfigured, discovery could not be obtained."
             in await resp.text()
@@ -251,7 +251,7 @@ async def test_callback_registration(hass: HomeAssistant, hass_client):
 
     client = await hass_client()
     resp = await client.get("/auth/oidc/callback", allow_redirects=False)
-    assert resp.status == 200
+    assert resp.status == 400
 
 
 @pytest.mark.asyncio
@@ -272,14 +272,14 @@ async def test_callback_rejects_missing_code_or_state(hass: HomeAssistant, hass_
         f"/auth/oidc/callback?state={state}",
         allow_redirects=False,
     )
-    assert resp_missing_code.status == 200
+    assert resp_missing_code.status == 400
     assert "Missing code or state parameter." in await resp_missing_code.text()
 
     resp_missing_state = await client.get(
         "/auth/oidc/callback?code=testcode",
         allow_redirects=False,
     )
-    assert resp_missing_state.status == 200
+    assert resp_missing_state.status == 400
     assert "Missing code or state parameter." in await resp_missing_state.text()
 
 
@@ -301,7 +301,7 @@ async def test_callback_rejects_state_mismatch(hass: HomeAssistant, hass_client)
         f"/auth/oidc/callback?code=testcode&state={state}-other",
         allow_redirects=False,
     )
-    assert resp.status == 200
+    assert resp.status == 400
     assert "State parameter does not match, possible CSRF attack." in await resp.text()
 
 
@@ -329,7 +329,7 @@ async def test_callback_rejects_when_user_details_fetch_fails(
             f"/auth/oidc/callback?code=testcode&state={state}",
             allow_redirects=False,
         )
-        assert resp.status == 200
+        assert resp.status == 500
         assert (
             "Failed to get user details, see Home Assistant logs for more information."
             in await resp.text()
@@ -358,7 +358,7 @@ async def test_callback_rejects_invalid_role(hass: HomeAssistant, hass_client):
             f"/auth/oidc/callback?code=testcode&state={state}",
             allow_redirects=False,
         )
-        assert resp.status == 200
+        assert resp.status == 403
         assert (
             "User is not in the correct group to access Home Assistant"
             in await resp.text()
@@ -366,36 +366,29 @@ async def test_callback_rejects_invalid_role(hass: HomeAssistant, hass_client):
 
 
 @pytest.mark.asyncio
-async def test_finish_registration(hass: HomeAssistant, hass_client):
-    """Test that finish page is reachable."""
-
+@pytest.mark.parametrize(
+    ("method", "data"),
+    [
+        ("get", None),
+        ("post", {}),
+        ("post", {"device_code": "456888"}),
+    ],
+)
+async def test_finish_requires_state_cookie(
+    hass: HomeAssistant, hass_client, method: str, data: dict | None
+):
+    """Finish endpoint should require the OIDC state cookie for both GET and POST."""
     await setup(hass)
 
     client = await hass_client()
-    resp = await client.get("/auth/oidc/finish", allow_redirects=False)
-    assert resp.status == 200
-    text = await resp.text()
+    request = getattr(client, method)
+    if data is None:
+        resp = await request("/auth/oidc/finish", allow_redirects=False)
+    else:
+        resp = await request("/auth/oidc/finish", data=data, allow_redirects=False)
 
-    assert "Missing state cookie" in text
-
-
-@pytest.mark.asyncio
-async def test_finish_post(hass: HomeAssistant, hass_client):
-    """Test that finish page works with POST."""
-
-    await setup(hass)
-    client = await hass_client()
-    resp = await client.post("/auth/oidc/finish", data={}, allow_redirects=False)
-    assert resp.status == 200
-    text = await resp.text()
-    assert "Missing state cookie" in text
-
-    resp2 = await client.post(
-        "/auth/oidc/finish", data={"device_code": "456888"}, allow_redirects=False
-    )
-    assert resp2.status == 200
-    text2 = await resp2.text()
-    assert "Missing state cookie" in text2
+    assert resp.status == 400
+    assert "Missing state cookie" in await resp.text()
 
 
 @pytest.mark.asyncio
@@ -417,7 +410,7 @@ async def test_finish_post_rejects_invalid_state(hass: HomeAssistant, hass_clien
         new=AsyncMock(return_value=None),
     ):
         resp = await client.post("/auth/oidc/finish", allow_redirects=False)
-        assert resp.status == 200
+        assert resp.status == 400
         assert "Invalid state, please restart login." in await resp.text()
 
 

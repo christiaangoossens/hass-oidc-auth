@@ -10,9 +10,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from auth_oidc import DOMAIN
-from auth_oidc.tools.oidc_client import OIDCDiscoveryClient, OIDCDiscoveryInvalid
-from auth_oidc.config.const import (
+from custom_components.auth_oidc import DOMAIN
+from custom_components.auth_oidc.tools.oidc_client import (
+    OIDCDiscoveryClient,
+    OIDCDiscoveryInvalid,
+)
+from custom_components.auth_oidc.config.const import (
     DISCOVERY_URL,
     CLIENT_ID,
 )
@@ -23,6 +26,7 @@ EXAMPLE_CLIENT_ID = "http://example.com/"
 WEB_CLIENT_ID = "https://example.com"
 MOBILE_CLIENT_ID = "https://home-assistant.io/Android"
 
+# Helper functions
 
 def encode_redirect_uri(redirect_uri: str) -> str:
     """Helper to encode redirect URI for welcome page."""
@@ -166,6 +170,7 @@ async def setup(hass: HomeAssistant):
     result = await async_setup_component(hass, DOMAIN, mock_config)
     assert result
 
+# Actual tests
 
 @pytest.mark.asyncio
 async def test_full_oidc_flow(hass: HomeAssistant, hass_client):
@@ -247,8 +252,8 @@ async def discovery_test_through_redirect(
         # Find matching log line
         assert match_log_line in caplog.text
 
-        # Assert that we get a 200 response with an error message
-        assert resp.status == 200
+        # Assert that we get an error response with an error message
+        assert resp.status == 500
         text = await resp.text()
         assert "Integration is misconfigured, discovery could not be obtained." in text
 
@@ -558,7 +563,7 @@ async def test_finish_rejects_device_code_when_state_not_ready(
             data={"device_code": mobile_device_code},
             allow_redirects=False,
         )
-        assert resp.status == 200
+        assert resp.status == 400
         text = await resp.text()
         assert "Failed to link state to device code" in text
 
@@ -588,6 +593,78 @@ async def test_callback_shows_error_if_userinfo_save_fails(
             f"/auth/oidc/callback?code={json_auth['code']}&state={state}",
             allow_redirects=False,
         )
-        assert resp.status == 200
+        assert resp.status == 500
         text = await resp.text()
         assert "Failed to save user information, session probably expired." in text
+
+
+@pytest.mark.asyncio
+async def test_callback_rejects_nonce_mismatch(hass: HomeAssistant, hass_client):
+    """Callback should fail closed when the returned nonce does not match the stored flow nonce."""
+    await setup(hass)
+
+    with mock_oidc_responses(), patch(
+        "custom_components.auth_oidc.tools.oidc_client.OIDCClient._parse_id_token",
+        new=AsyncMock(
+            return_value={
+                "sub": "test-user",
+                "nonce": "mismatched-nonce",
+                "name": "Test Name",
+                "preferred_username": "testuser",
+                "groups": [],
+            }
+        ),
+    ):
+        client = await hass_client()
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+
+        state, _, status = await get_welcome_for_client(client, redirect_uri)
+        assert status == 200
+
+        authorization_url = await get_redirect_auth_url(client)
+        session = async_get_clientsession(hass)
+        resp_auth = session.get(authorization_url, allow_redirects=False)
+        json_auth = await resp_auth.json()
+
+        resp = await client.get(
+            f"/auth/oidc/callback?code={json_auth['code']}&state={state}",
+            allow_redirects=False,
+        )
+        assert resp.status == 500
+        text = await resp.text()
+        assert "Failed to get user details" in text
+
+
+@pytest.mark.asyncio
+async def test_callback_replay_is_rejected(hass: HomeAssistant, hass_client):
+    """A callback replay with the same state should be rejected after first successful use."""
+    await setup(hass)
+
+    with mock_oidc_responses():
+        client = await hass_client()
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+
+        state, _, status = await get_welcome_for_client(client, redirect_uri)
+        assert status == 200
+
+        authorization_url = await get_redirect_auth_url(client)
+        session = async_get_clientsession(hass)
+        resp_auth = session.get(authorization_url, allow_redirects=False)
+        json_auth = await resp_auth.json()
+        code = json_auth["code"]
+
+        # First callback should succeed.
+        first = await client.get(
+            f"/auth/oidc/callback?code={code}&state={state}",
+            allow_redirects=False,
+        )
+        assert first.status == 302
+
+        # Replay should fail because the state flow has already been consumed.
+        replay = await client.get(
+            f"/auth/oidc/callback?code={code}&state={state}",
+            allow_redirects=False,
+        )
+        assert replay.status == 500
+        replay_text = await replay.text()
+        assert "Failed to get user details" in replay_text

@@ -83,7 +83,8 @@ class OIDCWelcomeView(HomeAssistantView):
             code = await self.oidc_provider.async_generate_device_code(state_id)
             if not code:
                 return await error_response(
-                    "Failed to generate device code, please restart login."
+                    "Failed to generate device code, please restart login.",
+                    status=500,
                 )
 
         # And add the other link if we have other auth providers

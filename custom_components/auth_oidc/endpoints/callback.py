@@ -55,20 +55,23 @@ class OIDCCallbackView(HomeAssistantView):
         )
         if user_details is None:
             return await error_response(
-                "Failed to get user details, see Home Assistant logs for more information."
+                "Failed to get user details, see Home Assistant logs for more information.",
+                status=500,
             )
 
         if user_details.get("role") == "invalid":
             return await error_response(
                 "User is not in the correct group to access Home Assistant, "
-                + "contact your administrator!"
+                + "contact your administrator!",
+                status=403,
             )
 
         # Finalize on the state
         success = await self.oidc_provider.async_save_user_info(state_id, user_details)
         if not success:
             return await error_response(
-                "Failed to save user information, session probably expired. Please sign in again."
+                "Failed to save user information, session probably expired. Please sign in again.",
+                status=500,
             )
 
         raise web.HTTPFound(get_url("/auth/oidc/finish", self.force_https))
