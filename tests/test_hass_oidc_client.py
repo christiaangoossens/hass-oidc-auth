@@ -1,6 +1,8 @@
 """Tests for the OIDC client"""
 
-from urllib.parse import urlparse, parse_qs
+import base64
+import re
+from urllib.parse import parse_qs, unquote, urlparse
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
@@ -16,6 +18,7 @@ from auth_oidc.config.const import (
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
 
 EXAMPLE_CLIENT_ID = "dummyclient"
+FAKE_REDIR_URL = "http://example.com/auth/authorize?response_type=code&redirect_uri=http%3A%2F%2Fexample.com%3A8123%2F%3Fauth_callback%3D1&client_id=http%3A%2F%2Fexample.com%3A8123%2F&state=example"
 
 
 async def setup(hass: HomeAssistant):
@@ -38,15 +41,30 @@ async def test_full_oidc_flow(hass: HomeAssistant, hass_client):
     await setup(hass)
 
     with mock_oidc_responses():
-        # Start by going to /auth/oidc/redirect
         client = await hass_client()
-        resp = await client.get("/auth/oidc/redirect", allow_redirects=False)
-        assert resp.status == 302
-        assert resp.headers["Location"].startswith(MockOIDCServer.get_authorize_url())
+        redirect_uri = FAKE_REDIR_URL
+        encoded_redirect_uri = base64.b64encode(redirect_uri.encode("utf-8")).decode(
+            "utf-8"
+        )
 
-        # Parse the location header and test the query params for correctness
-        location = resp.headers["Location"]
-        parsed_url = urlparse(location)
+        resp = await client.get(
+            f"/auth/oidc/welcome?redirect_uri={encoded_redirect_uri}",
+            allow_redirects=False,
+        )
+        assert resp.status == 200
+        state = resp.cookies["auth_oidc_state"].value
+
+        resp = await client.get("/auth/oidc/redirect", allow_redirects=False)
+        assert resp.status == 200
+        html = await resp.text()
+
+        match = re.search(r'decodeURIComponent\("([^"]+)"\)', html)
+        assert match is not None
+        authorization_url = unquote(match.group(1))
+        assert authorization_url.startswith(MockOIDCServer.get_authorize_url())
+
+        # Parse the rendered redirect URL and test the query params for correctness
+        parsed_url = urlparse(authorization_url)
         query_params = parse_qs(parsed_url.query)
 
         assert "response_type" in query_params and query_params.get(
@@ -59,13 +77,13 @@ async def test_full_oidc_flow(hass: HomeAssistant, hass_client):
             "openid profile groups"
         ]
         assert "state" in query_params and query_params["state"]
-        state = query_params["state"][0]
-        assert len(state) >= 16  # Ensure state is sufficiently long
+        assert query_params["state"][0] == state
+        assert len(query_params["state"][0]) >= 16  # Ensure state is sufficiently long
         assert (
             "redirect_uri" in query_params
             and query_params["redirect_uri"]
             and query_params["redirect_uri"][0].endswith("/auth/oidc/callback")
-        )  # TODO: Also test that the URL itself is correct
+        )
         assert "nonce" in query_params and query_params["nonce"]
         assert "code_challenge_method" in query_params and query_params.get(
             "code_challenge_method"
@@ -73,23 +91,26 @@ async def test_full_oidc_flow(hass: HomeAssistant, hass_client):
         assert "code_challenge" in query_params and query_params["code_challenge"]
 
         session = async_get_clientsession(hass)
-        resp = session.get(location, allow_redirects=False)
+        resp = session.get(authorization_url, allow_redirects=False)
         assert resp.status == 200
 
+        # JSON response from mock server, normally would be interactive
         json_parsed = await resp.json()
         assert "code" in json_parsed and json_parsed["code"]
 
         # Now go back to the callback with a sample code
         code = json_parsed["code"]
-        client = await hass_client()
         resp = await client.get(
             f"/auth/oidc/callback?code={code}&state={state}", allow_redirects=False
         )
-
-        # TODO: Test if logged text contains our login
-        # TODO: Test if the code actually works
+    
         assert resp.status == 302
-        assert "/auth/oidc/finish?code=" in resp.headers["Location"]
+        assert resp.headers["Location"].endswith("/auth/oidc/finish")
+
+        # Fetch the finish page
+        resp = await client.get("/auth/oidc/finish", allow_redirects=False)
+        assert resp.status == 200
+        assert "Login to Home Assistant on this device" in await resp.text()
 
 
 async def discovery_test_through_redirect(
@@ -97,8 +118,15 @@ async def discovery_test_through_redirect(
 ):
     """Test that discovery document retrieval fails gracefully through redirect endpoint."""
     with mock_oidc_responses(scenario):
-        # Start by going to /auth/oidc/redirect
         client = await hass_client()
+        encoded_redirect_uri = base64.b64encode(
+            FAKE_REDIR_URL.encode("utf-8")
+        ).decode("utf-8")
+
+        await client.get(
+            f"/auth/oidc/welcome?redirect_uri={encoded_redirect_uri}",
+            allow_redirects=False,
+        )
         resp = await client.get("/auth/oidc/redirect", allow_redirects=False)
 
         # Find matching log line
