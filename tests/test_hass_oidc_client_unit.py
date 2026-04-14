@@ -23,7 +23,7 @@ from custom_components.auth_oidc.tools.oidc_client import (
     http_raise_for_status,
 )
 
-
+# List from https://jose.authlib.org/en/guide/algorithms/#json-web-signature
 ALL_ID_TOKEN_SIGNING_ALGORITHMS = (
     "HS256",
     "HS384",
