@@ -7,4 +7,4 @@ npm run css
 # Create zip from the custom_components/auth_oidc directory
 # HACS wants only the contents of this dir in a zip
 cd custom_components/auth_oidc/
-zip -r ../hass-oidc-auth.zip ./*
+zip -r ../../hass-oidc-auth.zip ./*
