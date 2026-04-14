@@ -1,0 +1,20 @@
+#! /bin/bash
+
+# Build the plugin CSS
+npm install --frozen-lockfile
+npm run css
+
+# Copy only the required files for zip
+mkdir -p tmp_build
+cp -r custom_components tmp_build/
+cp hacs.json tmp_build/
+cp LICENSE.md tmp_build/
+cp pyproject.toml tmp_build/
+cp README.md tmp_build/
+
+# Create zip from the tmp_build directory
+cd tmp_build
+zip -r ../hass-oidc-auth.zip ./*
+
+cd ..
+rm -rf tmp_build

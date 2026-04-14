@@ -111,5 +111,6 @@ dmypy.json
 
 .pytest_logs.log
 
-
+# Build NPM
 node_modules
+custom_components/auth_oidc/static/style.css
