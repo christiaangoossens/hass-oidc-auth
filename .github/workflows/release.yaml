@@ -1,0 +1,35 @@
+name: Build release and add zip file
+
+on:
+  push:
+    tags:
+    - 'v[0-9]+\.[0-9]+\.[0-9]+'
+  pull_request:
+
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Build
+      run: scripts/build
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: hass-oidc-auth.zip
+        path: ./hass-oidc-auth.zip
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - name: Upload build to existing release
+      if: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release upload "${{ github.ref_name }}" ./hass-oidc-auth.zip --clobber

@@ -1,6 +1,8 @@
 {
-    "name": "OpenID Connect",
+    "name": "OpenID Connect/SSO Authentication",
     "hide_default_branch": true,
     "render_readme": true,
-    "homeassistant": "2025.11"
+    "homeassistant": "2025.11",
+    "zip_release": true,
+    "filename": "hass-oidc-auth.zip"
 }
