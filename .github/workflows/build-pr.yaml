@@ -3,6 +3,7 @@ name: Build pull request artifact
 on:
   pull_request:
 
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,5 +17,5 @@ jobs:
     - name: Upload Artifact
       uses: actions/upload-artifact@v7
       with:
-        name: hass-oidc-auth.zip
         path: ./hass-oidc-auth.zip
+        archive: false
