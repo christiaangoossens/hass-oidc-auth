@@ -2,6 +2,7 @@
 
 import base64
 import os
+from urllib.parse import parse_qs, quote, unquote, urlparse
 from unittest.mock import AsyncMock, MagicMock, patch
 from auth_oidc.config.const import DISCOVERY_URL, CLIENT_ID
 import pytest
@@ -43,6 +44,22 @@ async def setup(
 
     result = await async_setup_component(hass, DOMAIN, mock_config)
     assert result
+
+
+async def setup_mock_authorize_route(hass: HomeAssistant) -> None:
+    """Register a mock /auth/authorize page so frontend injection can hook into it."""
+    await async_setup_component(hass, HTTP_DOMAIN, {})
+
+    mock_html_path = os.path.join(os.path.dirname(__file__), "mocks", "auth_page.html")
+    await hass.http.async_register_static_paths(
+        [
+            StaticPathConfig(
+                "/auth/authorize",
+                mock_html_path,
+                cache_headers=False,
+            )
+        ]
+    )
 
 
 @pytest.mark.asyncio
@@ -557,25 +574,14 @@ async def test_frontend_injection(hass: HomeAssistant, hass_client):
     """Test that frontend injection works."""
 
     # Because there is no frontend in the test setup,
-    # we'll have to fake /auth/authorize for the changes to register
-    await async_setup_component(hass, HTTP_DOMAIN, {})
-
-    mock_html_path = os.path.join(os.path.dirname(__file__), "mocks", "auth_page.html")
-    await hass.http.async_register_static_paths(
-        [
-            StaticPathConfig(
-                "/auth/authorize",
-                mock_html_path,
-                cache_headers=False,
-            )
-        ]
-    )
+    # we'll have to fake /auth/authorize for the changes to register.
+    await setup_mock_authorize_route(hass)
 
     await setup(hass)
 
     client = await hass_client()
     resp = await client.get("/auth/authorize", allow_redirects=False)
-    assert resp.status == 200
+    assert resp.status == 200  # 200 because there is no redirect_uri
     text = await resp.text()
 
     assert "<script src='/auth/oidc/static/injection.js" in text
@@ -606,7 +612,7 @@ async def test_frontend_injection_logs_and_returns_when_route_handler_is_unexpec
             return iter([FakeRoute()])
 
     with patch.object(hass.http.app.router, "resources", return_value=[FakeResource()]):
-        await frontend_injection(hass)
+        await frontend_injection(hass, force_https=False)
 
     assert "Unexpected route handler type" in caplog.text
     assert (
@@ -625,6 +631,61 @@ async def test_injected_auth_page_inject_logs_errors(hass: HomeAssistant, caplog
         "custom_components.auth_oidc.endpoints.injected_auth_page.frontend_injection",
         side_effect=RuntimeError("boom"),
     ):
-        await OIDCInjectedAuthPage.inject(hass)
+        await OIDCInjectedAuthPage.inject(hass, force_https=False)
 
     assert "Failed to inject OIDC auth page: boom" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_injected_auth_page_redirects_to_welcome_when_not_skipped(
+    hass: HomeAssistant, hass_client
+):
+    """Injected auth page should redirect into OIDC when skip flags are absent."""
+
+    await setup_mock_authorize_route(hass)
+    await setup(hass)
+
+    client = await hass_client()
+    encoded_redirect_uri = quote(create_redirect_uri(WEB_CLIENT_ID), safe="")
+
+    resp = await client.get(
+        f"/auth/authorize?redirect_uri={encoded_redirect_uri}",
+        allow_redirects=False,
+    )
+    assert resp.status == 302
+
+    location = resp.headers["Location"]
+    parsed_location = urlparse(location)
+    assert parsed_location.path == "/auth/oidc/welcome"
+
+    query = parse_qs(parsed_location.query)
+    assert "redirect_uri" in query
+
+    original_url = base64.b64decode(unquote(query["redirect_uri"][0]), validate=True)
+    original_url = original_url.decode("utf-8")
+    assert "/auth/authorize?redirect_uri=" in original_url
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "request_target",
+    [
+        "/auth/authorize?skip_oidc_redirect=true",
+        "/auth/authorize?redirect_uri=http%3A%2F%2Fexample.com%2Fauth%2Fauthorize%3Fskip_oidc_redirect%3Dtrue",
+    ],
+)
+async def test_injected_auth_page_returns_original_html_when_skipped(
+    hass: HomeAssistant,
+    hass_client,
+    request_target: str,
+):
+    """Injected auth page should render HTML when redirect suppression is requested."""
+
+    await setup_mock_authorize_route(hass)
+    await setup(hass)
+
+    client = await hass_client()
+    response = await client.get(request_target, allow_redirects=False)
+
+    assert response.status == 200
+    assert "<script src='/auth/oidc/static/injection.js" in await response.text()

@@ -343,4 +343,35 @@ async def test_login_with_invalid_cookie_aborts(hass: HomeAssistant):
         result = await flow.async_step_init({})
 
     assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "oidc_cookie_invalid"
+
+
+@pytest.mark.asyncio
+async def test_login_with_no_cookie_aborts(hass: HomeAssistant):
+    """Missing cookie should fail closed."""
+    await setup(
+        hass,
+        {
+            CLIENT_ID: "dummy",
+            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: False,
+                FEATURES_AUTOMATIC_USER_LINKING: False,
+            },
+        },
+        True,
+    )
+
+    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    flow = await provider.async_login_flow({})
+
+    fake_request = SimpleNamespace(cookies={}, remote="127.0.0.1")
+    with patch(
+        "custom_components.auth_oidc.provider.http.current_request"
+    ) as current_request:
+        current_request.get.return_value = fake_request
+
+        result = await flow.async_step_init({})
+
+    assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "no_oidc_cookie_found"
