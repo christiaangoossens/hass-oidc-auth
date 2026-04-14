@@ -1,9 +1,9 @@
-name: Build and upload draft release asset
+name: Build and create draft release
 
 on:
-  release:
-    types:
-    - created
+  push:
+    tags:
+    - v*.*.*
 
 jobs:
   release:
@@ -14,31 +14,14 @@ jobs:
 
     steps:
     - uses: actions/checkout@v6
-      with:
-        fetch-depth: 0
-        ref: ${{ github.event.release.target_commitish }}
-
-    - name: Create tag if missing
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        tag_name="${{ github.event.release.tag_name }}"
-
-        if git rev-parse --verify --quiet "refs/tags/${tag_name}" >/dev/null; then
-          echo "Tag ${tag_name} already exists"
-          exit 0
-        fi
-
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git tag "${tag_name}"
-        git push origin "${tag_name}"
 
     - name: Build
       run: scripts/build
 
-    - name: Upload build to draft release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        gh release upload "${{ github.event.release.tag_name }}" ./hass-oidc-auth.zip --clobber
+    - name: Create or update draft release with ZIP
+      uses: softprops/action-gh-release@v3
+      with:
+        draft: true
+        fail_on_unmatched_files: true
+        generate_release_notes: true
+        files: ./hass-oidc-auth.zip
