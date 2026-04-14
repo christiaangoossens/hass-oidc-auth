@@ -87,7 +87,7 @@ async def test_welcome_rejects_invalid_encoded_redirect_uri(
 
 
 @pytest.mark.asyncio
-async def test_welcome_sets_strict_state_cookie_flags(hass: HomeAssistant, hass_client):
+async def test_welcome_sets_secure_state_cookie_flags(hass: HomeAssistant, hass_client):
     """Welcome should set secure cookie flags for the OIDC state cookie."""
     await setup(hass)
 
@@ -105,7 +105,7 @@ async def test_welcome_sets_strict_state_cookie_flags(hass: HomeAssistant, hass_
 
     set_cookie = resp.headers.get("Set-Cookie", "")
     assert "Path=/auth/" in set_cookie
-    assert "SameSite=Strict" in set_cookie
+    assert "SameSite=Lax" in set_cookie
     assert "HttpOnly" in set_cookie
     assert "Max-Age=300" in set_cookie
 

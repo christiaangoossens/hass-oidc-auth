@@ -236,7 +236,7 @@ class OpenIDAuthProvider(AuthProvider):
             # Keep cookie lifetime aligned with state lifetime in storage (5 minutes).
             "set-cookie": f"{COOKIE_NAME}="
             + state_id
-            + "; Path=/auth/; SameSite=Strict; HttpOnly; Max-Age=300"
+            + "; Path=/auth/; SameSite=Lax; HttpOnly; Max-Age=300"
             + secure_flag,
         }
 

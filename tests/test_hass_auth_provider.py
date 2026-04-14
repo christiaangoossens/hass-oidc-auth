@@ -93,7 +93,7 @@ async def test_provider_cookie_header_sets_secure_when_requested(hass: HomeAssis
     provider = hass.auth.get_auth_providers(DOMAIN)[0]
     cookie_header = provider.get_cookie_header("state-id", secure=True)["set-cookie"]
 
-    assert "SameSite=Strict" in cookie_header
+    assert "SameSite=Lax" in cookie_header
     assert "HttpOnly" in cookie_header
     assert "Secure" in cookie_header
 
