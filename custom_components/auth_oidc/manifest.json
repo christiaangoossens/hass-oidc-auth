@@ -16,8 +16,7 @@
   "requirements": [
     "aiofiles",
     "jinja2",
-    "bcrypt",
     "joserfc"
   ],
-  "version": "1.0.0-rc1"
+  "version": "1.0.0-rc2"
 }

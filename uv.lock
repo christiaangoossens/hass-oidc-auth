@@ -958,7 +958,6 @@ version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
-    { name = "bcrypt" },
     { name = "jinja2" },
     { name = "joserfc" },
 ]
@@ -977,7 +976,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiofiles", specifier = "~=25.1" },
-    { name = "bcrypt", specifier = "~=5.0" },
     { name = "jinja2", specifier = "~=3.1" },
     { name = "joserfc", specifier = "~=1.6.0" },
 ]

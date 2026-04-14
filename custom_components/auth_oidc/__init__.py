@@ -157,6 +157,6 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
     _LOGGER.info("Registered OIDC views")
 
     # Inject OIDC code into the frontend for /auth/authorize for automatic redirect
-    await OIDCInjectedAuthPage.inject(hass)
+    await OIDCInjectedAuthPage.inject(hass, force_https)
 
     return True
