@@ -6,7 +6,7 @@ npm run css
 
 # Copy only the required files for zip
 mkdir -p tmp_build
-cp -r custom_components/auth_oidc tmp_build/
+cp -r custom_components tmp_build/
 cp hacs.json tmp_build/
 cp LICENSE.md tmp_build/
 cp pyproject.toml tmp_build/
