@@ -1,0 +1,20 @@
+name: Build pull request artifact
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Build
+      run: scripts/build
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: hass-oidc-auth.zip
+        path: ./hass-oidc-auth.zip

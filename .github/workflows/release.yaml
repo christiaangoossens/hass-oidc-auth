@@ -1,11 +1,9 @@
-name: Build release and add zip file
+name: Build and upload draft release asset
 
 on:
-  push:
-    tags:
-    - 'v*.*.*'
-  pull_request:
-
+  release:
+    types:
+    - created
 
 jobs:
   release:
@@ -16,20 +14,31 @@ jobs:
 
     steps:
     - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+        ref: ${{ github.event.release.target_commitish }}
+
+    - name: Create tag if missing
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        tag_name="${{ github.event.release.tag_name }}"
+
+        if git rev-parse --verify --quiet "refs/tags/${tag_name}" >/dev/null; then
+          echo "Tag ${tag_name} already exists"
+          exit 0
+        fi
+
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag "${tag_name}"
+        git push origin "${tag_name}"
 
     - name: Build
       run: scripts/build
 
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v7
-      with:
-        path: ./hass-oidc-auth.zip
-        archive: false
-      if: ${{ github.event_name == 'pull_request' }}
-
-    - name: Upload build to existing release
-      if: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+    - name: Upload build to draft release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        gh release upload "${{ github.ref_name }}" ./hass-oidc-auth.zip --clobber
+        gh release upload "${{ github.event.release.tag_name }}" ./hass-oidc-auth.zip --clobber
