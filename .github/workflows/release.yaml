@@ -23,8 +23,8 @@ jobs:
     - name: Upload Artifact
       uses: actions/upload-artifact@v7
       with:
-        name: hass-oidc-auth.zip
         path: ./hass-oidc-auth.zip
+        archive: false
       if: ${{ github.event_name == 'pull_request' }}
 
     - name: Upload build to existing release
