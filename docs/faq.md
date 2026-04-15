@@ -14,7 +14,7 @@ The core values for this integration are:
 
 ## Is the integration stable?
 
-Yes, this integration has been tested in production environments for multiple years and has almost full automated test coverage to test both security and regressions. Security issues as well as dependency updates are actively monitored through automated pipelines and [a security policy is available here](./SECURITY.md).
+Yes, this integration has been tested in production environments for multiple years and has almost full automated test coverage to test both security and regressions. Security issues as well as dependency updates are actively monitored through automated pipelines and [a security policy is available here](../SECURITY.md).
 
 ## What does this integration not do (yet)?
 
