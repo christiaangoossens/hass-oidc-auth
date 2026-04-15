@@ -2,7 +2,7 @@
 
 import base64
 import binascii
-from urllib.parse import urlparse, parse_qs, unquote
+from urllib.parse import urlparse, parse_qs, unquote, urlencode
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from ..tools.helpers import error_response, get_url, template_response
@@ -52,15 +52,38 @@ class OIDCWelcomeView(HomeAssistantView):
                 redirect_uri = base64.b64decode(
                     unquote(redirect_uri), validate=True
                 ).decode("utf-8")
-                is_mobile = self.determine_if_mobile(redirect_uri)
-            except (binascii.Error, UnicodeDecodeError, ValueError):
+
+                oauth2_url = urlparse(redirect_uri)
+                oauth2_query = parse_qs(oauth2_url.query)
+                client_id = oauth2_query.get("client_id")[0]
+                original_redirect_uri = oauth2_query.get("redirect_uri")[0]
+
+                # If the client_id starts with https://home-assistant.io/ we assume it's a mobile client
+                # Android = https://home-assistant.io/Android, ios = https://home-assistant.io/iOS
+                is_mobile = client_id.startswith("https://home-assistant.io/")
+
+                # If not mobile, add the storeToken parameter to prevent issues with refreshing after login
+                if not is_mobile:
+                    # Adjust the original_redirect_uri to include the storeTokens parameter
+                    separator = "?"
+                    if "?" in original_redirect_uri:
+                        separator = "&"
+
+                    original_redirect_uri = f"{original_redirect_uri}{separator}storeToken=true"
+                    oauth2_query.update({"redirect_uri": original_redirect_uri})
+
+                    # Create new redirect_uri with the updated query parameters
+                    new_oauth2_url = oauth2_url._replace(query=urlencode(oauth2_query, doseq=True))
+                    redirect_uri = new_oauth2_url.geturl()
+
+            except (binascii.Error, UnicodeDecodeError, ValueError, KeyError):
                 return await error_response(
                     "Invalid redirect_uri, please restart login."
                 )
         else:
             # Backwards compatibility with older versions that directly go to /auth/oidc/welcome
             # If not set, redirect back to the main page and assume that this is a web client
-            redirect_uri = get_url("/", self.force_https)
+            redirect_uri = get_url("/?storeToken=true", self.force_https)
             is_mobile = False
 
         # Create OIDC state with the redirect_uri so we can use it later in the flow

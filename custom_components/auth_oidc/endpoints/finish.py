@@ -61,11 +61,9 @@ class OIDCFinishView(HomeAssistantView):
             if "?" in redirect_uri:
                 separator = "&"
 
-            # Redirect to this new URL for login
-            new_url = (
-                redirect_uri + separator + "storeToken=true&skip_oidc_redirect=true"
-            )
-            raise web.HTTPFound(location=new_url)
+            # Redirect to this new URL for login, make sure to skip OIDC to prevent loops
+            redirect_uri = f"{redirect_uri}{separator}skip_oidc_redirect=true"
+            raise web.HTTPFound(location=redirect_uri)
 
         # Check if we can link this device
         linked = await self.oidc_provider.async_link_state_to_code(
