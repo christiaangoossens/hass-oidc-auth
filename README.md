@@ -21,15 +21,14 @@
   <h3 align="center">OpenID Connect for Home Assistant</h3>
 
   <p align="center">
-    OpenID Connect (OIDC) implementation for Home Assistant through a custom component/integration
+    OpenID Connect (OIDC) implementation for Home Assistant through a custom component/integration,<br/>with a strong focus on <b>security, stability and accessibility.</b>
     <br />
     <br />
-    <a href="./docs/usage.md">Usage Guide</a>
-    &middot;
-    <a href="./docs/configuration.md">Configuration Guide</a>
+    <a href="./docs/configuration.md">YAML Configuration Guide</a>
     &middot;
     <a href="./CONTRIBUTING.md">Contribution Guide</a>
-    <br />
+    &middot;
+    <a href="./docs/faq.md">Frequently Asked Questions (FAQ)</a>
     <br />
     <a href="https://github.com/christiaangoossens/hass-oidc-auth/discussions?discussions_q=is%3Aopen+category%3AAnnouncements+category%3APolls">Announcements & Polls</a>
     &middot;
@@ -41,49 +40,59 @@
   </p>
 </div>
 
-Provides an OpenID Connect (OIDC) implementation for Home Assistant through a custom component/integration. Through this integration, you can create an SSO (single-sign-on) environment within your self-hosted application stack / homelab.
+Provides a **stable and secure** OpenID Connect (OIDC) implementation for Home Assistant through a custom component/integration. With this integration, you can create a single-sign-on (SSO) environment in your self-hosted application stack / homelab.
 
-### Background
-If you would like to read the background/open letter that lead to this component, you can find the original post at https://community.home-assistant.io/t/open-letter-for-improving-home-assistants-authentication-system-oidc-sso/494223. It is currently one of the most upvoted feature requests for Home Assistant.
+The core values for this integration are:
 
-> [!TIP]
-> If you support the addition of this feature to the Home Assistant core, please upvote https://github.com/orgs/home-assistant/discussions/48. It's the successor of the Home Assistant Community post mentioned above (with almost 900 upvotes).
+1. **Security**: strict adherence to the [OpenID Connect specification](https://openid.net/specs/openid-connect-core-1_0.html), [RFC 6749 (OAuth2)](https://datatracker.ietf.org/doc/html/rfc6749), [RFC 7519 (JWT)](https://datatracker.ietf.org/doc/html/rfc7519), [RFC 7636 (PKCE)](https://datatracker.ietf.org/doc/html/rfc7636) and [RFC 9700 (OAuth2 Security Best Practices)](https://datatracker.ietf.org/doc/html/rfc9700) as well as a focus on security tests in the automated test suite.
+2. **Stability**: minimal patching of the core Home Assistant code such that updates of HA are less likely to break the integration and leave you without a way to login.
+3. **Accessibility**: the integration should work for everyone as much as possible with default settings, regardless of your preferred authentication method.
+
+**TLDR**: *Login to Home Assistant with this integration should 'just work', every time, for everyone in your household ([even your dad](https://github.com/home-assistant/architecture/issues/832#issuecomment-1328052330)), securely.*
+
+If you are deciding if this integration is the right fit for your setup, please see the [Frequently Asked Questions (FAQ)](./docs/faq.md) for more information.
+
 
 ## Installation guide
 
-1. Add this repository to [HACS](https://hacs.xyz/) (or search for "OpenID Connect" in HACS).
+The easiest way to install the integration is through [the Home Assistant Community Store (HACS)](https://hacs.xyz/). You can find usage instructions for HACS here: https://hacs.xyz/docs/use/.
+
+After installing HACS, search for "OpenID Connect" in the HACS search box or click the button below:
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=christiaangoossens&repository=hass-oidc-auth&category=Integration)
 
-2. Add the YAML configuration that matches your OIDC provider to `configuration.yaml`. See the [Configuration Guide](./docs/configuration.md) for more details or pick your OIDC provider below:
+Next, setup your OIDC provider. You can find setup guides for common providers here:
 
-    | <img src="https://goauthentik.io/img/icon_top_brand_colour.svg" width="100"> | <img src="https://www.authelia.com/images/branding/logo-cropped.png" width="100"> | <img src="https://github.com/user-attachments/assets/4ceb2708-9f29-4694-b797-be833efce17d" width="100"> |
-    |:-----------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------:|
-    | [Authentik](./docs/provider-configurations/authentik.md)                                       | [Authelia](./docs/provider-configurations/authelia.md)                                     | [Pocket ID](./docs/provider-configurations/pocket-id.md)                                     |
+| <img src="https://goauthentik.io/img/icon_top_brand_colour.svg" width="100"> | <img src="https://www.authelia.com/images/branding/logo-cropped.png" width="100"> | <img src="https://github.com/user-attachments/assets/4ceb2708-9f29-4694-b797-be833efce17d" width="100"> |
+|:-----------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------:|
+| [authentik](./docs/provider-configurations/authentik.md)                                       | [Authelia](./docs/provider-configurations/authelia.md)                                     | [Pocket ID](./docs/provider-configurations/pocket-id.md)                                     |
 
-    By default, the integration assumes you configure Home Assistant as a **public client** and thus only specify the `client_id` and no `client_secret`. For example, your configuration might look like:
+You can also find additional provider guides in the [the Provider Configurations folder](./docs/provider-configurations). If your provider isn't specified, you can use either a **public client** (recommended) or **confidential client** with the callback url set to `<your HA URL>/auth/oidc/callback`.
 
-    ```yaml
-    auth_oidc:
-        client_id: "example"
-        discovery_url: "https://example.com/.well-known/openid-configuration"
-    ```
+Finally, choose your preferred configuration style (UI or YAML). After configuration, you should automatically be sent to the OIDC login page(s) if you open Home Assistant (web or app).
 
-    When registering Home Assistant at your OIDC provider, use `<your HA URL>/auth/oidc/callback` as the callback URL and select 'public client'. You should now get the `client_id` and `issuer_url` or `discovery_url` to fill in.
+### Configuration in the HA UI
 
-3. Restart Home Assistant
+The recommended setup method for beginners is through the "Integrations" panel within the Home Assistant UI. 
 
-4. Login through the OIDC Welcome URL at `<your HA URL>/auth/oidc/welcome`. You will have to go there manually for now. For example, it might be located at http://homeassistant.local:8123/auth/oidc/welcome.
+Many configuration options are available through this method, but some advanced features are only available in YAML to simplify the setup process in the UI.
 
-More (detailed) usage instructions can be found in the [Usage Guide](./docs/usage.md).
+1. Open Home Assistant and go to **Settings -> Devices & Services**.
+2. Click Add Integration and select **OpenID Connect/SSO Authentication**.
+3. Follow the prompts on screen carefully.
+
+### Configuration by YAML
+
+Alternatively, you can configure the integration using YAML. You can find a full configuration guide for YAML here: [YAML Configuration Guide](./docs/configuration.md).
 
 ## Contributions
-Contibutions are very welcome! If you program in Python or have worked with Home Assistant integrations before, please try to contribute. A list of requested contributions/future goals is in the [Contribution Guide](./CONTRIBUTING.md).
+Contibutions are very welcome! If you program in Python or have worked with Home Assistant integrations before, please try to contribute. You can find more information in the [Contribution Guide](./CONTRIBUTING.md).
 
-Please see the [Contribution Guide](./CONTRIBUTING.md) for more information.
-
-### Found a security issue?
+### Security issue?
 Please see [SECURITY.md](./SECURITY.md) for more information on how to submit your security issue securely. You can find previously found vulnerablities and their corresponding security advisories at the [Security Advisories page](https://github.com/christiaangoossens/hass-oidc-auth/security/advisories).
+
+## Background
+If you would like to read the background/open letter that lead to this component, you can find it at https://github.com/orgs/home-assistant/discussions/48. It is currently one of the most upvoted feature requests for Home Assistant.
 
 ## License
 Distributed under the MIT license with no warranty. You are fully liable for configuring this integration correctly to keep your Home Assistant installation secure. Use at your own risk. The full license can be found in [LICENSE.md](./LICENSE.md)

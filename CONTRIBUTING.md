@@ -10,7 +10,10 @@ If you are not a programmer, you can still contribute by:
 - If you want to, contributing financially through [Github Sponsors](https://github.com/sponsors/christiaangoossens)
 
 ## Code contributions
-You may also submit Pull Requests (PRs) to add features yourself! You can find a list that we are currently working on below. Please note that workflows will be run on your pull request and a pull request will only be merged when all checks pass and a review has been conducted (together with a manual test).
+You may also submit Pull Requests (PRs) to add features yourself! You can find TODOs to work on in the [Issue Tracker](https://github.com/christiaangoossens/hass-oidc-auth/issues), the [Feature Requests](https://github.com/christiaangoossens/hass-oidc-auth/discussions/categories/ideas) and in the [FAQ](./docs/faq.md).
+
+
+Please note that workflows will be run on your pull request (linting, tests, security audit) and a pull request will only be merged when all checks pass and a review has been conducted (together with a manual test).
 
 ### Development
 This project uses the uv package manager for development. You can find installation instructions here: https://docs.astral.sh/uv/getting-started/installation/. Start by installing the dependencies using `uv sync` and then point your editor towards the environment created in the .venv directory.
