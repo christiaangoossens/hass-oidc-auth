@@ -86,7 +86,9 @@ def make_signed_hs256_jwt(secret: str, claims: dict) -> str:
     return jwt.encode({"alg": "HS256"}, claims, jwk_obj)
 
 
-def build_real_signed_token(algorithm: str, claims: dict, secret: str) -> tuple[str, dict]:
+def build_real_signed_token(
+    algorithm: str, claims: dict, secret: str
+) -> tuple[str, dict]:
     """Build a real signed token and matching JWKS payload for a given algorithm."""
     if algorithm.startswith("HS"):
         signing_key = jwk.import_key(
@@ -96,7 +98,9 @@ def build_real_signed_token(algorithm: str, claims: dict, secret: str) -> tuple[
                 "alg": algorithm,
             }
         )
-        token = jwt.encode({"alg": algorithm}, claims, signing_key, algorithms=[algorithm])
+        token = jwt.encode(
+            {"alg": algorithm}, claims, signing_key, algorithms=[algorithm]
+        )
         return token, {"keys": []}
 
     if algorithm in ("RS256", "RS384", "RS512", "PS256", "PS384", "PS512"):
@@ -115,7 +119,11 @@ def build_real_signed_token(algorithm: str, claims: dict, secret: str) -> tuple[
         )
     elif algorithm in ("Ed25519", "Ed448"):
         key = jwk.generate_key(
-            "OKP", algorithm, {"alg": algorithm, "use": "sig"}, private=True, auto_kid=True
+            "OKP",
+            algorithm,
+            {"alg": algorithm, "use": "sig"},
+            private=True,
+            auto_kid=True,
         )
     else:
         raise ValueError(f"Unsupported test algorithm: {algorithm}")

@@ -116,8 +116,9 @@ class OIDCInjectedAuthPage(HomeAssistantView):
         # Set when we return from finish
         if req.query.get("skip_oidc_redirect") == "true":
             return False
-        
-        # Set whenever you directly do /?skip_oidc_redirect=true, for example when you click the "other" button on the welcome screen
+
+        # Set whenever you directly do /?skip_oidc_redirect=true,
+        # for example when you click the "other" button on the welcome screen
         redirect_uri = req.query.get("redirect_uri")
         if not redirect_uri:
             return False

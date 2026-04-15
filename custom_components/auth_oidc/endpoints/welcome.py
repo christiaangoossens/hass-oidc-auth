@@ -58,22 +58,29 @@ class OIDCWelcomeView(HomeAssistantView):
                 client_id = oauth2_query.get("client_id")[0]
                 original_redirect_uri = oauth2_query.get("redirect_uri")[0]
 
-                # If the client_id starts with https://home-assistant.io/ we assume it's a mobile client
-                # Android = https://home-assistant.io/Android, ios = https://home-assistant.io/iOS
+                # If the client_id starts with https://home-assistant.io/
+                # we assume it's a mobile client
+                # Android = https://home-assistant.io/Android,
+                # iOS = https://home-assistant.io/iOS
                 is_mobile = client_id.startswith("https://home-assistant.io/")
 
-                # If not mobile, add the storeToken parameter to prevent issues with refreshing after login
+                # If not mobile,
+                # add the storeToken parameter to prevent issues with refreshing after login
                 if not is_mobile:
                     # Adjust the original_redirect_uri to include the storeTokens parameter
                     separator = "?"
                     if "?" in original_redirect_uri:
                         separator = "&"
 
-                    original_redirect_uri = f"{original_redirect_uri}{separator}storeToken=true"
+                    original_redirect_uri = (
+                        f"{original_redirect_uri}{separator}storeToken=true"
+                    )
                     oauth2_query.update({"redirect_uri": original_redirect_uri})
 
                     # Create new redirect_uri with the updated query parameters
-                    new_oauth2_url = oauth2_url._replace(query=urlencode(oauth2_query, doseq=True))
+                    new_oauth2_url = oauth2_url._replace(
+                        query=urlencode(oauth2_query, doseq=True)
+                    )
                     redirect_uri = new_oauth2_url.geturl()
 
             except (binascii.Error, UnicodeDecodeError, ValueError, KeyError):
