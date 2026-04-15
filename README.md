@@ -61,13 +61,13 @@ After installing HACS, search for "OpenID Connect" in the HACS search box or cli
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=christiaangoossens&repository=hass-oidc-auth&category=Integration)
 
-Next, setup your OIDC provider. You can find setup guides for common providers here:
+Next, set up your OIDC provider. You can find setup guides for common providers here:
 
 | <img src="https://goauthentik.io/img/icon_top_brand_colour.svg" width="100"> | <img src="https://www.authelia.com/images/branding/logo-cropped.png" width="100"> | <img src="https://github.com/user-attachments/assets/4ceb2708-9f29-4694-b797-be833efce17d" width="100"> |
 |:-----------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------:|
 | [authentik](./docs/provider-configurations/authentik.md)                                       | [Authelia](./docs/provider-configurations/authelia.md)                                     | [Pocket ID](./docs/provider-configurations/pocket-id.md)                                     |
 
-You can also find additional provider guides in the [the Provider Configurations folder](./docs/provider-configurations). If your provider isn't specified, you can use either a **public client** (recommended) or **confidential client** with the callback url set to `<your HA URL>/auth/oidc/callback`.
+You can also find additional provider guides in the [the Provider Configurations folder](./docs/provider-configurations). If your provider isn't specified, you can use either a **public client** (recommended) or **confidential client** with the callback URL set to `<your HA URL>/auth/oidc/callback`.
 
 Finally, choose your preferred configuration style (UI or YAML). After configuration, you should automatically be sent to the OIDC login page(s) if you open Home Assistant (web or app).
 
@@ -86,13 +86,13 @@ Many configuration options are available through this method, but some advanced 
 Alternatively, you can configure the integration using YAML. You can find a full configuration guide for YAML here: [YAML Configuration Guide](./docs/configuration.md).
 
 ## Contributions
-Contibutions are very welcome! If you program in Python or have worked with Home Assistant integrations before, please try to contribute. You can find more information in the [Contribution Guide](./CONTRIBUTING.md).
+Contributions are very welcome! If you program in Python or have worked with Home Assistant integrations before, please try to contribute. You can find more information in the [Contribution Guide](./CONTRIBUTING.md).
 
 ### Security issue?
-Please see [SECURITY.md](./SECURITY.md) for more information on how to submit your security issue securely. You can find previously found vulnerablities and their corresponding security advisories at the [Security Advisories page](https://github.com/christiaangoossens/hass-oidc-auth/security/advisories).
+Please see [SECURITY.md](./SECURITY.md) for more information on how to submit your security issue securely. You can find previously found vulnerabilities and their corresponding security advisories at the [Security Advisories page](https://github.com/christiaangoossens/hass-oidc-auth/security/advisories).
 
 ## Background
-If you would like to read the background/open letter that lead to this component, you can find it at https://github.com/orgs/home-assistant/discussions/48. It is currently one of the most upvoted feature requests for Home Assistant.
+If you would like to read the background/open letter that led to this component, you can find it at https://github.com/orgs/home-assistant/discussions/48. It is currently one of the most upvoted feature requests for Home Assistant.
 
 ## License
 Distributed under the MIT license with no warranty. You are fully liable for configuring this integration correctly to keep your Home Assistant installation secure. Use at your own risk. The full license can be found in [LICENSE.md](./LICENSE.md)
@@ -109,4 +109,4 @@ Distributed under the MIT license with no warranty. You are fully liable for con
 [issues-shield]: https://img.shields.io/github/issues/christiaangoossens/hass-oidc-auth.svg?style=for-the-badge
 [issues-url]: https://github.com/christiaangoossens/hass-oidc-auth/issues
 [license-shield]: https://img.shields.io/github/license/christiaangoossens/hass-oidc-auth.svg?style=for-the-badge
-[license-url]: https://github.com/christiaangoossens/hass-oidc-auth/blob/master/LICENSE.txt
+[license-url]: https://github.com/christiaangoossens/hass-oidc-auth/blob/master/LICENSE.md

@@ -4,7 +4,7 @@ If you want to use the (limited) UI configuration method, please see [the README
 
 # YAML Configuration
 
-You can configure this integration using YAML in your `configuration.yaml` file. All features of the integrations will always be available within the YAML configuration.
+You can configure this integration using YAML in your `configuration.yaml` file. All features of the integration will always be available within the YAML configuration.
 
 By default, only two fields are required:
 
@@ -14,7 +14,7 @@ auth_oidc:
   discovery_url: ""
 ```
 
-The default settings assume that you configure Home Assistant as a **public client**, without a client secret. If so, you should only need to provide the `client_id` from your OIDC provider and it's discovery URL (ending in `.well-known/openid-configuration`).
+The default settings assume that you configure Home Assistant as a **public client**, without a client secret. If so, you should only need to provide the `client_id` from your OIDC provider and its discovery URL (ending in `.well-known/openid-configuration`).
 You don't have to configure other settings in most cases, as they have secure defaults set. If your provider requires manually configuring the callback URL, use `<your HA URL>/auth/oidc/callback`.
 
 ## Provider Configurations
@@ -89,7 +89,7 @@ auth_oidc:
 
 ### Disabling registration for new users
 This integration does not allow disabling registration for new users, as there is no way to abort registration that late in the process while providing a good user experience.
-You can however set both roles to groups that only contain certain users or to a non-existant group.
+You can however set both roles to groups that only contain certain users or to a non-existent group.
 
 ```yaml
 auth_oidc:
@@ -154,7 +154,7 @@ Here's a table of all options that you can set:
 | `discovery_url`            | `string` | Yes      |                      | The OIDC well-known configuration URL.                                                                |
 | `display_name`              | `string` | No       | `"OpenID Connect (SSO)"` | The name to display on the login screen, both for the Home Assistant screen and the OIDC welcome screen.                                                                |
 | `id_token_signing_alg`       | `string` | No       | `RS256`              | The signing algorithm that is used for your id_tokens.
-| `groups_scope`  | `string` | No       | `groups`           | Override the default grups scope with another scope of your choice. |
+| `groups_scope`  | `string` | No       | `groups`           | Override the default groups scope with another scope of your choice. |
 | `additional_scopes`|`list of strings`| No        | `empty list`    | Add additional scopes to request for custom identity provider configurations in addition to the automatic `openid` and `profile` scopes and the `groups_scope` configuration option |
 | `features.automatic_user_linking`   | `boolean`| No       | `false`          | Automatically links users to existing Home Assistant users based on the OIDC username claim. Disabled by default for security. When disabled, OIDC users will get their own new user profile upon first login.     |
 | `features.automatic_person_creation` | `boolean` | No       | `true`          | Automatically creates a person entry for new user profiles created by this integration. Recommended if you would like to assign presence detection to OIDC users.                                            |
@@ -166,5 +166,5 @@ Here's a table of all options that you can set:
 | `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |
 | `roles.admin`            | `string` | No       | `admins`                     | Group name to require for users to get the 'admin' role in Home Assistant. Defaults to 'admins', the default group name for admins in Authentik. Doesn't do anything if no groups claim is found in your token. |
 | `roles.user`            | `string` | No       |                     | Group name to require for users to get the 'user' role in Home Assistant. Defaults to giving all users this role, unless configured. |
-| `network.tls_verify`         | `boolean` | No       | `true`                     | Verify TLS certificate. You may want to set this set to `false` when testing locally. |
+| `network.tls_verify`         | `boolean` | No       | `true`                     | Verify TLS certificate. You may want to set this to `false` when testing locally. |
 | `network.tls_ca_path`            | `string` | No       |                       | Path to file containing a private certificate authority chain. |
