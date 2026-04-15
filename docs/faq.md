@@ -28,5 +28,8 @@ These features are hard to implement correctly within a custom integration, as t
 
 For home use where users rarely change permissions/status, these features aren't commonly required. However, if you would like to help implement any of these specifications (while sticking to the value of 'Stability' and minimal Home Assistant core code patching), feel free to create a PR.
 
+## Why does this integration only allow for sign-in on mobile with a device code?
+Several attempts have been made at implementing a direct mobile sign-in, but due to many issues (which can be found in https://github.com/orgs/home-assistant/discussions/48 and https://github.com/christiaangoossens/hass-oidc-auth/discussions/95), an approach was chosen that works for all setups and all authentication methods. The mobile apps now show a code, which can be entered into either the Chrome (Android)/Safari (iOS) apps on the mobile device or on another computer, after which the app automatically links and continues with the setup.
 
+If you would like to make another attempt at implementing direct sign-in anyway, please submit a PR.
 
