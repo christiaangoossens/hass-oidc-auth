@@ -109,4 +109,4 @@ Distributed under the MIT license with no warranty. You are fully liable for con
 [issues-shield]: https://img.shields.io/github/issues/christiaangoossens/hass-oidc-auth.svg?style=for-the-badge
 [issues-url]: https://github.com/christiaangoossens/hass-oidc-auth/issues
 [license-shield]: https://img.shields.io/github/license/christiaangoossens/hass-oidc-auth.svg?style=for-the-badge
-[license-url]: https://github.com/christiaangoossens/hass-oidc-auth/blob/master/LICENSE.md
+[license-url]: https://github.com/christiaangoossens/hass-oidc-auth/blob/main/LICENSE.md
