@@ -33,3 +33,7 @@ Several attempts have been made at implementing a direct mobile sign-in, but due
 
 If you would like to make another attempt at implementing direct sign-in anyway, please submit a PR.
 
+## I am using a proxy setup where my reverse proxy authenticates users
+This integration is intended to be public-facing (as most OIDC apps). If you are authenticating users at the reverse proxy level (such as if you are migrating from https://github.com/BeryJu/hass-auth-header), you should remove the current configuration there.
+
+In general, make sure to set your Home Assistant configuration correctly for your reverse proxy as well (see https://www.home-assistant.io/integrations/http/#reverse-proxies). It is important that the original visitor IP is passed through to Home Assistant for optimal security.
