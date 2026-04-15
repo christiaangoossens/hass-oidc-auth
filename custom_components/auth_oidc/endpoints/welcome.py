@@ -1,8 +1,9 @@
 """Welcome route to show the user the OIDC login button and give instructions."""
 
+from ast import List
 import base64
 import binascii
-from urllib.parse import urlparse, parse_qs, unquote
+from urllib.parse import urlparse, parse_qs, unquote, urlencode
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from ..tools.helpers import error_response, get_url, template_response
@@ -30,13 +31,46 @@ class OIDCWelcomeView(HomeAssistantView):
         self.force_https = force_https
         self.has_other_auth_providers = has_other_auth_providers
 
-    def determine_if_mobile(self, redirect_uri: str) -> bool:
-        """Determine if the client is a mobile client based on the redirect_uri."""
-        oauth2_url = urlparse(redirect_uri)
-        client_id = parse_qs(oauth2_url.query).get("client_id")
+    async def _process_url(self, redirect_uri: str) -> List[str, bool]:
+        """Processes the redirect URI to determine if we need setTokens and if this is mobile."""
+        # decodeURIComponent(btoa(...)) -> unquote first, then base64 decode
+        redirect_uri = base64.b64decode(unquote(redirect_uri), validate=True).decode(
+            "utf-8"
+        )
 
-        # If the client_id starts with https://home-assistant.io/ we assume it's a mobile client
-        return bool(client_id and client_id[0].startswith("https://home-assistant.io/"))
+        oauth2_url = urlparse(redirect_uri)
+        oauth2_query = parse_qs(oauth2_url.query)
+        client_id = oauth2_query.get("client_id")[0]
+        original_redirect_uri = oauth2_query.get("redirect_uri")[0]
+
+        # If the client_id starts with https://home-assistant.io/
+        # we assume it's a mobile client
+        # Android = https://home-assistant.io/Android,
+        # iOS = https://home-assistant.io/iOS
+        is_mobile = client_id.startswith("https://home-assistant.io/")
+
+        # Check if we appear to be signing in to the web version,
+        # for which we want to store tokens.
+        # We don't want to set storeTokens on sign-in to Google for instance
+        base_url = get_url("/", self.force_https)
+        is_web_client = original_redirect_uri.startswith(base_url)
+
+        if is_web_client:
+            # Adjust the original_redirect_uri to include the storeTokens parameter
+            separator = "?"
+            if "?" in original_redirect_uri:
+                separator = "&"
+
+            original_redirect_uri = f"{original_redirect_uri}{separator}storeToken=true"
+            oauth2_query.update({"redirect_uri": original_redirect_uri})
+
+            # Create new redirect_uri with the updated query parameters
+            new_oauth2_url = oauth2_url._replace(
+                query=urlencode(oauth2_query, doseq=True)
+            )
+            redirect_uri = new_oauth2_url.geturl()
+
+        return redirect_uri, is_mobile
 
     async def get(self, req: web.Request) -> web.Response:
         """Receive response."""
@@ -44,23 +78,26 @@ class OIDCWelcomeView(HomeAssistantView):
         # Get the query parameter with the redirect_uri
         redirect_uri = req.query.get("redirect_uri")
 
-        # If set, determine if this is a mobile client based on the redirect_uri,
-        # otherwise assume it's not mobile
+        # Do some processing on the redirect_uri to correct it
+        # and determine if this is a mobile client.
         if redirect_uri:
             try:
-                # decodeURIComponent(btoa(...)) -> unquote first, then base64 decode
-                redirect_uri = base64.b64decode(
-                    unquote(redirect_uri), validate=True
-                ).decode("utf-8")
-                is_mobile = self.determine_if_mobile(redirect_uri)
-            except (binascii.Error, UnicodeDecodeError, ValueError):
+                redirect_uri, is_mobile = await self._process_url(redirect_uri)
+            except (
+                binascii.Error,
+                UnicodeDecodeError,
+                ValueError,
+                KeyError,
+                TypeError,
+            ):
                 return await error_response(
                     "Invalid redirect_uri, please restart login."
                 )
+
         else:
             # Backwards compatibility with older versions that directly go to /auth/oidc/welcome
             # If not set, redirect back to the main page and assume that this is a web client
-            redirect_uri = get_url("/", self.force_https)
+            redirect_uri = get_url("/?storeToken=true", self.force_https)
             is_mobile = False
 
         # Create OIDC state with the redirect_uri so we can use it later in the flow

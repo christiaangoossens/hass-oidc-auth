@@ -103,10 +103,10 @@ async def verify_back_redirect(client, expected_redirect_uri: str):
     """Verify that POST to finish without body redirects back to the original redirect_uri."""
     resp_finish_post = await client.post("/auth/oidc/finish", allow_redirects=False)
     assert resp_finish_post.status == 302
-    assert (
-        resp_finish_post.headers["Location"]
-        == unquote(expected_redirect_uri) + "&storeToken=true&skip_oidc_redirect=true"
-    )
+
+    location = resp_finish_post.headers["Location"]
+    assert location.startswith(unquote(expected_redirect_uri))
+    assert "skip_oidc_redirect=true" in location
 
 
 async def listen_for_sse_events(

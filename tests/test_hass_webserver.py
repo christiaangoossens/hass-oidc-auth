@@ -2,9 +2,11 @@
 
 import base64
 import os
-from urllib.parse import parse_qs, quote, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse, urlencode
 from unittest.mock import AsyncMock, MagicMock, patch
 from auth_oidc.config.const import DISCOVERY_URL, CLIENT_ID
+
+from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
 import pytest
 
 from homeassistant.core import HomeAssistant
@@ -17,14 +19,19 @@ from custom_components.auth_oidc.endpoints.injected_auth_page import (
     frontend_injection,
 )
 
-
-WEB_CLIENT_ID = "https://example.com"
 MOBILE_CLIENT_ID = "https://home-assistant.io/Android"
 
 
 def create_redirect_uri(client_id: str) -> str:
     """Build a redirect URI that includes a client_id query parameter."""
-    return f"http://example.com/auth/authorize?client_id={client_id}"
+    params = {
+        "response_type": "code",
+        "redirect_uri": client_id,
+        "client_id": client_id,
+        "state": "example",
+    }
+
+    return f"http://example.com/auth/authorize?{urlencode(params)}"
 
 
 def encode_redirect_uri(redirect_uri: str) -> str:
@@ -63,7 +70,9 @@ async def setup_mock_authorize_route(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_welcome_page_registration(hass: HomeAssistant, hass_client):
+async def test_welcome_page_registration(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
     """Test that welcome page is present."""
 
     await setup(hass)
@@ -74,7 +83,9 @@ async def test_welcome_page_registration(hass: HomeAssistant, hass_client):
 
 
 @pytest.mark.asyncio
-async def test_redirect_page_registration(hass: HomeAssistant, hass_client):
+async def test_redirect_page_registration(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
     """Test that redirect page can be reached."""
 
     await setup(hass)
@@ -89,7 +100,7 @@ async def test_redirect_page_registration(hass: HomeAssistant, hass_client):
 
 @pytest.mark.asyncio
 async def test_welcome_rejects_invalid_encoded_redirect_uri(
-    hass: HomeAssistant, hass_client
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
     """Welcome should reject malformed base64 redirect_uri values."""
     await setup(hass)
@@ -104,12 +115,104 @@ async def test_welcome_rejects_invalid_encoded_redirect_uri(
 
 
 @pytest.mark.asyncio
-async def test_welcome_sets_secure_state_cookie_flags(hass: HomeAssistant, hass_client):
+@pytest.mark.parametrize(
+    "redirect_uri",
+    [
+        "http://example.com/auth/authorize?client_id=https://example.com",
+        "http://example.com/auth/authorize?redirect_uri=https://example.com",
+    ],
+)
+async def test_welcome_rejects_redirect_uris_missing_required_query_params(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator, redirect_uri: str
+):
+    """Welcome should reject redirect URIs that decode but are incomplete."""
+    await setup(hass)
+
+    client = await hass_client()
+    encoded = encode_redirect_uri(redirect_uri)
+    resp = await client.get(
+        f"/auth/oidc/welcome?redirect_uri={encoded}",
+        allow_redirects=False,
+    )
+
+    assert resp.status == 400
+    assert "Invalid redirect_uri, please restart login." in await resp.text()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("client_id", "should_store_token", "is_mobile"),
+    [
+        ("", True, False),
+        (MOBILE_CLIENT_ID, False, True),
+        ("https://random.example", False, False),
+    ],
+)
+async def test_welcome_only_adds_store_token_for_web_clients(
+    hass: HomeAssistant,
+    hass_client: ClientSessionGenerator,
+    client_id: str,
+    should_store_token: bool,
+    is_mobile: bool,
+):
+    """Welcome should only append storeToken for clients aligned with the base URL."""
+    await setup(hass)
+
+    captured_redirect_uri = {}
+
+    async def fake_create_state(state_redirect_uri: str, *_args):
+        captured_redirect_uri["value"] = state_redirect_uri
+        return "state-id"
+
+    with (
+        patch(
+            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_create_state",
+            new=AsyncMock(side_effect=fake_create_state),
+        ),
+        patch(
+            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_generate_device_code",
+            new=AsyncMock(return_value="123456"),
+        ),
+    ):
+        client = await hass_client()
+
+        if client_id == "":
+            # If not present, set it to the root URL to
+            # emulate the normal website/Lovelace/dashboard
+            client_id = str(client.make_url("/?test=true"))
+
+        redirect_uri = create_redirect_uri(client_id)
+        encoded = encode_redirect_uri(redirect_uri)
+        resp = await client.get(
+            f"/auth/oidc/welcome?redirect_uri={encoded}",
+            allow_redirects=False,
+        )
+
+    assert resp.status in (200, 302)
+    assert "value" in captured_redirect_uri
+
+    parsed_state_redirect = urlparse(captured_redirect_uri["value"])
+    state_redirect_query = parse_qs(parsed_state_redirect.query)
+    nested_redirect_uri = unquote(state_redirect_query["redirect_uri"][0])
+
+    if should_store_token:
+        assert "storeToken=true" in nested_redirect_uri
+    else:
+        assert "storeToken=true" not in nested_redirect_uri
+
+    if is_mobile:
+        assert "https://home-assistant.io/" in nested_redirect_uri
+
+
+@pytest.mark.asyncio
+async def test_welcome_sets_secure_state_cookie_flags(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
     """Welcome should set secure cookie flags for the OIDC state cookie."""
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+    redirect_uri = create_redirect_uri(client.make_url("/"))
     encoded = encode_redirect_uri(redirect_uri)
 
     resp = await client.get(
@@ -129,7 +232,7 @@ async def test_welcome_sets_secure_state_cookie_flags(hass: HomeAssistant, hass_
 
 @pytest.mark.asyncio
 async def test_welcome_mobile_device_code_generation_failure(
-    hass: HomeAssistant, hass_client
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
     """Welcome should error if device code generation fails for mobile clients."""
     await setup(hass)
@@ -154,13 +257,13 @@ async def test_welcome_mobile_device_code_generation_failure(
 
 @pytest.mark.asyncio
 async def test_welcome_shows_alternative_sign_in_link_when_other_providers_exist(
-    hass: HomeAssistant, hass_client
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
     """Welcome should render fallback auth link when other providers are present."""
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+    redirect_uri = create_redirect_uri(client.make_url("/"))
     encoded = encode_redirect_uri(redirect_uri)
     resp = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -175,7 +278,7 @@ async def test_welcome_shows_alternative_sign_in_link_when_other_providers_exist
 
 @pytest.mark.asyncio
 async def test_welcome_desktop_auto_redirects_without_other_providers(
-    hass: HomeAssistant, hass_client
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
     """Welcome should auto-redirect desktop clients when no other providers exist."""
 
@@ -184,7 +287,7 @@ async def test_welcome_desktop_auto_redirects_without_other_providers(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+    redirect_uri = create_redirect_uri(client.make_url("/"))
     encoded = encode_redirect_uri(redirect_uri)
     resp = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -196,7 +299,7 @@ async def test_welcome_desktop_auto_redirects_without_other_providers(
 
 @pytest.mark.asyncio
 async def test_redirect_without_cookie_goes_to_welcome(
-    hass: HomeAssistant, hass_client
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
     """Redirect endpoint should bounce to welcome when no state cookie exists."""
     await setup(hass)
@@ -209,13 +312,13 @@ async def test_redirect_without_cookie_goes_to_welcome(
 
 @pytest.mark.asyncio
 async def test_redirect_shows_error_on_oidc_runtime_error(
-    hass: HomeAssistant, hass_client
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
     """Redirect should show a configuration error when OIDC URL generation raises."""
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+    redirect_uri = create_redirect_uri(client.make_url("/"))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -237,13 +340,13 @@ async def test_redirect_shows_error_on_oidc_runtime_error(
 
 @pytest.mark.asyncio
 async def test_redirect_shows_error_when_auth_url_empty(
-    hass: HomeAssistant, hass_client
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
     """Redirect should show error page if OIDC returns no authorization URL."""
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+    redirect_uri = create_redirect_uri(client.make_url("/"))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -264,7 +367,9 @@ async def test_redirect_shows_error_when_auth_url_empty(
 
 
 @pytest.mark.asyncio
-async def test_callback_registration(hass: HomeAssistant, hass_client):
+async def test_callback_registration(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
     """Test that callback page is reachable."""
 
     await setup(hass)
@@ -275,12 +380,14 @@ async def test_callback_registration(hass: HomeAssistant, hass_client):
 
 
 @pytest.mark.asyncio
-async def test_callback_rejects_missing_code_or_state(hass: HomeAssistant, hass_client):
+async def test_callback_rejects_missing_code_or_state(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
     """Callback must reject requests missing either code or state."""
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+    redirect_uri = create_redirect_uri(client.make_url("/"))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -304,12 +411,14 @@ async def test_callback_rejects_missing_code_or_state(hass: HomeAssistant, hass_
 
 
 @pytest.mark.asyncio
-async def test_callback_rejects_state_mismatch(hass: HomeAssistant, hass_client):
+async def test_callback_rejects_state_mismatch(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
     """Callback must reject state mismatch to protect against CSRF."""
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+    redirect_uri = create_redirect_uri(client.make_url("/"))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -327,13 +436,13 @@ async def test_callback_rejects_state_mismatch(hass: HomeAssistant, hass_client)
 
 @pytest.mark.asyncio
 async def test_callback_rejects_when_user_details_fetch_fails(
-    hass: HomeAssistant, hass_client
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
     """Callback should error when token exchange/userinfo retrieval fails."""
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+    redirect_uri = create_redirect_uri(client.make_url("/"))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -357,12 +466,14 @@ async def test_callback_rejects_when_user_details_fetch_fails(
 
 
 @pytest.mark.asyncio
-async def test_callback_rejects_invalid_role(hass: HomeAssistant, hass_client):
+async def test_callback_rejects_invalid_role(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
     """Callback should reject users marked with invalid role."""
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+    redirect_uri = create_redirect_uri(client.make_url("/"))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -395,7 +506,10 @@ async def test_callback_rejects_invalid_role(hass: HomeAssistant, hass_client):
     ],
 )
 async def test_finish_requires_state_cookie(
-    hass: HomeAssistant, hass_client, method: str, data: dict | None
+    hass: HomeAssistant,
+    hass_client: ClientSessionGenerator,
+    method: str,
+    data: dict | None,
 ):
     """Finish endpoint should require the OIDC state cookie for both GET and POST."""
     await setup(hass)
@@ -412,12 +526,14 @@ async def test_finish_requires_state_cookie(
 
 
 @pytest.mark.asyncio
-async def test_finish_post_rejects_invalid_state(hass: HomeAssistant, hass_client):
+async def test_finish_post_rejects_invalid_state(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
     """Finish POST should error when the state cookie does not resolve to redirect_uri."""
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+    redirect_uri = create_redirect_uri(client.make_url("/"))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -435,7 +551,9 @@ async def test_finish_post_rejects_invalid_state(hass: HomeAssistant, hass_clien
 
 
 @pytest.mark.asyncio
-async def test_device_sse_requires_state_cookie(hass: HomeAssistant, hass_client):
+async def test_device_sse_requires_state_cookie(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
     """SSE endpoint should reject requests without state cookie."""
     await setup(hass)
 
@@ -447,7 +565,7 @@ async def test_device_sse_requires_state_cookie(hass: HomeAssistant, hass_client
 
 @pytest.mark.asyncio
 async def test_device_sse_emits_expired_for_unknown_state(
-    hass: HomeAssistant, hass_client
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
     """SSE should emit expired when the state can no longer be resolved."""
     await setup(hass)
@@ -472,7 +590,9 @@ async def test_device_sse_emits_expired_for_unknown_state(
 
 
 @pytest.mark.asyncio
-async def test_device_sse_emits_timeout(hass: HomeAssistant, hass_client):
+async def test_device_sse_emits_timeout(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
     """SSE should emit timeout if the polling window is exceeded."""
     await setup(hass)
 
@@ -510,7 +630,7 @@ async def test_device_sse_emits_timeout(hass: HomeAssistant, hass_client):
 
 @pytest.mark.asyncio
 async def test_device_sse_handles_runtime_error_and_returns_cleanly(
-    hass: HomeAssistant, hass_client
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
     """SSE should swallow runtime errors from stream loop and finish response."""
     await setup(hass)
@@ -540,7 +660,7 @@ async def test_device_sse_handles_runtime_error_and_returns_cleanly(
 
 @pytest.mark.asyncio
 async def test_device_sse_ignores_write_eof_connection_reset(
-    hass: HomeAssistant, hass_client
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
     """SSE should ignore ConnectionResetError while closing the stream."""
     await setup(hass)
@@ -570,7 +690,9 @@ async def test_device_sse_ignores_write_eof_connection_reset(
 
 # Test the frontend injection
 @pytest.mark.asyncio
-async def test_frontend_injection(hass: HomeAssistant, hass_client):
+async def test_frontend_injection(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
     """Test that frontend injection works."""
 
     # Because there is no frontend in the test setup,
@@ -638,7 +760,7 @@ async def test_injected_auth_page_inject_logs_errors(hass: HomeAssistant, caplog
 
 @pytest.mark.asyncio
 async def test_injected_auth_page_redirects_to_welcome_when_not_skipped(
-    hass: HomeAssistant, hass_client
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
     """Injected auth page should redirect into OIDC when skip flags are absent."""
 
@@ -646,7 +768,7 @@ async def test_injected_auth_page_redirects_to_welcome_when_not_skipped(
     await setup(hass)
 
     client = await hass_client()
-    encoded_redirect_uri = quote(create_redirect_uri(WEB_CLIENT_ID), safe="")
+    encoded_redirect_uri = quote(create_redirect_uri(client.make_url("/")), safe="")
 
     resp = await client.get(
         f"/auth/authorize?redirect_uri={encoded_redirect_uri}",

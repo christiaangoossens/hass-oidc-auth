@@ -113,9 +113,12 @@ class OIDCInjectedAuthPage(HomeAssistantView):
     @staticmethod
     def _should_do_oidc_redirect(req: web.Request) -> bool:
         """Check if we should redirect to the OIDC flow."""
+        # Set when we return from finish
         if req.query.get("skip_oidc_redirect") == "true":
             return False
 
+        # Set whenever you directly do /?skip_oidc_redirect=true,
+        # for example when you click the "other" button on the welcome screen
         redirect_uri = req.query.get("redirect_uri")
         if not redirect_uri:
             return False
