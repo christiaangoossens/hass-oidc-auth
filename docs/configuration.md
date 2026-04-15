@@ -1,9 +1,12 @@
-# Configuration methods
+# UI Configuration
 
-Currently, the only available configuration method is YAML in your `configuration.yaml` file. In the future, we will also add limited UI configuration for the most common configurations (Authentik, Authelia and Pocket-ID). Advanced users will need to use the YAML configuration in any case.
+If you want to use the (limited) UI configuration method, please see [the README](../README.md).
 
 # YAML Configuration
-For now, this integration is configured using YAML in your `configuration.yaml` file. By default, only two fields are required:
+
+You can configure this integration using YAML in your `configuration.yaml` file. All features of the integrations will always be available within the YAML configuration.
+
+By default, only two fields are required:
 
 ```yaml
 auth_oidc:
@@ -157,7 +160,6 @@ Here's a table of all options that you can set:
 | `features.automatic_person_creation` | `boolean` | No       | `true`          | Automatically creates a person entry for new user profiles created by this integration. Recommended if you would like to assign presence detection to OIDC users.                                            |
 | `features.disable_rfc7636`  | `boolean`| No       | `false`         | Disables PKCE (RFC 7636) for OIDC providers that don't support it. You should not need this with most providers.                                    |
 | `features.include_groups_scope`  | `boolean` | No       | `true`           | Include the 'groups' scope in the OIDC request. Set to `false` to exclude it. |
-| `features.disable_frontend_changes`  | `boolean` | No       | `false`           | Set to `true` to disable all changes made to the HA frontend for better compatbility with future HA versions, or if you are not comfortable with injecting Javascript into the existing frontend code. |
 | `features.force_https`  | `boolean` | No       | `false`           | Set to `true` to force all URLs generated to use `https` instead of automatically determining based on the request scheme or `X-Forwarded-Proto`. |
 | `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
 | `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.
