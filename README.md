@@ -24,9 +24,7 @@
     OpenID Connect (OIDC) implementation for Home Assistant through a custom component/integration,<br/>with a strong focus on <b>security, stability and accessibility.</b>
     <br />
     <br />
-    <a href="./docs/usage.md">Usage Guide</a>
-    &middot;
-    <a href="./docs/configuration.md">Configuration Guide</a>
+    <a href="./docs/configuration.md">YAML Configuration Guide</a>
     &middot;
     <a href="./CONTRIBUTING.md">Contribution Guide</a>
     &middot;
