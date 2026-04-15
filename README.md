@@ -29,6 +29,8 @@
     <a href="./docs/configuration.md">Configuration Guide</a>
     &middot;
     <a href="./CONTRIBUTING.md">Contribution Guide</a>
+    &middot;
+    <a href="./docs/faq.md">Frequently Asked Questions (FAQ)</a>
     <br />
     <a href="https://github.com/christiaangoossens/hass-oidc-auth/discussions?discussions_q=is%3Aopen+category%3AAnnouncements+category%3APolls">Announcements & Polls</a>
     &middot;
