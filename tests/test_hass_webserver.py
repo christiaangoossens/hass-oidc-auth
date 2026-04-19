@@ -1,6 +1,7 @@
 """Tests for the registered webpages"""
 
 import base64
+import json
 import os
 from urllib.parse import parse_qs, quote, unquote, urlparse, urlencode
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -707,6 +708,82 @@ async def test_frontend_injection(
     text = await resp.text()
 
     assert "<script src='/auth/oidc/static/injection.js" in text
+
+
+@pytest.mark.asyncio
+async def test_frontend_injection_includes_auth_oidc_config_blob(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """The injected page should include a window.__AUTH_OIDC__ blob BEFORE the
+    external injection.js script so the JS can read the configured display
+    name before it runs (used by the native-picker click interceptor)."""
+    await setup_mock_authorize_route(hass)
+    await setup(hass)
+
+    client = await hass_client()
+    resp = await client.get("/auth/authorize", allow_redirects=False)
+    assert resp.status == 200
+    text = await resp.text()
+
+    cfg_idx = text.find("window.__AUTH_OIDC__=")
+    script_idx = text.find("<script src='/auth/oidc/static/injection.js")
+
+    assert cfg_idx != -1, "window.__AUTH_OIDC__ blob missing from injected page"
+    assert script_idx != -1, "injection.js <script src> missing from injected page"
+    assert cfg_idx < script_idx, (
+        "config blob must be serialized BEFORE the external injection.js so the "
+        "JS can read it synchronously on load"
+    )
+    # The blob is valid JSON (after pulling it out of the <script> tag)
+    start = text.find("{", cfg_idx)
+    end = text.find("</script>", start)
+    assert start != -1 and end != -1
+    blob = json.loads(text[start:end].rstrip(";"))
+    assert "displayName" in blob
+    assert blob["welcomePath"] == "/auth/oidc/welcome"
+
+
+@pytest.mark.asyncio
+async def test_frontend_injection_escapes_script_closer_in_display_name(
+    hass: HomeAssistant,
+):
+    """A display_name containing `</script>` must not be able to break out of
+    the inline <script> tag that carries the window.__AUTH_OIDC__ config.
+
+    We capture the view the plugin registers on success and inspect its
+    embedded HTML directly, which avoids having to spin up a real HTTP
+    client against an ephemeral /auth/authorize route.
+    """
+    await async_setup_component(hass, HTTP_DOMAIN, {})
+    await setup_mock_authorize_route(hass)
+
+    captured = {}
+
+    orig_register = hass.http.register_view
+
+    def _capture(view, *args, **kwargs):
+        # Only capture the OIDCInjectedAuthPage view; forward everything else.
+        if type(view).__name__ == "OIDCInjectedAuthPage":
+            captured["html"] = view.html
+        return orig_register(view, *args, **kwargs)
+
+    with patch.object(hass.http, "register_view", side_effect=_capture):
+        await frontend_injection(
+            hass,
+            force_https=False,
+            display_name="Pwn</script><script>alert(1)</script>",
+        )
+
+    html = captured.get("html", "")
+    assert html, "frontend_injection did not register the injected page view"
+
+    # Literal `</script>` inside the display_name must be serialized as
+    # `<\/script>` so it cannot terminate the inline <script> carrying the
+    # __AUTH_OIDC__ config.
+    assert "<\\/script>" in html
+    # The adversarial payload must not appear as a bare closer that could
+    # prematurely end the config <script>.
+    assert "Pwn</script>" not in html
 
 
 @pytest.mark.asyncio

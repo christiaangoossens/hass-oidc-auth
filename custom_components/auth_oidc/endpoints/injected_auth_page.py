@@ -1,6 +1,7 @@
 """Injected authorization page, replacing the original"""
 
 import base64
+import json
 import logging
 from functools import partial
 from urllib.parse import quote, unquote
@@ -24,8 +25,17 @@ async def read_file(path: str) -> str:
         return await f.read()
 
 
-async def frontend_injection(hass: HomeAssistant, force_https: bool) -> None:
-    """Inject new frontend code into /auth/authorize."""
+async def frontend_injection(
+    hass: HomeAssistant, force_https: bool, display_name: str = ""
+) -> None:
+    """Inject new frontend code into /auth/authorize.
+
+    ``display_name`` is the provider's configured display name (from
+    ``display_name`` YAML key or ``DEFAULT_TITLE``). It is passed to the
+    injected JS via ``window.__AUTH_OIDC__`` so the JS can target the
+    matching row in HA's native auth-provider picker without relying on
+    locale-dependent or heuristic label matching.
+    """
     router = hass.http.app.router
     frontend_path = None
 
@@ -66,8 +76,22 @@ async def frontend_injection(hass: HomeAssistant, force_https: bool) -> None:
     # First fetch the frontend path into memory
     frontend_code = await read_file(frontend_path)
 
-    # Inject JS and register that route
-    injection_js = "<script src='/auth/oidc/static/injection.js?v=6'></script>"
+    # Inject JS and register that route.
+    # The config blob (`window.__AUTH_OIDC__`) tells the JS exactly which
+    # picker row is this provider's, so the interceptor can match by
+    # configured display name rather than heuristics over rendered labels.
+    # `</` is escaped to `<\/` so a display_name containing literal
+    # `</script>` cannot break out of the inline <script> element.
+    oidc_config_json = json.dumps(
+        {
+            "displayName": display_name,
+            "welcomePath": WELCOME_PATH,
+        }
+    ).replace("</", "<\\/")
+    injection_js = (
+        f"<script>window.__AUTH_OIDC__={oidc_config_json};</script>"
+        f"<script src='/auth/oidc/static/injection.js?v=7'></script>"
+    )
     frontend_code = frontend_code.replace("</body>", f"{injection_js}</body>")
 
     await hass.http.async_register_static_paths(
@@ -103,10 +127,12 @@ class OIDCInjectedAuthPage(HomeAssistantView):
         self.force_https = force_https
 
     @staticmethod
-    async def inject(hass: HomeAssistant, force_https: bool) -> None:
+    async def inject(
+        hass: HomeAssistant, force_https: bool, display_name: str = ""
+    ) -> None:
         """Inject the OIDC auth page into the frontend."""
         try:
-            await frontend_injection(hass, force_https)
+            await frontend_injection(hass, force_https, display_name)
         except Exception as e:  # pylint: disable=broad-except
             _LOGGER.error("Failed to inject OIDC auth page: %s", e)
 
