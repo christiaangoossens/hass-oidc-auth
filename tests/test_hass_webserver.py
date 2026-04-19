@@ -5,7 +5,7 @@ import json
 import os
 from urllib.parse import parse_qs, quote, unquote, urlparse, urlencode
 from unittest.mock import AsyncMock, MagicMock, patch
-from auth_oidc.config.const import DISCOVERY_URL, CLIENT_ID
+from auth_oidc.config.const import DISCOVERY_URL, CLIENT_ID, DISPLAY_NAME
 
 from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
 import pytest
@@ -741,6 +741,62 @@ async def test_frontend_injection_includes_auth_oidc_config_blob(
     blob = json.loads(text[start:end].rstrip(";"))
     assert "displayName" in blob
     assert blob["welcomePath"] == "/auth/oidc/welcome"
+
+
+@pytest.mark.asyncio
+async def test_frontend_injection_uses_unsanitized_display_name(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """The window.__AUTH_OIDC__ blob must carry the display name HA actually
+    renders in the native auth picker. The plugin's welcome-template
+    pipeline passes the name through `re.sub(r"[^A-Za-z0-9 _\\-\\(\\)]", ...)`
+    that strips "/", ":", "+" and non-ASCII, but the AuthProvider itself is
+    registered with the unsanitized display_name, and HA renders the picker
+    row from provider.name. Using the sanitized form for the JS matcher
+    would reintroduce the dead-end this PR is meant to fix for any display
+    name containing stripped characters (e.g. "Auth0 / SSO").
+    """
+    adversarial = "Auth0 / SSO"
+
+    await setup_mock_authorize_route(hass)
+
+    result = await async_setup_component(
+        hass,
+        DOMAIN,
+        {
+            DOMAIN: {
+                CLIENT_ID: "dummy",
+                DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
+                DISPLAY_NAME: adversarial,
+            }
+        },
+    )
+    assert result
+
+    client = await hass_client()
+    resp = await client.get("/auth/authorize", allow_redirects=False)
+    assert resp.status == 200
+    text = await resp.text()
+
+    prefix = "window.__AUTH_OIDC__="
+    start = text.find(prefix)
+    assert start != -1, "window.__AUTH_OIDC__ blob missing from injected page"
+    json_start = start + len(prefix)
+    json_end = text.find("</script>", json_start)
+    blob = json.loads(text[json_start:json_end].rstrip(";"))
+
+    # Confirm HA registered the provider with the unsanitized name too;
+    # without this the bug would still be latent elsewhere.
+    auth_providers = hass.auth.get_auth_providers(DOMAIN)
+    assert auth_providers, "auth provider not registered"
+    assert auth_providers[0].name == adversarial
+
+    assert blob["displayName"] == adversarial, (
+        f"JS received displayName={blob['displayName']!r} but HA renders the "
+        f"picker row with {adversarial!r}; the strict equality matcher in "
+        f"injection.js would never fire, and clicking the row would still "
+        f"dead-end on async_step_init no_oidc_cookie_found"
+    )
 
 
 @pytest.mark.asyncio
