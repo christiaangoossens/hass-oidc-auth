@@ -15,7 +15,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/christiaangoossens/hass-oidc-auth/">
-    <img src="logo.png" alt="Logo" width="80" height="80">
+    <img src="./docs/logo.png" alt="Logo" width="80" height="80">
   </a>
 
   <h3 align="center">OpenID Connect for Home Assistant</h3>
@@ -80,6 +80,8 @@ Many configuration options are available through this method, but some advanced 
 1. Open Home Assistant and go to **Settings -> Devices & Services**.
 2. Click Add Integration and select **OpenID Connect/SSO Authentication**.
 3. Follow the prompts on screen carefully.
+
+![UI Configuration GIF](./docs/ui-config-steps/ui-configuration.gif)
 
 ### Configuration by YAML
 
