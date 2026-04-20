@@ -24,7 +24,7 @@ After installing HACS, search for "OpenID Connect" in the HACS search box or cli
         - Note the **Client ID**, **Client Secret**, and **slug** values because they will be required later.
         - Set a `Strict` redirect URI to `https://<your HA URL>/auth/oidc/callback`.
         - Select any available signing key (to use the RS256 `id_token_signing_alg`)
-  -  Configure Bindings (optional): you can create a binding (policy, group, or user) to manage the listing and access to applications on a user's My applications page.
+  -  Configure Bindings (optional): you can create a binding (policy, group, or user) to manage the listing and access to applications on a user's **My applications** page.
 
 ## Step 3. Home Assistant configuration
 
