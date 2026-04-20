@@ -4,7 +4,6 @@ import logging
 import re
 from typing import OrderedDict
 
-from auth_oidc.endpoints.welcome import OIDCWelcomeOptions
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.components.http import StaticPathConfig
@@ -45,6 +44,7 @@ from .endpoints import (
     OIDCDeviceSSE,
 )
 from .tools.oidc_client import OIDCClient
+from .tools.types import OIDCWelcomeOptions
 from .provider import OpenIDAuthProvider
 
 _LOGGER = logging.getLogger(__name__)

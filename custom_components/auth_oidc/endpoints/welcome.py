@@ -8,24 +8,9 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from ..tools.helpers import error_response, get_url, template_response
 from ..provider import OpenIDAuthProvider
+from ..tools.types import OIDCWelcomeOptions
 
 PATH = "/auth/oidc/welcome"
-
-
-class OIDCWelcomeOptions(dict):
-    """Options for the welcome screen"""
-
-    # User friendly SSO name to display
-    name: str
-
-    # Does the user force HTTPS on all generated URLs?
-    force_https: bool
-
-    # Has the user registered any other auth providers?
-    has_other_auth_providers: bool
-
-    # Does the user prefer to skip the welcome screen?
-    prefers_skipping: bool
 
 
 class OIDCWelcomeView(HomeAssistantView):
@@ -39,10 +24,10 @@ class OIDCWelcomeView(HomeAssistantView):
         self, oidc_provider: OpenIDAuthProvider, options: OIDCWelcomeOptions
     ) -> None:
         self.oidc_provider = oidc_provider
-        self.name = options.name
-        self.force_https = options.force_https
-        self.has_other_auth_providers = options.has_other_auth_providers
-        self.prefers_skipping = options.prefers_skipping
+        self.name = options.get("name")
+        self.force_https = options.get("force_https")
+        self.has_other_auth_providers = options.get("has_other_auth_providers")
+        self.prefers_skipping = options.get("prefers_skipping")
 
     async def _process_url(self, redirect_uri: str) -> List[str, bool]:
         """Processes the redirect URI to determine if we need setTokens and if this is mobile."""
