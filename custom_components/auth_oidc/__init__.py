@@ -28,6 +28,7 @@ from .config import (
     ROLES,
     NETWORK,
     FEATURES_INCLUDE_GROUPS_SCOPE,
+    FEATURES_DEFAULT_REDIRECT,
     FEATURES_FORCE_HTTPS,
     REQUIRED_SCOPES,
 )
@@ -146,6 +147,7 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
     name = re.sub(r"[^A-Za-z0-9 _\-\(\)]", "", name)
 
     force_https = features_config.get(FEATURES_FORCE_HTTPS, False)
+    default_redirect = features_config.get(FEATURES_DEFAULT_REDIRECT, False)
 
     await hass.http.async_register_static_paths(
         [
@@ -158,7 +160,13 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
     )
 
     hass.http.register_view(
-        OIDCWelcomeView(provider, name, force_https, has_other_auth_providers)
+        OIDCWelcomeView(
+            provider, 
+            name, 
+            force_https, 
+            has_other_auth_providers,
+            default_redirect
+        )
     )
     hass.http.register_view(OIDCDeviceSSE(provider))
     hass.http.register_view(OIDCRedirectView(oidc_client, provider, force_https))
