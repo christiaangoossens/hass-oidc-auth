@@ -1,40 +1,63 @@
-# Authentik
+# authentik
 
-## Public client configuration
-Under construction.
+> [!TIP]
+> This guide describes configuring authentik using the UI method. You can also configure authentik by hand with YAML. Instructions for configuring any provider using YAML can be found here: [YAML Configuration Guide](../configuration.md).
 
-## Confidential client configuration
 
-1. From the admin interface, go to `Applications > Providers` and click on `Create`
-2. Select `OAuth2/OpenID Provider` and click `Next`
-3. Fill the following details:
-    - Name: `Home Assistant Provider`
-    - Authorization flow: `default-provider-authorization-explicit-consent`
-    - Client type: `Confidential`
-    - Client ID: `homeassistant`
-    - Client Secret: **Copy this value**
-    - Redirect URIs/Origins: Click on `Add entry` (You can use either DNS, Internal/External IP or localhost)
-        - Strict: https://hass.example.com/auth/oidc/callback
-4. Click `Finish` to save the provider configuration
-5. Open the created Provider 
-6. On the Assigned to application section click on `Create`:
-    - Name: `Home Assistant`
-    - Slug: `home-assistant`
-    - Provider: `Home Assistant Provider`
-    
-    Then save the configuration
+## Step 1. Install the integration
 
-## Home Assistant configuration
+Make sure that you have fully installed the latest release of the integration. The easiest way to install the integration is through [the Home Assistant Community Store (HACS)](https://hacs.xyz/). You can find usage instructions for HACS here: https://hacs.xyz/docs/use/.
 
-> [!IMPORTANT]  
-> For HTTPS configuration make sure to have a public valid SSL certificate (i.e. LetsEncrypt), if not, use HTTP instead (more insecure) or add your Authentik CA certificate to `network.tls_ca_path`.
+After installing HACS, search for "OpenID Connect" in the HACS search box or click the button below:
 
-After installing this HACS addon, edit your `configuration.yaml` file and add:
-```yaml
-auth_oidc:
-  client_id: "homeassistant"
-  client_secret: "client_secret"
-  discovery_url: "https://auth.example.com/application/o/home-assistant/.well-known/openid-configuration"
-```
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=christiaangoossens&repository=hass-oidc-auth&category=Integration)
 
-Restart Home Assistant and go to https://hass.example.com/auth/oidc/welcome
+## Step 2. Configure authentik
+
+1. Log in to authentik as an administrator and open the authentik Admin interface.
+
+2. Navigate to **Applications > Applications** and click **Create with Provider** to create an application and provider pair. (Alternatively you can first create a provider separately, then create the application and connect it with the provider.)
+
+ -   **Application**: provide a descriptive name, an optional group for the type of application, the policy engine mode, and optional UI settings.
+ -   Choose a **Provider Type**: select **OAuth2/OpenID Connect** as the provider type.
+ -   **Configure the Provider**: provide a name (or accept the auto-provided name), the authorization flow to use for this provider, and the following required configurations.
+        - Note the **Client ID**, **Client Secret**, and **slug** values because they will be required later.
+        - Set a `Strict` redirect URI to `https://<your HA URL>/auth/oidc/callback`.
+        - Select any available signing key (to use the RS256 `id_token_signing_alg`)
+  -  Configure Bindings (optional): you can create a binding (policy, group, or user) to manage the listing and access to applications on a user's **My applications** page.
+
+## Step 3. Home Assistant configuration
+
+The recommended setup method for beginners is through the "Integrations" panel within the Home Assistant UI. You can also use YAML setup, for which you can find the configuration guide here: [YAML Configuration Guide](../configuration.md).
+
+1. Open Home Assistant and go to **Settings -> Devices & Services**.
+2. Click Add Integration and select **OpenID Connect/SSO Authentication**.
+
+![UI Configuration GIF](../ui-config-steps/ui-configuration.gif)
+
+3. Now click "Authentik" and continue to the next screen
+4. Set the discovery URL to `https://<your Authentik URL>/application/o/<application_slug>/.well-known/openid-configuration` using the **slug** from the earlier authentik configuration step and click **Submit**
+
+![Picture of the relevant configuration screen: discovery-url](../ui-config-steps/discovery-url.png)
+
+5. Your URL will be tested. You may see an error, such as the picture below. Check your URL and verify that Home Assistant can access your authentik installation. Change the URL or retry.
+
+![Picture of the relevant configuration screen: discovery-url-failure](../ui-config-steps/discovery-url-failure.png)
+
+6. If your discovery URL is tested succesfully, you will see something like this and you can continue with the **Submit** button to continue.
+
+
+![Picture of the relevant configuration screen: discovery-url-success](../ui-config-steps/discovery-url-success.png)
+
+7. You will then be prompted to fill in the client details, the **Client ID** and the **Client Secret** (if you used the Public Client type in authentik, there is no Client Secret required). Paste them in the relevant input boxes and continue setup with **Submit**.
+
+![Picture of the relevant configuration screen: client-details](../ui-config-steps/client-details.png)
+
+8. You will then be asked about **Groups & Role Configuration** and **User Linking**. Configure these options as you wish or leave the defaults in place. You can also change these settings later by opening the integration settings and clicking the reconfiguration icon.
+
+
+![Reconfiguration Configuration GIF](../ui-config-steps/ui-reconfigure.gif)
+
+## Done!
+
+You should now automatically see the welcome screen upon opening your Home Assistant URL. On the welcome screen you can choose to either start login through SSO or to use an alternative login method, which will bring you back to the normal Home Assistant username/password login screen.
