@@ -75,13 +75,8 @@ async def frontend_injection(hass: HomeAssistant, force_https: bool) -> None:
             StaticPathConfig(
                 "/auth/oidc/static/injection.js",
                 hass.config.path("custom_components/auth_oidc/static/injection.js"),
-                cache_headers=False,
-            ),
-            StaticPathConfig(
-                "/auth/oidc/static/style.css",
-                hass.config.path("custom_components/auth_oidc/static/style.css"),
-                cache_headers=False,
-            ),
+                cache_headers=True,
+            )
         ]
     )
 
