@@ -39,3 +39,19 @@ class OIDCState(dict):
 
     # IP address
     ip_address: str | None
+
+
+class OIDCWelcomeOptions(dict):
+    """Options for the welcome screen"""
+
+    # User friendly SSO name to display
+    name: str
+
+    # Does the user force HTTPS on all generated URLs?
+    force_https: bool
+
+    # Has the user registered any other auth providers?
+    has_other_auth_providers: bool
+
+    # Does the user prefer to skip the welcome screen?
+    prefers_skipping: bool

@@ -8,6 +8,7 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from ..tools.helpers import error_response, get_url, template_response
 from ..provider import OpenIDAuthProvider
+from ..tools.types import OIDCWelcomeOptions
 
 PATH = "/auth/oidc/welcome"
 
@@ -20,16 +21,13 @@ class OIDCWelcomeView(HomeAssistantView):
     name = "auth:oidc:welcome"
 
     def __init__(
-        self,
-        oidc_provider: OpenIDAuthProvider,
-        name: str,
-        force_https: bool,
-        has_other_auth_providers: bool,
+        self, oidc_provider: OpenIDAuthProvider, options: OIDCWelcomeOptions
     ) -> None:
         self.oidc_provider = oidc_provider
-        self.name = name
-        self.force_https = force_https
-        self.has_other_auth_providers = has_other_auth_providers
+        self.name = options.get("name")
+        self.force_https = options.get("force_https")
+        self.has_other_auth_providers = options.get("has_other_auth_providers")
+        self.prefers_skipping = options.get("prefers_skipping")
 
     async def _process_url(self, redirect_uri: str) -> List[str, bool]:
         """Processes the redirect URI to determine if we need setTokens and if this is mobile."""
@@ -108,7 +106,9 @@ class OIDCWelcomeView(HomeAssistantView):
 
         # If this is the only provider and we are on desktop,
         # automatically go through the OIDC login
-        if not is_mobile and not self.has_other_auth_providers:
+        if not is_mobile and (
+            not self.has_other_auth_providers or self.prefers_skipping
+        ):
             raise web.HTTPFound(
                 location=get_url("/auth/oidc/redirect", self.force_https),
                 headers=cookie_header,

@@ -15,6 +15,7 @@ from .const import (
     FEATURES_DISABLE_PKCE,
     FEATURES_INCLUDE_GROUPS_SCOPE,
     FEATURES_FORCE_HTTPS,
+    FEATURES_DEFAULT_REDIRECT,
     CLAIMS,
     CLAIMS_DISPLAY_NAME,
     CLAIMS_USERNAME,
@@ -75,6 +76,13 @@ CONFIG_SCHEMA = vol.Schema(
                         vol.Optional(FEATURES_FORCE_HTTPS, default=False): vol.Coerce(
                             bool
                         ),
+                        # Welcome page will be skipped automatically if there are no
+                        # other auth providers.
+                        # This flag enables this behavior regardless of the amount
+                        # of other auth providers.
+                        vol.Optional(
+                            FEATURES_DEFAULT_REDIRECT, default=False
+                        ): vol.Coerce(bool),
                     }
                 ),
                 # Determine which specific claims will be used from the id_token

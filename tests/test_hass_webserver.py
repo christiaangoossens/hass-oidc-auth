@@ -4,7 +4,12 @@ import base64
 import os
 from urllib.parse import parse_qs, quote, unquote, urlparse, urlencode
 from unittest.mock import AsyncMock, MagicMock, patch
-from auth_oidc.config.const import DISCOVERY_URL, CLIENT_ID
+from auth_oidc.config.const import (
+    DISCOVERY_URL,
+    CLIENT_ID,
+    FEATURES,
+    FEATURES_DEFAULT_REDIRECT,
+)
 
 from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
 import pytest
@@ -96,6 +101,28 @@ async def test_redirect_page_registration(
 
     resp2 = await client.post("/auth/oidc/redirect", allow_redirects=False)
     assert resp2.status == 302
+
+
+@pytest.mark.asyncio
+async def test_welcome_page_default_redirect(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """Test that the welcome page returns a redirect when default_redirect is preferred."""
+
+    mock_config = {
+        DOMAIN: {
+            CLIENT_ID: "dummy",
+            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
+            FEATURES: {FEATURES_DEFAULT_REDIRECT: True},
+        }
+    }
+
+    result = await async_setup_component(hass, DOMAIN, mock_config)
+    assert result
+
+    client = await hass_client()
+    resp = await client.get("/auth/oidc/welcome", allow_redirects=False)
+    assert resp.status == 302
 
 
 @pytest.mark.asyncio
