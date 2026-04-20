@@ -39,3 +39,21 @@ If you would like to make another attempt at implementing direct sign-in anyway,
 This integration is intended to be public-facing (as most OIDC apps). If you are authenticating users at the reverse proxy level (such as if you are migrating from https://github.com/BeryJu/hass-auth-header), **you should remove this authentication layer after installing this integration.**.
 
 In general, make sure to set your Home Assistant configuration correctly for your reverse proxy as well (see https://www.home-assistant.io/integrations/http/#reverse-proxies). It is important that the original visitor IP is passed through to Home Assistant for optimal security.
+
+## Help! I have no styling/CSS!
+Did you install the integration using HACS, or directly using the `hass-oidc-auth.zip` from the release? If so, this might be a bug. Please submit an issue so we can debug this.
+
+If you installed the integration by cloning master/downloading the source code (either from Github or the releases page), this is intended. You are using a development build in that case, for which you need to build the styles yourself using these instructions: [CONTRIBUTING.md](./CONTRIBUTING.md#compiling-css).
+
+Installing development builds is not recommended! See the question below for more information.
+
+## Why should I only install releases (either from Github or HACS) instead of using the source code?
+The `main` branch is in constant development, both manually (PR's) as well as automatically (Renovate Bot/dependency management). While a CI pipeline with tests is run on the `main` branch, manual tests are only performed upon PR merge and during the release creation.
+
+Therefore, issues that occur because of the use of the `main` branch (or any other specific commmit/release source code) will not be processed. At any time, the state of `main` may be broken, as it is only intended for development.
+
+Releases, available at [Releases](https://github.com/christiaangoossens/hass-oidc-auth/releases), by constrast, are immutable and tested manually before release. While a release may be deleted, releases cannot be altered after publishing.
+
+This ensures that - even if a security issue with my accounts occured - no malicious code enters an existing release and that the release is installed exactly as intended.
+
+HACS automatically - and only - uses these releases and is thus the recommended install method. If you want to install a release manually, please specifically use the `hass-oidc-auth.zip` (and not the release source code zip), such that you get styling.
