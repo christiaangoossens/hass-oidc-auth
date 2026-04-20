@@ -12,6 +12,22 @@ from ..provider import OpenIDAuthProvider
 PATH = "/auth/oidc/welcome"
 
 
+class OIDCWelcomeOptions(dict):
+    """Options for the welcome screen"""
+
+    # User friendly SSO name to display
+    name: str
+
+    # Does the user force HTTPS on all generated URLs?
+    force_https: bool
+
+    # Has the user registered any other auth providers?
+    has_other_auth_providers: bool
+
+    # Does the user prefer to skip the welcome screen?
+    prefers_skipping: bool
+
+
 class OIDCWelcomeView(HomeAssistantView):
     """OIDC Plugin Welcome View."""
 
@@ -20,18 +36,13 @@ class OIDCWelcomeView(HomeAssistantView):
     name = "auth:oidc:welcome"
 
     def __init__(
-        self,
-        oidc_provider: OpenIDAuthProvider,
-        name: str,
-        force_https: bool,
-        has_other_auth_providers: bool,
-        prefers_skipping: bool,
+        self, oidc_provider: OpenIDAuthProvider, options: OIDCWelcomeOptions
     ) -> None:
         self.oidc_provider = oidc_provider
-        self.name = name
-        self.force_https = force_https
-        self.has_other_auth_providers = has_other_auth_providers
-        self.prefers_skipping = prefers_skipping
+        self.name = options.name
+        self.force_https = options.force_https
+        self.has_other_auth_providers = options.has_other_auth_providers
+        self.prefers_skipping = options.prefers_skipping
 
     async def _process_url(self, redirect_uri: str) -> List[str, bool]:
         """Processes the redirect URI to determine if we need setTokens and if this is mobile."""
@@ -110,7 +121,9 @@ class OIDCWelcomeView(HomeAssistantView):
 
         # If this is the only provider and we are on desktop,
         # automatically go through the OIDC login
-        if not is_mobile and (not self.has_other_auth_providers or self.prefers_skipping):
+        if not is_mobile and (
+            not self.has_other_auth_providers or self.prefers_skipping
+        ):
             raise web.HTTPFound(
                 location=get_url("/auth/oidc/redirect", self.force_https),
                 headers=cookie_header,

@@ -4,6 +4,7 @@ import logging
 import re
 from typing import OrderedDict
 
+from auth_oidc.endpoints.welcome import OIDCWelcomeOptions
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.components.http import StaticPathConfig
@@ -161,11 +162,13 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
 
     hass.http.register_view(
         OIDCWelcomeView(
-            provider, 
-            name, 
-            force_https, 
-            has_other_auth_providers,
-            default_redirect
+            provider,
+            OIDCWelcomeOptions(
+                name=name,
+                force_https=force_https,
+                has_other_auth_providers=has_other_auth_providers,
+                prefers_skipping=default_redirect,
+            ),
         )
     )
     hass.http.register_view(OIDCDeviceSSE(provider))
