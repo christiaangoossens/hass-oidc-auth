@@ -156,7 +156,14 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
 
     _LOGGER.info("Registered OIDC views")
 
-    # Inject OIDC code into the frontend for /auth/authorize for automatic redirect
-    await OIDCInjectedAuthPage.inject(hass, force_https)
+    # Inject OIDC code into the frontend for /auth/authorize for automatic redirect.
+    # Pass provider.name (the unsanitized display_name HA actually registers on the
+    # auth provider) so the JS targets exactly the label HA renders in the native
+    # picker. The local `name` variable above is stripped by re.sub() for the
+    # welcome template, but the picker row is rendered from provider.name, so the
+    # JS matcher must see the same unsanitized string or it never fires for
+    # display_names containing characters the regex strips (e.g. "Auth0 / SSO",
+    # "Entra ID + HA", non-ASCII branding).
+    await OIDCInjectedAuthPage.inject(hass, force_https, provider.name)
 
     return True
