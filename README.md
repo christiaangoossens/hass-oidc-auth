@@ -15,7 +15,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/christiaangoossens/hass-oidc-auth/">
-    <img src="./docs/logo.png" alt="Logo" width="80" height="80">
+    <img src="https://raw.githubusercontent.com/christiaangoossens/hass-oidc-auth/main/docs/logo.png" alt="Logo" width="80" height="80">
   </a>
 
   <h3 align="center">OpenID Connect for Home Assistant</h3>
@@ -24,11 +24,11 @@
     OpenID Connect (OIDC) implementation for Home Assistant through a custom component/integration,<br/>with a strong focus on <b>security, stability and accessibility.</b>
     <br />
     <br />
-    <a href="./docs/configuration.md">YAML Configuration Guide</a>
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth/blob/main/docs/configuration.md">YAML Configuration Guide</a>
     &middot;
-    <a href="./CONTRIBUTING.md">Contribution Guide</a>
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth/blob/main/CONTRIBUTING.md">Contribution Guide</a>
     &middot;
-    <a href="./docs/faq.md">Frequently Asked Questions (FAQ)</a>
+    <a href="https://github.com/christiaangoossens/hass-oidc-auth/blob/main/docs/faq.md">Frequently Asked Questions (FAQ)</a>
     <br />
     <a href="https://github.com/christiaangoossens/hass-oidc-auth/discussions?discussions_q=is%3Aopen+category%3AAnnouncements+category%3APolls">Announcements & Polls</a>
     &middot;
@@ -50,7 +50,7 @@ The core values for this integration are:
 
 **TLDR**: *Login to Home Assistant with this integration should 'just work', every time, for everyone in your household ([even your dad](https://github.com/home-assistant/architecture/issues/832#issuecomment-1328052330)), securely.*
 
-If you are deciding if this integration is the right fit for your setup, please see the [Frequently Asked Questions (FAQ)](./docs/faq.md) for more information.
+If you are deciding if this integration is the right fit for your setup, please see the [Frequently Asked Questions (FAQ)](https://github.com/christiaangoossens/hass-oidc-auth/blob/main/docs/faq.md) for more information.
 
 
 ## Installation guide
@@ -65,9 +65,9 @@ Next, set up your OIDC provider. You can find setup guides for common providers 
 
 | <img src="https://goauthentik.io/img/icon_top_brand_colour.svg" width="100"> | <img src="https://www.authelia.com/images/branding/logo-cropped.png" width="100"> | <img src="https://github.com/user-attachments/assets/4ceb2708-9f29-4694-b797-be833efce17d" width="100"> |
 |:-----------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------:|
-| [authentik](./docs/provider-configurations/authentik.md)                                       | [Authelia](./docs/provider-configurations/authelia.md)                                     | [Pocket ID](./docs/provider-configurations/pocket-id.md)                                     |
+| [authentik](https://github.com/christiaangoossens/hass-oidc-auth/blob/main/docs/provider-configurations/authentik.md)                                       | [Authelia](https://github.com/christiaangoossens/hass-oidc-auth/blob/main/docs/provider-configurations/authelia.md)                                     | [Pocket ID](https://github.com/christiaangoossens/hass-oidc-auth/blob/main/docs/provider-configurations/pocket-id.md)                                     |
 
-You can also find additional provider guides in the [the Provider Configurations folder](./docs/provider-configurations). If your provider isn't specified, you can use either a **public client** (recommended) or **confidential client** with the callback URL set to `<your HA URL>/auth/oidc/callback`.
+You can also find additional provider guides in the [the Provider Configurations folder](https://github.com/christiaangoossens/hass-oidc-auth/tree/main/docs/provider-configurations). If your provider isn't specified, you can use either a **public client** (recommended) or **confidential client** with the callback URL set to `<your HA URL>/auth/oidc/callback`.
 
 Finally, choose your preferred configuration style (UI or YAML). After configuration, you should automatically be sent to the OIDC login page(s) if you open Home Assistant (web or app).
 
@@ -81,23 +81,23 @@ Many configuration options are available through this method, but some advanced 
 2. Click Add Integration and select **OpenID Connect/SSO Authentication**.
 3. Follow the prompts on screen carefully.
 
-![UI Configuration GIF](./docs/ui-config-steps/ui-configuration.gif)
+![UI Configuration GIF](https://raw.githubusercontent.com/christiaangoossens/hass-oidc-auth/main/docs/ui-config-steps/ui-configuration.gif)
 
 ### Configuration by YAML
 
-Alternatively, you can configure the integration using YAML. You can find a full configuration guide for YAML here: [YAML Configuration Guide](./docs/configuration.md).
+Alternatively, you can configure the integration using YAML. You can find a full configuration guide for YAML here: [YAML Configuration Guide](https://github.com/christiaangoossens/hass-oidc-auth/blob/main/docs/configuration.md).
 
 ## Contributions
-Contributions are very welcome! If you program in Python or have worked with Home Assistant integrations before, please try to contribute. You can find more information in the [Contribution Guide](./CONTRIBUTING.md).
+Contributions are very welcome! If you program in Python or have worked with Home Assistant integrations before, please try to contribute. You can find more information in the [Contribution Guide](https://github.com/christiaangoossens/hass-oidc-auth/blob/main/CONTRIBUTING.md).
 
 ### Security issue?
-Please see [SECURITY.md](./SECURITY.md) for more information on how to submit your security issue securely. You can find previously found vulnerabilities and their corresponding security advisories at the [Security Advisories page](https://github.com/christiaangoossens/hass-oidc-auth/security/advisories).
+Please see [SECURITY.md](https://github.com/christiaangoossens/hass-oidc-auth/blob/main/SECURITY.md) for more information on how to submit your security issue securely. You can find previously found vulnerabilities and their corresponding security advisories at the [Security Advisories page](https://github.com/christiaangoossens/hass-oidc-auth/security/advisories).
 
 ## Background
 If you would like to read the background/open letter that led to this component, you can find it at https://github.com/orgs/home-assistant/discussions/48. It is currently one of the most upvoted feature requests for Home Assistant.
 
 ## License
-Distributed under the MIT license with no warranty. You are fully liable for configuring this integration correctly to keep your Home Assistant installation secure. Use at your own risk. The full license can be found in [LICENSE.md](./LICENSE.md)
+Distributed under the MIT license with no warranty. You are fully liable for configuring this integration correctly to keep your Home Assistant installation secure. Use at your own risk. The full license can be found in [LICENSE.md](https://github.com/christiaangoossens/hass-oidc-auth/blob/main/LICENSE.md)
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
