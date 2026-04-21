@@ -1,6 +1,5 @@
 """Welcome route to show the user the OIDC login button and give instructions."""
 
-from ast import List
 import base64
 import binascii
 from urllib.parse import urlparse, parse_qs, unquote, urlencode
@@ -29,7 +28,7 @@ class OIDCWelcomeView(HomeAssistantView):
         self.has_other_auth_providers = options.get("has_other_auth_providers")
         self.prefers_skipping = options.get("prefers_skipping")
 
-    async def _process_url(self, redirect_uri: str) -> List[str, bool]:
+    async def _process_url(self, redirect_uri: str) -> tuple[str, bool]:
         """Processes the redirect URI to determine if we need setTokens and if this is mobile."""
         # decodeURIComponent(btoa(...)) -> unquote first, then base64 decode
         redirect_uri = base64.b64decode(unquote(redirect_uri), validate=True).decode(
