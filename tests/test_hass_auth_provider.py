@@ -26,6 +26,10 @@ from custom_components.auth_oidc.provider import InvalidAuthError
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
 
 FAKE_REDIR_URL = "http://example.com/auth/authorize?response_type=code&redirect_uri=http%3A%2F%2Fexample.com%3A8123%2F%3Fauth_callback%3D1&client_id=http%3A%2F%2Fexample.com%3A8123%2F&state=example"
+DEFAULT_CONFIG = {
+    CLIENT_ID: "dummy",
+    DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+}
 
 
 async def setup(hass: HomeAssistant, config: dict, expect_success: bool) -> bool:
@@ -42,10 +46,7 @@ async def test_setup_success_auth_provider_registration(hass: HomeAssistant):
     """Test successful setup"""
     await setup(
         hass,
-        {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
-        },
+        DEFAULT_CONFIG,
         True,
     )
 
@@ -64,10 +65,7 @@ async def test_provider_ip_fallback_fails_closed_without_request_context(
     """Provider should not invent a shared IP when request context is missing."""
     await setup(
         hass,
-        {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
-        },
+        DEFAULT_CONFIG,
         True,
     )
 
@@ -85,10 +83,7 @@ async def test_provider_cookie_header_sets_secure_when_requested(hass: HomeAssis
     """Cookie header should include Secure when HTTPS is in use."""
     await setup(
         hass,
-        {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
-        },
+        DEFAULT_CONFIG,
         True,
     )
 
@@ -107,10 +102,7 @@ async def test_provider_is_trusted_network_host_true_for_allowed_ip(
     """Provider should detect trusted network host when trusted provider allows the IP."""
     await setup(
         hass,
-        {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
-        },
+        DEFAULT_CONFIG,
         True,
     )
 
@@ -143,10 +135,7 @@ async def test_provider_is_trusted_network_host_false_for_disallowed_ip(
     """Provider should return False when trusted provider denies the current IP."""
     await setup(
         hass,
-        {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
-        },
+        DEFAULT_CONFIG,
         True,
     )
 
@@ -179,10 +168,7 @@ async def test_provider_is_trusted_network_host_false_without_trusted_provider(
     """Provider should return False when trusted_networks auth provider is absent."""
     await setup(
         hass,
-        {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
-        },
+        DEFAULT_CONFIG,
         True,
     )
 
@@ -268,8 +254,7 @@ async def test_full_login(hass: HomeAssistant, hass_client):
     await setup(
         hass,
         {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            **DEFAULT_CONFIG,
             FEATURES: {
                 FEATURES_AUTOMATIC_PERSON_CREATION: False,
                 FEATURES_AUTOMATIC_USER_LINKING: False,
@@ -299,8 +284,7 @@ async def test_login_with_linking(hass: HomeAssistant, hass_client):
     await setup(
         hass,
         {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            **DEFAULT_CONFIG,
             FEATURES: {
                 FEATURES_AUTOMATIC_PERSON_CREATION: False,
                 FEATURES_AUTOMATIC_USER_LINKING: True,
@@ -334,8 +318,7 @@ async def test_login_with_person_create(hass: HomeAssistant, hass_client):
     await setup(
         hass,
         {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            **DEFAULT_CONFIG,
             FEATURES: {
                 FEATURES_AUTOMATIC_PERSON_CREATION: True,
                 FEATURES_AUTOMATIC_USER_LINKING: False,
@@ -368,8 +351,7 @@ async def test_login_without_person_create_does_not_create_person(
     await setup(
         hass,
         {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            **DEFAULT_CONFIG,
             FEATURES: {
                 FEATURES_AUTOMATIC_PERSON_CREATION: False,
                 FEATURES_AUTOMATIC_USER_LINKING: False,
@@ -396,8 +378,7 @@ async def test_login_shows_form(hass: HomeAssistant):
     await setup(
         hass,
         {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            **DEFAULT_CONFIG,
             FEATURES: {
                 FEATURES_AUTOMATIC_PERSON_CREATION: False,
                 FEATURES_AUTOMATIC_USER_LINKING: False,
@@ -420,8 +401,7 @@ async def test_login_with_invalid_cookie_aborts(hass: HomeAssistant):
     await setup(
         hass,
         {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            **DEFAULT_CONFIG,
             FEATURES: {
                 FEATURES_AUTOMATIC_PERSON_CREATION: False,
                 FEATURES_AUTOMATIC_USER_LINKING: False,
@@ -453,8 +433,7 @@ async def test_login_with_no_cookie_aborts(hass: HomeAssistant):
     await setup(
         hass,
         {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            **DEFAULT_CONFIG,
             FEATURES: {
                 FEATURES_AUTOMATIC_PERSON_CREATION: False,
                 FEATURES_AUTOMATIC_USER_LINKING: False,
