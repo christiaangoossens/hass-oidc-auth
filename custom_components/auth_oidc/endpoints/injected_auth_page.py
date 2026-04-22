@@ -11,6 +11,7 @@ from homeassistant.components.http import HomeAssistantView, StaticPathConfig
 from homeassistant.core import HomeAssistant
 
 from .welcome import PATH as WELCOME_PATH
+from ..provider import OpenIDAuthProvider
 from ..tools.helpers import get_url
 
 PATH = "/auth/authorize"
@@ -24,7 +25,12 @@ async def read_file(path: str) -> str:
         return await f.read()
 
 
-async def frontend_injection(hass: HomeAssistant, force_https: bool) -> None:
+async def frontend_injection(
+    hass: HomeAssistant,
+    provider: OpenIDAuthProvider,
+    force_https: bool,
+    has_trusted_networks_provider_first: bool,
+) -> None:
     """Inject new frontend code into /auth/authorize."""
     router = hass.http.app.router
     frontend_path = None
@@ -81,7 +87,11 @@ async def frontend_injection(hass: HomeAssistant, force_https: bool) -> None:
     )
 
     # If everything is succesful, register a fake view that just returns the modified HTML
-    hass.http.register_view(OIDCInjectedAuthPage(frontend_code, force_https))
+    hass.http.register_view(
+        OIDCInjectedAuthPage(
+            frontend_code, provider, force_https, has_trusted_networks_provider_first
+        )
+    )
     _LOGGER.info("Performed OIDC frontend injection")
 
 
@@ -92,21 +102,36 @@ class OIDCInjectedAuthPage(HomeAssistantView):
     url = PATH
     name = "auth:oidc:authorize_page"
 
-    def __init__(self, html: str, force_https: bool) -> None:
+    def __init__(
+        self,
+        html: str,
+        provider: OpenIDAuthProvider,
+        force_https: bool,
+        has_trusted_networks_provider_first: bool,
+    ) -> None:
         """Initialize the injected auth page."""
         self.html = html
+        self.provider = provider
         self.force_https = force_https
+        self.has_trusted_networks_provider_first = has_trusted_networks_provider_first
 
     @staticmethod
-    async def inject(hass: HomeAssistant, force_https: bool) -> None:
+    async def inject(
+        hass: HomeAssistant,
+        provider: OpenIDAuthProvider,
+        force_https: bool,
+        has_trusted_networks_provider_first: bool,
+    ) -> None:
         """Inject the OIDC auth page into the frontend."""
+
         try:
-            await frontend_injection(hass, force_https)
+            await frontend_injection(
+                hass, provider, force_https, has_trusted_networks_provider_first
+            )
         except Exception as e:  # pylint: disable=broad-except
             _LOGGER.error("Failed to inject OIDC auth page: %s", e)
 
-    @staticmethod
-    def _should_do_oidc_redirect(req: web.Request) -> bool:
+    def _should_do_oidc_redirect(self, req: web.Request) -> bool:
         """Check if we should redirect to the OIDC flow."""
         # Set when we return from finish
         if req.query.get("skip_oidc_redirect") == "true":
@@ -116,6 +141,13 @@ class OIDCInjectedAuthPage(HomeAssistantView):
         # for example when you click the "other" button on the welcome screen
         redirect_uri = req.query.get("redirect_uri")
         if not redirect_uri:
+            return False
+
+        # Check if we are on a trusted network if we have trusted networks registered first
+        if (
+            self.has_trusted_networks_provider_first
+            and self.provider.is_trusted_network_host()
+        ):
             return False
 
         # Handle both encoded and plain redirect_uri values.
