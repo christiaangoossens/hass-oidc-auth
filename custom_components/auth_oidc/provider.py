@@ -148,6 +148,13 @@ class OpenIDAuthProvider(AuthProvider):
                 "IP %s is not in a trusted network, proceeding with OIDC flow", ip
             )
             return False
+        # Catch every other error, HA might have changed the API.
+        # pylint: disable=broad-exception-caught
+        except Exception as e:
+            _LOGGER.warning(
+                "Error while validating trusted network for IP %s: %s", ip, e
+            )
+            return False
 
     async def async_create_state(self, redirect_uri: str, ip: str | None = None) -> str:
         """Create a new OIDC state and return the state id."""
