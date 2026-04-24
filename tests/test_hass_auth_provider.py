@@ -17,6 +17,8 @@ from custom_components.auth_oidc import DOMAIN
 from custom_components.auth_oidc.config.const import (
     DISCOVERY_URL,
     CLIENT_ID,
+    DEFAULT_TITLE,
+    DISPLAY_NAME,
     FEATURES,
     FEATURES_AUTOMATIC_PERSON_CREATION,
     FEATURES_AUTOMATIC_USER_LINKING,
@@ -53,6 +55,25 @@ async def test_setup_success_auth_provider_registration(hass: HomeAssistant):
 
     # Public auth-provider contract: OIDC provider does not support HA MFA
     assert auth_providers[0].support_mfa is False
+
+
+@pytest.mark.asyncio
+async def test_provider_name_is_stable_regardless_of_display_name(hass: HomeAssistant):
+    """The auth provider's CONF_NAME is kept at DEFAULT_TITLE so the injected
+    frontend script can match the picker row by a stable label. The user's
+    configured display_name is still rendered on the welcome page."""
+    await setup(
+        hass,
+        {
+            CLIENT_ID: "dummy",
+            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
+            DISPLAY_NAME: "Custom / Branded IdP",
+        },
+        True,
+    )
+
+    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    assert provider.name == DEFAULT_TITLE
 
 
 @pytest.mark.asyncio
