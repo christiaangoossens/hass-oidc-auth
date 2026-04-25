@@ -15,7 +15,7 @@ jobs:
         with:
           python-version-file: ".python-version"
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v8.1.0
         with:
           enable-cache: true
       - name: Sync dependencies
