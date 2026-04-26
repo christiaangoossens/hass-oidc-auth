@@ -13,7 +13,7 @@ After installing HACS, search for "OpenID Connect" in the HACS search box or cli
 
 ## Step 2. Configure Keycloak
 
-1. Log in to your Keycloak Admin Console and select the Realm you want to use (e.g., `home`).
+1. Log in to your Keycloak Admin Console and select the Realm you want to use.
 2. Navigate to **Clients** and click **Create client**.
    * **Client ID**: `homeassistant` (or a name of your choice).
    * **Client Authentication**: Turn **ON** if you want to use a Client Secret (Confidential Client), or leave **OFF** for a Public Client.
@@ -21,19 +21,18 @@ After installing HACS, search for "OpenID Connect" in the HACS search box or cli
    * Save the client. If you enabled Client Authentication, go to the **Credentials** tab and copy your **Client Secret**.
 3. Navigate to **Groups** and create the groups you want to use for Home Assistant access. 
    * Example: `homeassistant` (for standard users) and `homeassistantadmin` (for administrators).
-   * *Note: If you use nested groups (e.g., `admins/homeassistantadmin`), the next step is critical.*
    * Assign your users to these groups.
 
-### Step 2.1 Configure the Group Mapper (Crucial Step)
+### Step 2.1 Configure the Group Mapper
 By default, Keycloak does not send a user's groups in the OIDC token in a format that Home Assistant expects. You must create a specific mapper:
 
-1. In Keycloak, go to **Client Scopes**. You can either edit the default `roles` scope, or create a dedicated scope (e.g., `ha-groups`) and assign it to your `homeassistant` client as a Default Scope.
+1. In Keycloak, go to **Client Scopes**. You can either edit the default `roles` scope, or create a dedicated scope (e.g., `groups`) and assign it to your `homeassistant` client as a Default Scope.
 2. Click into the scope and go to the **Mappers** tab.
-3. Click **Configure a new mapper** (or Add mapper -> By configuration) and select **Group Membership** *(Do NOT select "User Realm Role")*.
+3. Click **Configure a new mapper** (or Add mapper -> By configuration) and select **Group Membership**.
 4. Configure the mapper exactly as follows:
    * **Name**: `groups`
    * **Token Claim Name**: `groups`
-   * **Full group path**: **OFF** *(Important: This ensures Home Assistant receives `homeassistant` instead of the full path `/pesants/homeassistant`)*.
+   * **Full group path**: **OFF** *(Important: This ensures Home Assistant receives `homeassistant` instead of the full path `/users/homeassistant`, if you use nested groups)*.
    * **Add to ID token**: **ON**
    * **Add to access token**: **ON**
    * **Add to userinfo**: **ON**
