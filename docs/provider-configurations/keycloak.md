@@ -26,7 +26,7 @@ After installing HACS, search for "OpenID Connect" in the HACS search box or cli
 ### Step 2.1 Configure the Group Mapper
 By default, Keycloak does not send a user's groups in the OIDC token in a format that Home Assistant expects. You must create a specific mapper:
 
-1. In Keycloak, go to **Client Scopes**. You can either edit the default `roles` scope, or create a dedicated scope (e.g., `groups`) and assign it to your `homeassistant` client as a Default Scope.
+1. In Keycloak, go to **Client Scopes**. Create a dedicated scope `groups` and assign it to your `homeassistant` client as a Default Scope.
 2. Click into the scope and go to the **Mappers** tab.
 3. Click **Configure a new mapper** (or Add mapper -> By configuration) and select **Group Membership**.
 4. Configure the mapper exactly as follows:
