@@ -52,8 +52,9 @@ auth_oidc:
   display_name: "Keycloak SSO"
 
   features:
-    # Set to true if you want to automatically link Keycloak users to existing HA users
-    automatic_user_linking: true
+    # CAUTION: Only enable temporarily during migrations. If true, a Keycloak
+    # user with a matching username can take over an existing HA user.
+    automatic_user_linking: false
     # Set to true to skip the welcome screen on desktop browsers
     default_redirect: false
 
