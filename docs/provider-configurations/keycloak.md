@@ -9,7 +9,7 @@ Make sure that you have fully installed the latest release of the integration. T
 
 After installing HACS, search for "OpenID Connect" in the HACS search box or click the button below:
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=NiklasUni&repository=hass-oidc-auth&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=christiaangoossens&repository=hass-oidc-auth&category=Integration)
 
 ## Step 2. Configure Keycloak
 
