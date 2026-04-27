@@ -71,11 +71,6 @@ auth_oidc:
   client_secret: !secret oidc_client_secret # Remove this line if Client Authentication is OFF in Keycloak
   discovery_url: "https://<your-keycloak-domain>/realms/<your-realm>/.well-known/openid-configuration"
 
-  claims:
-    display_name: name
-    username: preferred_username
-    groups: groups
-
   roles:
     # These must exactly match the group names you created in Keycloak
     user: homeassistant
