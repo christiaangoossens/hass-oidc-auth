@@ -49,7 +49,7 @@ You can configure this via the UI, or by using `configuration.yaml`.
 
 ### Option A: Configuration via UI (Simple)
 
-The UI flow is the easiest way to get started. Note that the UI does not currently offer group/role customization, so the group mapper setup from Keycloak is not needed.
+The UI flow is the easiest way to get started. Note that the UI does not currently offer group/role customization for OpenID Connect (SSO), so the group mapper setup from Keycloak is not needed.
 
 1. Go to **Settings** -> **Devices & Services** in Home Assistant.
 2. Click **Add Integration** and search for **OpenID Connect**.
