@@ -2,6 +2,7 @@
 
 import base64
 import os
+from collections import OrderedDict
 from urllib.parse import parse_qs, quote, unquote, urlparse, urlencode
 from unittest.mock import AsyncMock, MagicMock, patch
 from auth_oidc.config.const import (
@@ -25,6 +26,22 @@ from custom_components.auth_oidc.endpoints.injected_auth_page import (
 )
 
 MOBILE_CLIENT_ID = "https://home-assistant.io/Android"
+WELCOME_PATH = "/auth/oidc/welcome"
+INJECTION_SCRIPT_MARKER = "<script src='/auth/oidc/static/injection.js"
+
+
+def assert_redirects_to_welcome(resp) -> None:
+    """Assert a response redirects to the OIDC welcome endpoint."""
+    assert resp.status == 302
+    location = resp.headers["Location"]
+    parsed_location = urlparse(location)
+    assert parsed_location.path == WELCOME_PATH
+
+
+async def assert_normal_login_screen(resp) -> None:
+    """Assert we stayed on the auth page and render the injected normal login HTML."""
+    assert resp.status == 200
+    assert INJECTION_SCRIPT_MARKER in await resp.text()
 
 
 def create_redirect_uri(client_id: str) -> str:
@@ -310,7 +327,9 @@ async def test_welcome_desktop_auto_redirects_without_other_providers(
     """Welcome should auto-redirect desktop clients when no other providers exist."""
 
     # pylint: disable=protected-access
-    hass.auth._providers = []  # Clear initial providers out
+    hass.auth._providers = {}  # Clear initial providers out
+    # pylint: enable=protected-access
+
     await setup(hass)
 
     client = await hass_client()
@@ -334,7 +353,7 @@ async def test_redirect_without_cookie_goes_to_welcome(
     client = await hass_client()
     resp = await client.get("/auth/oidc/redirect", allow_redirects=False)
     assert resp.status == 302
-    assert "/auth/oidc/welcome" in resp.headers["Location"]
+    assert_redirects_to_welcome(resp)
 
 
 @pytest.mark.asyncio
@@ -730,10 +749,7 @@ async def test_frontend_injection(
 
     client = await hass_client()
     resp = await client.get("/auth/authorize", allow_redirects=False)
-    assert resp.status == 200  # 200 because there is no redirect_uri
-    text = await resp.text()
-
-    assert "<script src='/auth/oidc/static/injection.js" in text
+    await assert_normal_login_screen(resp)
 
 
 @pytest.mark.asyncio
@@ -760,8 +776,12 @@ async def test_frontend_injection_logs_and_returns_when_route_handler_is_unexpec
         def __iter__(self):
             return iter([FakeRoute()])
 
+    provider = MagicMock()
+
     with patch.object(hass.http.app.router, "resources", return_value=[FakeResource()]):
-        await frontend_injection(hass, force_https=False)
+        await frontend_injection(
+            hass, provider, force_https=False, has_trusted_networks_provider_first=False
+        )
 
     assert "Unexpected route handler type" in caplog.text
     assert (
@@ -780,7 +800,10 @@ async def test_injected_auth_page_inject_logs_errors(hass: HomeAssistant, caplog
         "custom_components.auth_oidc.endpoints.injected_auth_page.frontend_injection",
         side_effect=RuntimeError("boom"),
     ):
-        await OIDCInjectedAuthPage.inject(hass, force_https=False)
+        provider = MagicMock()
+        await OIDCInjectedAuthPage.inject(
+            hass, provider, force_https=False, has_trusted_networks_provider_first=False
+        )
 
     assert "Failed to inject OIDC auth page: boom" in caplog.text
 
@@ -836,5 +859,71 @@ async def test_injected_auth_page_returns_original_html_when_skipped(
     client = await hass_client()
     response = await client.get(request_target, allow_redirects=False)
 
-    assert response.status == 200
-    assert "<script src='/auth/oidc/static/injection.js" in await response.text()
+    await assert_normal_login_screen(response)
+
+
+@pytest.mark.asyncio
+async def test_injected_auth_page_trusted_networks_bypass_skips_oidc_redirect(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """Trusted network hosts should bypass OIDC redirect when trusted_networks is first."""
+
+    class TrustedNetworksAllowProvider:
+        def async_validate_access(self, _ip_addr):
+            return None
+
+    # pylint: disable=protected-access
+    hass.auth._providers = OrderedDict(
+        [(("trusted_networks", None), TrustedNetworksAllowProvider())]
+    )
+    # pylint: enable=protected-access
+
+    await setup_mock_authorize_route(hass)
+    await setup(hass)
+
+    client = await hass_client()
+    encoded_redirect_uri = quote(create_redirect_uri(client.make_url("/")), safe="")
+
+    resp = await client.get(
+        f"/auth/authorize?redirect_uri={encoded_redirect_uri}",
+        allow_redirects=False,
+    )
+
+    await assert_normal_login_screen(resp)
+
+
+@pytest.mark.asyncio
+async def test_injected_auth_page_ignores_trusted_networks_when_not_first(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """OIDC redirect should continue when trusted_networks is not the first provider."""
+
+    class DummyProvider:
+        pass
+
+    class TrustedNetworksAllowProvider:
+        def async_validate_access(self, _ip_addr):
+            return None
+
+    # Keep trusted_networks present but not first, so bypass should not apply.
+    # pylint: disable=protected-access
+    hass.auth._providers = OrderedDict(
+        [
+            (("homeassistant", None), DummyProvider()),
+            (("trusted_networks", None), TrustedNetworksAllowProvider()),
+        ]
+    )
+    # pylint: enable=protected-access
+
+    await setup_mock_authorize_route(hass)
+    await setup(hass)
+
+    client = await hass_client()
+    encoded_redirect_uri = quote(create_redirect_uri(client.make_url("/")), safe="")
+
+    resp = await client.get(
+        f"/auth/authorize?redirect_uri={encoded_redirect_uri}",
+        allow_redirects=False,
+    )
+
+    assert_redirects_to_welcome(resp)

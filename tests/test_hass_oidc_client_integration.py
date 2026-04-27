@@ -3,14 +3,17 @@
 import base64
 import asyncio
 import re
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, unquote, urlparse, urlencode
 import pytest
 from homeassistant.core import HomeAssistant
+from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.setup import async_setup_component
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from custom_components.auth_oidc import DOMAIN
+from custom_components.auth_oidc.provider import COOKIE_NAME
 from custom_components.auth_oidc.tools.oidc_client import (
     OIDCDiscoveryClient,
     OIDCDiscoveryInvalid,
@@ -246,6 +249,47 @@ async def test_full_oidc_flow(hass: HomeAssistant, hass_client):
 
         # POST to finish without any POST body should result in 302 back to the original redirect_uri
         await verify_back_redirect(client, redirect_uri)
+
+
+@pytest.mark.asyncio
+async def test_login_flow_init_completes_with_state_cookie(
+    hass: HomeAssistant, hass_client
+):
+    """The provider login flow init step should finalize when the auth cookie is present."""
+    await setup(hass)
+
+    with mock_oidc_responses():
+        client = await hass_client()
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+
+        state, _, status = await get_welcome_for_client(client, redirect_uri)
+        assert status == 200
+
+        authorization_url = await get_redirect_auth_url(client)
+        session = async_get_clientsession(hass)
+        resp_auth = session.get(authorization_url, allow_redirects=False)
+        json_auth = await resp_auth.json()
+
+        resp = await client.get(
+            f"/auth/oidc/callback?code={json_auth['code']}&state={state}",
+            allow_redirects=False,
+        )
+        assert resp.status == 302
+
+        provider = hass.auth.get_auth_providers(DOMAIN)[0]
+        flow = await provider.async_login_flow({})
+
+        fake_request = SimpleNamespace(
+            cookies={COOKIE_NAME: state},
+            remote="127.0.0.1",
+        )
+        with patch(
+            "custom_components.auth_oidc.provider.http.current_request"
+        ) as current_request:
+            current_request.get.return_value = fake_request
+            result = await flow.async_step_init({})
+
+        assert result["type"] == FlowResultType.CREATE_ENTRY
 
 
 async def discovery_test_through_redirect(
