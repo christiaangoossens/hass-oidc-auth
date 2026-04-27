@@ -1,7 +1,5 @@
 # Keycloak
 
-> [!TIP]
-> This guide describes configuring Keycloak. If you plan to use `configuration.yaml` to map Keycloak groups to Home Assistant roles, you must configure a specific **Group Membership Mapper** in Keycloak for this integration to work correctly. If you only use the UI configuration, group mapping is not supported and this step can be skipped.
 
 ## Step 1. Install the integration
 
