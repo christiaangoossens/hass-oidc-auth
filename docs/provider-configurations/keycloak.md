@@ -55,11 +55,12 @@ The UI flow is the easiest way to get started. Note that the UI does not current
 
 1. Go to **Settings** -> **Devices & Services** in Home Assistant.
 2. Click **Add Integration** and search for **OpenID Connect**.
-3. Follow the UI flow and enter the following details:
+3. As OIDC Provider select **OpenID Connect (SSO)**.
+4. Follow the UI flow and enter the following details:
    * **Discovery URL**: `https://<your-keycloak-domain>/realms/<your-realm>/.well-known/openid-configuration`
    * **Client ID**: The Client ID you created in Keycloak (e.g., `homeassistant`).
    * **Client Secret**: The Client Secret from Keycloak (if Client Authentication was enabled).
-4. Finish the setup in the UI.
+5. Finish the setup in the UI.
 
 ### Option B: Configuration via `configuration.yaml` (Advanced / Group Mapping)
 
