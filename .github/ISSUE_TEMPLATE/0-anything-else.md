@@ -1,6 +1,6 @@
 ---
 name: Anything else
-about: If your issue isn't any of the other types above
+about: If your issue isn't any of the other types below (please review those first)
 title: ''
 labels: question
 assignees: ''
