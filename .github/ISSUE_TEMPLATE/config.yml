@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Feature Request
+    url: https://github.com/christiaangoossens/hass-oidc-auth/discussions/categories/ideas
+    about: Feature Requests are submitted over at the Discussions Ideas section
+  - name: Question
+    url: https://github.com/christiaangoossens/hass-oidc-auth/discussions/categories/q-a
+    about: Questions (usage instructions/did I configure it correctly) are answered over at the Discussions Q&A section
+  - name: Security Issue/Vulnerability
+    url: https://github.com/christiaangoossens/hass-oidc-auth/security/advisories/new
+    about: Security Vulnerabilities should be reported using the Security Advisories system
