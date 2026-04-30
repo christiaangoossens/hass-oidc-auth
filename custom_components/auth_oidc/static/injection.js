@@ -1,21 +1,23 @@
 /**
- * hass-oidc-auth - injected UX script for /auth/authorize.
- * Auto-selects the OIDC provider when HA's login flow shows "Login aborted",
- * and redirects clicks on the OIDC provider row in the picker to
- * /auth/oidc/welcome (so the OIDC cookie gets set before async_step_init
- * fires, instead of dead-ending with no_oidc_cookie_found).
+ * Frontend helpers for /auth/authorize: auto-select on aborted login,
+ * and route picker clicks on our provider through /auth/oidc/welcome.
  */
 
 const OIDC_PROVIDER_NAME = "OpenID Connect (SSO)"  // matches provider.py CONF_NAME
 const OIDC_WELCOME_PATH = "/auth/oidc/welcome"
 
 let authFlowElement = null
-let pickerHijacked = false
+let pickerIntercepted = false
 
-function hijackPickerRow() {
-  if (pickerHijacked) return
-  const picker = document.querySelector('ha-pick-auth-provider')
-  const items = picker?.shadowRoot?.querySelectorAll('ha-list-item') || []
+function interceptPickerRow(authProviderElement) {
+  if (pickerIntercepted) return
+  if (!authProviderElement) return
+  if (!authProviderElement.shadowRoot) {
+    console.warn("[OIDC] ha-pick-auth-provider has no shadowRoot; HA frontend may have changed.")
+    return
+  }
+  const items = authProviderElement.shadowRoot.querySelectorAll('ha-list-item')
+  if (items.length === 0) return  // not yet populated; retry on next mutation
   for (const item of items) {
     if ((item.innerText || '').trim() !== OIDC_PROVIDER_NAME) continue
     item.addEventListener('click', (e) => {
@@ -25,42 +27,28 @@ function hijackPickerRow() {
         OIDC_WELCOME_PATH +
         '?redirect_uri=' + encodeURIComponent(btoa(window.location.href))
     }, true)
-    pickerHijacked = true
-    break
+    pickerIntercepted = true
+    return
   }
 }
 
 function update() {
-  // Find ha-auth-flow
   authFlowElement = document.querySelector('ha-auth-flow')
+  if (!authFlowElement) return
 
-  if (!authFlowElement) {
-    return
-  }
-
-  // Route a click on our provider row through the welcome flow so the
-  // OIDC state cookie gets set before async_step_init runs.
-  hijackPickerRow()
-
-  // Check if the text "Login aborted" is present on the page
-  if (!authFlowElement.innerText.includes('Login aborted')) {
-    return
-  }
-
-  // Find the ha-pick-auth-provider element
   const authProviderElement = document.querySelector('ha-pick-auth-provider')
 
-  if (!authProviderElement) {
-    return
-  }
+  // Intercept picker clicks so the OIDC cookie is set before submit.
+  interceptPickerRow(authProviderElement)
 
-  // Click the first ha-list-item element inside the ha-pick-auth-provider
+  // Auto-select on "Login aborted".
+  if (!authFlowElement.innerText.includes('Login aborted')) return
+  if (!authProviderElement) return
   const firstListItem = authProviderElement.shadowRoot?.querySelector('ha-list-item')
   if (!firstListItem) {
-    console.warn("[OIDC] No ha-list-item found inside ha-pick-auth-provider. Not automatically selecting HA provider.")
+    console.warn("[OIDC] No ha-list-item found inside ha-pick-auth-provider. Not automatically selecting OIDC provider.")
     return
   }
-
   firstListItem.click()
 }
 

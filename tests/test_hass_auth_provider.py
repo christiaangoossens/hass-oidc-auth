@@ -59,9 +59,8 @@ async def test_setup_success_auth_provider_registration(hass: HomeAssistant):
 
 @pytest.mark.asyncio
 async def test_provider_name_is_stable_regardless_of_display_name(hass: HomeAssistant):
-    """The auth provider's CONF_NAME is kept at DEFAULT_TITLE so the injected
-    frontend script can match the picker row by a stable label. The user's
-    configured display_name is still rendered on the welcome page."""
+    """CONF_NAME stays at DEFAULT_TITLE so injection.js can match the picker
+    row regardless of the configured display_name."""
     await setup(
         hass,
         {
