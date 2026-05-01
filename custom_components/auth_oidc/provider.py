@@ -65,8 +65,11 @@ class OpenIDAuthProvider(AuthProvider):
             {
                 # Currently register as default, might be used when we have multiple OIDC providers
                 CONF_ID: "default",
-                # Name displayed in the UI
-                CONF_NAME: config.get("display_name", DEFAULT_TITLE),
+                # Stable label for HA's native auth-picker row. Kept fixed so the
+                # frontend-injection script can match it without threading the
+                # user-configurable display_name through. The user's display_name
+                # is still rendered on the welcome page.
+                CONF_NAME: DEFAULT_TITLE,
                 # Type
                 CONF_TYPE: PROVIDER_TYPE,
             },
