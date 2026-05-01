@@ -90,24 +90,59 @@ async def async_unload_entry(_hass: HomeAssistant, _entry: ConfigEntry):
     return False
 
 
-async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_name: str):
-    """Set up the OIDC provider with the given configuration."""
-    providers = OrderedDict()
-
+async def _register_oidc_provider(hass: HomeAssistant, my_config: dict):
+    """Register the OIDC provider in Home Assistant's auth system."""
     # Use private APIs until there is a real auth platform
+
     # pylint: disable=protected-access
+    providers = OrderedDict()
     provider = OpenIDAuthProvider(hass, hass.auth._store, my_config)
 
+    existing_auth_providers = hass.auth._providers.copy()
+    _LOGGER.debug("Current auth providers: %s", list(existing_auth_providers.keys()))
+    has_other_auth_providers = len(existing_auth_providers) > 0
+    has_trusted_networks_provider_first = False
+
+    if has_other_auth_providers:
+        # Pop the first provider from the existing providers to check if it's trusted_networks
+        first_provider_key, first_provider_obj = next(
+            iter(existing_auth_providers.items())
+        )
+        existing_auth_providers.pop(first_provider_key)
+
+        if first_provider_key[0] == "trusted_networks":
+            _LOGGER.info(
+                "Trusted Networks provider detected as the first auth provider. "
+                + "Keeping registration order intact."
+            )
+            providers[first_provider_key] = first_provider_obj
+            has_trusted_networks_provider_first = True
+        else:
+            # Reset back to what we had before
+            existing_auth_providers = hass.auth._providers.copy()
+
+    # Register OIDC at the start of the array
+    # OIDC needs to be first because it needs to process the login cookie after sign-in
     providers[(provider.type, provider.id)] = provider
 
-    # Get current provider count
-    has_other_auth_providers = len(hass.auth._providers) > 0
+    # Add back any other providers that were already registered
+    providers.update(existing_auth_providers)
 
-    providers.update(hass.auth._providers)
+    _LOGGER.debug("Final auth providers: %s", list(providers.values()))
     hass.auth._providers = providers
     # pylint: enable=protected-access
 
     _LOGGER.info("Registered OIDC provider")
+    return provider, has_other_auth_providers, has_trusted_networks_provider_first
+
+
+async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_name: str):
+    """Set up the OIDC provider with the given configuration."""
+    (
+        provider,
+        has_other_auth_providers,
+        has_trusted_networks_provider_first,
+    ) = await _register_oidc_provider(hass, my_config)
 
     # Set the correct scopes
     # Always use 'openid' & 'profile' as they are specified in the OIDC spec
@@ -179,6 +214,8 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
     _LOGGER.info("Registered OIDC views")
 
     # Inject OIDC code into the frontend for /auth/authorize for automatic redirect
-    await OIDCInjectedAuthPage.inject(hass, force_https)
+    await OIDCInjectedAuthPage.inject(
+        hass, provider, force_https, has_trusted_networks_provider_first
+    )
 
     return True

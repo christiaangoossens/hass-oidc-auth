@@ -2,11 +2,13 @@
 
 import base64
 import re
+from collections import OrderedDict
 from types import SimpleNamespace
 from urllib.parse import parse_qs, unquote, urlparse
 from unittest.mock import patch
 import pytest
 
+from homeassistant.auth import InvalidAuthError
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.setup import async_setup_component
@@ -24,6 +26,10 @@ from custom_components.auth_oidc.config.const import (
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
 
 FAKE_REDIR_URL = "http://example.com/auth/authorize?response_type=code&redirect_uri=http%3A%2F%2Fexample.com%3A8123%2F%3Fauth_callback%3D1&client_id=http%3A%2F%2Fexample.com%3A8123%2F&state=example"
+DEFAULT_CONFIG = {
+    CLIENT_ID: "dummy",
+    DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+}
 
 
 async def setup(hass: HomeAssistant, config: dict, expect_success: bool) -> bool:
@@ -40,10 +46,7 @@ async def test_setup_success_auth_provider_registration(hass: HomeAssistant):
     """Test successful setup"""
     await setup(
         hass,
-        {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
-        },
+        DEFAULT_CONFIG,
         True,
     )
 
@@ -62,10 +65,7 @@ async def test_provider_ip_fallback_fails_closed_without_request_context(
     """Provider should not invent a shared IP when request context is missing."""
     await setup(
         hass,
-        {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
-        },
+        DEFAULT_CONFIG,
         True,
     )
 
@@ -83,10 +83,7 @@ async def test_provider_cookie_header_sets_secure_when_requested(hass: HomeAssis
     """Cookie header should include Secure when HTTPS is in use."""
     await setup(
         hass,
-        {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
-        },
+        DEFAULT_CONFIG,
         True,
     )
 
@@ -96,6 +93,105 @@ async def test_provider_cookie_header_sets_secure_when_requested(hass: HomeAssis
     assert "SameSite=Lax" in cookie_header
     assert "HttpOnly" in cookie_header
     assert "Secure" in cookie_header
+
+
+@pytest.mark.asyncio
+async def test_provider_is_trusted_network_host_true_for_allowed_ip(
+    hass: HomeAssistant,
+):
+    """Provider should detect trusted network host when trusted provider allows the IP."""
+    await setup(
+        hass,
+        DEFAULT_CONFIG,
+        True,
+    )
+
+    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+
+    class TrustedNetworksAllowProvider:
+        def async_validate_access(self, _ip_addr):
+            return None
+
+    # pylint: disable=protected-access
+    hass.auth._providers = OrderedDict(
+        [
+            (("trusted_networks", None), TrustedNetworksAllowProvider()),
+            ((provider.type, provider.id), provider),
+        ]
+    )
+    # pylint: enable=protected-access
+
+    with patch(
+        "custom_components.auth_oidc.provider.http.current_request"
+    ) as current_request:
+        current_request.get.return_value = SimpleNamespace(remote="127.0.0.1")
+        assert provider.is_trusted_network_host() is True
+
+
+@pytest.mark.asyncio
+async def test_provider_is_trusted_network_host_false_for_disallowed_ip(
+    hass: HomeAssistant, caplog
+):
+    """Provider should return False when trusted provider denies the current IP."""
+    await setup(
+        hass,
+        DEFAULT_CONFIG,
+        True,
+    )
+
+    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+
+    class TrustedNetworksDenyProvider:
+        def async_validate_access(self, _ip_addr):
+            raise InvalidAuthError("Not in trusted_networks")
+
+    # pylint: disable=protected-access
+    hass.auth._providers = OrderedDict(
+        [
+            (("trusted_networks", None), TrustedNetworksDenyProvider()),
+            ((provider.type, provider.id), provider),
+        ]
+    )
+    # pylint: enable=protected-access
+
+    with patch(
+        "custom_components.auth_oidc.provider.http.current_request"
+    ) as current_request:
+        current_request.get.return_value = SimpleNamespace(remote="127.0.0.1")
+        assert provider.is_trusted_network_host() is False
+        assert any(
+            level >= 0
+            and "is not in a trusted network, proceeding with OIDC flow" in message
+            for _, level, message in caplog.record_tuples
+        )
+        assert not any(
+            level >= 0 and "Error while validating trusted network for IP" in message
+            for _, level, message in caplog.record_tuples
+        )
+
+
+@pytest.mark.asyncio
+async def test_provider_is_trusted_network_host_false_without_trusted_provider(
+    hass: HomeAssistant,
+):
+    """Provider should return False when trusted_networks auth provider is absent."""
+    await setup(
+        hass,
+        DEFAULT_CONFIG,
+        True,
+    )
+
+    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+
+    # Without actually getting the IP, should also be false
+    assert provider.is_trusted_network_host() is False
+
+    # With the IP, should be false
+    with patch(
+        "custom_components.auth_oidc.provider.http.current_request"
+    ) as current_request:
+        current_request.get.return_value = SimpleNamespace(remote="127.0.0.1")
+        assert provider.is_trusted_network_host() is False
 
 
 async def login_user(hass: HomeAssistant, state_id: str):
@@ -167,8 +263,7 @@ async def test_full_login(hass: HomeAssistant, hass_client):
     await setup(
         hass,
         {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            **DEFAULT_CONFIG,
             FEATURES: {
                 FEATURES_AUTOMATIC_PERSON_CREATION: False,
                 FEATURES_AUTOMATIC_USER_LINKING: False,
@@ -198,8 +293,7 @@ async def test_login_with_linking(hass: HomeAssistant, hass_client):
     await setup(
         hass,
         {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            **DEFAULT_CONFIG,
             FEATURES: {
                 FEATURES_AUTOMATIC_PERSON_CREATION: False,
                 FEATURES_AUTOMATIC_USER_LINKING: True,
@@ -233,8 +327,7 @@ async def test_login_with_person_create(hass: HomeAssistant, hass_client):
     await setup(
         hass,
         {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            **DEFAULT_CONFIG,
             FEATURES: {
                 FEATURES_AUTOMATIC_PERSON_CREATION: True,
                 FEATURES_AUTOMATIC_USER_LINKING: False,
@@ -267,8 +360,7 @@ async def test_login_without_person_create_does_not_create_person(
     await setup(
         hass,
         {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            **DEFAULT_CONFIG,
             FEATURES: {
                 FEATURES_AUTOMATIC_PERSON_CREATION: False,
                 FEATURES_AUTOMATIC_USER_LINKING: False,
@@ -295,8 +387,7 @@ async def test_login_shows_form(hass: HomeAssistant):
     await setup(
         hass,
         {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            **DEFAULT_CONFIG,
             FEATURES: {
                 FEATURES_AUTOMATIC_PERSON_CREATION: False,
                 FEATURES_AUTOMATIC_USER_LINKING: False,
@@ -319,8 +410,7 @@ async def test_login_with_invalid_cookie_aborts(hass: HomeAssistant):
     await setup(
         hass,
         {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            **DEFAULT_CONFIG,
             FEATURES: {
                 FEATURES_AUTOMATIC_PERSON_CREATION: False,
                 FEATURES_AUTOMATIC_USER_LINKING: False,
@@ -352,8 +442,7 @@ async def test_login_with_no_cookie_aborts(hass: HomeAssistant):
     await setup(
         hass,
         {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            **DEFAULT_CONFIG,
             FEATURES: {
                 FEATURES_AUTOMATIC_PERSON_CREATION: False,
                 FEATURES_AUTOMATIC_USER_LINKING: False,
