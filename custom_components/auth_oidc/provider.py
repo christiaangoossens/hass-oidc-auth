@@ -11,7 +11,7 @@ from ipaddress import (
     IPv4Address,
     IPv6Address,
 )
-from homeassistant.auth import EVENT_USER_ADDED
+from homeassistant.auth import EVENT_USER_ADDED, InvalidAuthError as HAInvalidAuthError
 from homeassistant.auth.providers import (
     AUTH_PROVIDERS,
     AuthProvider,
@@ -25,7 +25,6 @@ from homeassistant.auth.providers import (
 from homeassistant.const import CONF_ID, CONF_NAME, CONF_TYPE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.components import http, person
-from homeassistant.exceptions import HomeAssistantError
 
 from .config.const import (
     FEATURES,
@@ -45,7 +44,7 @@ HASS_PROVIDER_TYPE = "homeassistant"
 COOKIE_NAME = "auth_oidc_state"
 
 
-class InvalidAuthError(HomeAssistantError):
+class InvalidAuthError(HAInvalidAuthError):
     """Raised when submitting invalid authentication."""
 
 
@@ -142,7 +141,7 @@ class OpenIDAuthProvider(AuthProvider):
             trusted_network_provider.async_validate_access(ip_address(ip))
             _LOGGER.info("IP %s is in a trusted network, skipping OIDC flow", ip)
             return True
-        except InvalidAuthError:
+        except HAInvalidAuthError:
             # Log the error
             _LOGGER.info(
                 "IP %s is not in a trusted network, proceeding with OIDC flow", ip

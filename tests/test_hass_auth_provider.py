@@ -8,6 +8,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from unittest.mock import patch
 import pytest
 
+from homeassistant.auth import InvalidAuthError
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.setup import async_setup_component
@@ -22,7 +23,6 @@ from custom_components.auth_oidc.config.const import (
     FEATURES_AUTOMATIC_PERSON_CREATION,
     FEATURES_AUTOMATIC_USER_LINKING,
 )
-from custom_components.auth_oidc.provider import InvalidAuthError
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
 
 FAKE_REDIR_URL = "http://example.com/auth/authorize?response_type=code&redirect_uri=http%3A%2F%2Fexample.com%3A8123%2F%3Fauth_callback%3D1&client_id=http%3A%2F%2Fexample.com%3A8123%2F&state=example"
@@ -130,7 +130,7 @@ async def test_provider_is_trusted_network_host_true_for_allowed_ip(
 
 @pytest.mark.asyncio
 async def test_provider_is_trusted_network_host_false_for_disallowed_ip(
-    hass: HomeAssistant,
+    hass: HomeAssistant, caplog
 ):
     """Provider should return False when trusted provider denies the current IP."""
     await setup(
@@ -159,6 +159,15 @@ async def test_provider_is_trusted_network_host_false_for_disallowed_ip(
     ) as current_request:
         current_request.get.return_value = SimpleNamespace(remote="127.0.0.1")
         assert provider.is_trusted_network_host() is False
+        assert any(
+            level >= 0
+            and "is not in a trusted network, proceeding with OIDC flow" in message
+            for _, level, message in caplog.record_tuples
+        )
+        assert not any(
+            level >= 0 and "Error while validating trusted network for IP" in message
+            for _, level, message in caplog.record_tuples
+        )
 
 
 @pytest.mark.asyncio
