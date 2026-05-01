@@ -73,7 +73,7 @@ async def frontend_injection(
     frontend_code = await read_file(frontend_path)
 
     # Inject JS and register that route
-    injection_js = "<script src='/auth/oidc/static/injection.js?v=6'></script>"
+    injection_js = "<script src='/auth/oidc/static/injection.js?v=7'></script>"
     frontend_code = frontend_code.replace("</body>", f"{injection_js}</body>")
 
     await hass.http.async_register_static_paths(
@@ -156,8 +156,12 @@ class OIDCInjectedAuthPage(HomeAssistantView):
 
     def _get_welcome_redirect_location(self, req: web.Request) -> str:
         """Build the welcome URL for the injected auth page redirect."""
+        url = str(req.url)
+        if self.force_https:
+            url = url.replace("http://", "https://")
+
         encoded_current_url = quote(
-            base64.b64encode(str(req.url).encode("utf-8")).decode("ascii")
+            base64.b64encode(url.encode("utf-8")).decode("ascii")
         )
         return get_url(
             f"{WELCOME_PATH}?redirect_uri={encoded_current_url}",

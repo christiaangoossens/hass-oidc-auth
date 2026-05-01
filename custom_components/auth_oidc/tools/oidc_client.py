@@ -372,8 +372,7 @@ class OIDCClient:
             tcp_connector_args["ssl"] = ssl_context
 
         self.http_session = aiohttp.ClientSession(
-            trust_env=True,
-            connector=aiohttp.TCPConnector(**tcp_connector_args)
+            trust_env=True, connector=aiohttp.TCPConnector(**tcp_connector_args)
         )
         return self.http_session
 
