@@ -73,7 +73,7 @@ async def frontend_injection(
     frontend_code = await read_file(frontend_path)
 
     # Inject JS and register that route
-    injection_js = "<script src='/auth/oidc/static/injection.js?v=6'></script>"
+    injection_js = "<script src='/auth/oidc/static/injection.js?v=7'></script>"
     frontend_code = frontend_code.replace("</body>", f"{injection_js}</body>")
 
     await hass.http.async_register_static_paths(
