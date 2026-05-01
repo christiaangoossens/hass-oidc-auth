@@ -100,10 +100,10 @@ async def _register_oidc_provider(hass: HomeAssistant, my_config: dict):
 
     existing_auth_providers = hass.auth._providers.copy()
     _LOGGER.debug("Current auth providers: %s", list(existing_auth_providers.keys()))
-    has_other_auth_providers = len(existing_auth_providers) > 0
+    auth_provider_count = len(existing_auth_providers)
     has_trusted_networks_provider_first = False
 
-    if has_other_auth_providers:
+    if auth_provider_count > 0:
         # Pop the first provider from the existing providers to check if it's trusted_networks
         first_provider_key, first_provider_obj = next(
             iter(existing_auth_providers.items())
@@ -133,14 +133,15 @@ async def _register_oidc_provider(hass: HomeAssistant, my_config: dict):
     # pylint: enable=protected-access
 
     _LOGGER.info("Registered OIDC provider")
-    return provider, has_other_auth_providers, has_trusted_networks_provider_first
+    return provider, auth_provider_count, has_trusted_networks_provider_first
 
 
+# pylint: disable=too-many-locals
 async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_name: str):
     """Set up the OIDC provider with the given configuration."""
     (
         provider,
-        has_other_auth_providers,
+        auth_provider_count,
         has_trusted_networks_provider_first,
     ) = await _register_oidc_provider(hass, my_config)
 
@@ -195,14 +196,18 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
         ]
     )
 
+    has_only_trusted_networks = (
+        auth_provider_count == 1 and has_trusted_networks_provider_first
+    )
+
     hass.http.register_view(
         OIDCWelcomeView(
             provider,
             OIDCWelcomeOptions(
                 name=name,
                 force_https=force_https,
-                has_other_auth_providers=has_other_auth_providers,
-                prefers_skipping=default_redirect,
+                has_other_auth_providers=auth_provider_count > 0,
+                prefers_skipping=default_redirect or has_only_trusted_networks,
             ),
         )
     )
