@@ -953,8 +953,10 @@ async def test_injected_auth_page_converts_http_to_https_in_redirect(
     with patch(
         "custom_components.auth_oidc.endpoints.injected_auth_page.get_url"
     ) as mock_get_url:
-        mock_get_url.return_value = "https://example.com/auth/oidc/welcome?redirect_uri=..."
-        
+        mock_get_url.return_value = (
+            "https://example.com/auth/oidc/welcome?redirect_uri=..."
+        )
+
         # pylint: disable=protected-access
         injected_page._get_welcome_redirect_location(mock_req)
         # pylint: enable=protected-access
@@ -962,15 +964,19 @@ async def test_injected_auth_page_converts_http_to_https_in_redirect(
         # Verify that the URL was converted from HTTP to HTTPS before being passed to get_url
         call_args = mock_get_url.call_args
         assert call_args is not None
-        welcome_path_with_redirect = call_args[0][0]  # First positional argument to get_url
-        
+        welcome_path_with_redirect = call_args[0][
+            0
+        ]  # First positional argument to get_url
+
         # Extract the redirect_uri parameter and decode it
         parsed = urlparse(welcome_path_with_redirect)
         query_params = parse_qs(parsed.query)
         encoded_redirect_uri = query_params.get("redirect_uri", [None])[0]
-        
+
         # Decode the base64-encoded redirect_uri
         if encoded_redirect_uri:
-            decoded_redirect_uri = base64.b64decode(unquote(encoded_redirect_uri)).decode("utf-8")
+            decoded_redirect_uri = base64.b64decode(
+                unquote(encoded_redirect_uri)
+            ).decode("utf-8")
             # Verify it contains https:// instead of http://
             assert decoded_redirect_uri.startswith("https://example.com")
