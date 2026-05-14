@@ -2,7 +2,6 @@
 
 import base64
 import logging
-from functools import partial
 from urllib.parse import quote, unquote
 from aiohttp import web
 from aiofiles import open as async_open
@@ -39,31 +38,32 @@ async def frontend_injection(
         if resource.canonical != "/auth/authorize":
             continue
 
-        # This path doesn't actually work, gives 404, effectively disabling the old matcher
-        resource.add_prefix("/auth/oidc/unused")
-
-        # Now get the original frontend path from this resource to obtain the GET route
         routes = iter(resource)
+
+        # Get the first registered route handler for GET
         route = next(
             (r for r in routes if r.method == "GET"),
             None,
         )
 
+        # Abort if we can't find the route or it doesn't have the expected handler type
         if route is not None:
-            if not route.handler or not isinstance(route.handler, partial):
-                _LOGGER.warning(
+            if not route.handler or not callable(route.handler):
+                _LOGGER.info(
                     "Unexpected route handler type %s for /auth/authorize",
                     type(route.handler),
                 )
-                continue
+                break
 
             # The original frontend path is the first argument of the handler
             frontend_path = route.handler.args[0]
+
+            # Remove the old resource to prevent conflicts with our injected view
+            resource.add_prefix("/auth/oidc/unused")
             break
 
-    # Get the path to the original frontend resource
     if frontend_path is None:
-        _LOGGER.info(
+        _LOGGER.warning(
             "Failed to find GET route for /auth/authorize, cannot inject OIDC frontend code"
         )
         return
