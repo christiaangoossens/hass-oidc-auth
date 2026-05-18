@@ -158,14 +158,14 @@ class OpenIDAuthProvider(AuthProvider):
             )
             return False
 
-    async def async_create_state(self, redirect_uri: str, ip: str | None = None) -> str:
+    async def async_create_state(self, redirect_uri: str, ip: str | None = None, is_mobile: bool | None = None) -> str:
         """Create a new OIDC state and return the state id."""
         if self._state_store is None:
             await self.async_initialize()
             assert self._state_store is not None
 
         return await self._state_store.async_create_state_from_url(
-            redirect_uri, self._resolve_ip(ip)
+            redirect_uri, self._resolve_ip(ip), is_mobile
         )
 
     async def async_generate_device_code(self, state_id: str) -> Optional[str]:
@@ -195,6 +195,18 @@ class OpenIDAuthProvider(AuthProvider):
             assert self._state_store is not None
 
         return await self._state_store.async_get_redirect_uri_for_state(
+            state_id, self._resolve_ip(ip)
+        )
+        
+    async def async_get_is_mobile_for_state(
+        self, state_id: str, ip: str | None = None
+    ) -> Optional[bool]:
+        """Get the is_mobile for the given state."""
+        if self._state_store is None:
+            await self.async_initialize()
+            assert self._state_store is not None
+
+        return await self._state_store.async_get_is_mobile_for_state(
             state_id, self._resolve_ip(ip)
         )
 
