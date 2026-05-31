@@ -37,6 +37,10 @@ def get_state_id(request: web.Request) -> str | None:
     """Return the current OIDC state cookie, if present."""
     return request.cookies.get(STATE_COOKIE_NAME)
 
+def reset_state_cookie() -> str:
+    """Return a Set-Cookie header value to reset the state cookie."""
+    return f"{STATE_COOKIE_NAME}=; Path=/auth/; SameSite=Lax; HttpOnly; Max-Age=0"
+
 
 async def get_valid_state_id(
     request: web.Request, oidc_provider: "OpenIDAuthProvider"
@@ -52,9 +56,9 @@ async def get_valid_state_id(
     return state_id
 
 
-def html_response(html: str, status: int = 200) -> web.Response:
+def html_response(html: str, status: int = 200, headers=None) -> web.Response:
     """Return an HTML response with the standard content type."""
-    return web.Response(text=html, content_type="text/html", status=status)
+    return web.Response(text=html, content_type="text/html", status=status, headers=headers)
 
 
 async def template_response(
@@ -66,4 +70,13 @@ async def template_response(
 
 async def error_response(message: str, status: int = 400) -> web.Response:
     """Render the shared error view."""
-    return html_response(await get_view("error", {"error": message}), status=status)
+    return html_response(await get_view("error", {"error": message}), status=status, headers={
+        "set-cookie": reset_state_cookie(),
+    })
+
+def concat_url_query(base: str, new_query: str) -> str:
+    """Concatenate a base URL with a new query string, handling existing queries."""
+    separator = "?"
+    if "?" in base:
+        separator = "&"
+    return f"{base}{separator}{new_query}"

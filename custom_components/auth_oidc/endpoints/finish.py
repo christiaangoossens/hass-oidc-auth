@@ -7,6 +7,7 @@ from ..tools.helpers import (
     error_response,
     get_valid_state_id,
     template_response,
+    concat_url_query
 )
 
 PATH = "/auth/oidc/finish"
@@ -56,13 +57,8 @@ class OIDCFinishView(HomeAssistantView):
 
         # We are trying sign-in on this browser
         if not device_code:
-            # Add to the URL correctly (also handle case where it's just the root)
-            separator = "?"
-            if "?" in redirect_uri:
-                separator = "&"
-
             # Redirect to this new URL for login, make sure to skip OIDC to prevent loops
-            redirect_uri = f"{redirect_uri}{separator}skip_oidc_redirect=true"
+            redirect_uri = concat_url_query(redirect_uri, "skip_oidc_redirect=true")
             raise web.HTTPFound(location=redirect_uri)
 
         # Check if we can link this device

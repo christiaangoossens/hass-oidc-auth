@@ -5,13 +5,6 @@
 {% endblock %}
 {% block content %}
 <div class="text-center">
-    <div id="signed-in" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-8 hidden"
-        role="alert">
-        <p>You seem to be logged in already.</p>
-        <p><a href="/" class="text-blue-600 hover:underline hover:text-blue-700 font-bold">Open the Home Assistant
-                dashboard</a></p>
-    </div>
-
     {% if code %}
         <div>
             <p id="device-instructions">Please login to Home Assistant on another device and enter this code when asked:</p>
@@ -54,14 +47,8 @@
 
     {% if other_link %}
         <p class=" mt-4 text-sm text-center">
-            <a id="alternative-sign-in-link" href="{{ other_link }}" class="text-gray-600 hover:underline">Use alternative sign-in method</a>
+            <a id="alternative-sign-in-link" href="{{ other_link }}" class="text-gray-600 hover:underline">Continue with default login</a>
         </p>
     {% endif %}
 </div>
-<script>
-    // Show the direct login button if we already have a token
-    if (localStorage.getItem('hassTokens')) {
-        document.getElementById('signed-in').classList.remove('hidden');
-    }
-</script>
 {% endblock %}
