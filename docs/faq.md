@@ -16,6 +16,8 @@ The core values for this integration are:
 
 Yes, this integration has been tested in production environments for multiple years and has almost full automated test coverage to test both security and regressions. Security issues as well as dependency updates are actively monitored through automated pipelines and [a security policy is available here](../SECURITY.md).
 
+Do note that exposing Home Assistant to the internet on its own, even without this integration, may not be secure. Make sure to read all recommendations by the HA devs on security before deciding to expose HA outside of your local network.
+
 ## What does this integration not do (yet)?
 
 The integration is currently very suitable for homelab use, but not for enterprise use, because these specs/todos have not been implemented yet:
@@ -30,10 +32,39 @@ These features are hard to implement correctly within a custom integration, as t
 
 For home use where users rarely change permissions/status, these features aren't commonly required. However, if you would like to help implement any of these specifications (while sticking to the value of 'Stability' and minimal Home Assistant core code patching), feel free to create a PR.
 
+### Identity Provider/OpenID Provider (OP) support
+This integration is strictly Relying Party (RP) or client role only. Implementing the OP/IdP side of OIDC is not in scope and feature requests for it will be declined.
+
+Implementation of the IdP role should be left only to apps that specialize in that role, such as Authelia, Authentik or Pocket-ID, as it requires a much stricter security posture and continuous security monitoring. There are many vulnerabilities and protocol specifics that a provider can run into if not implemented carefully and many CVEs are being found in them all the time. Home Assistant, at least in my opinion, simply will never be safe enough or security-focussed enough to take on this responsibility.
+
+If this feature is desired, it might be more worthwhile to add a simple IdP such as Pocket-ID to the HA apps store for HA OS, such that it can be easily installed from the UI, instead of attempting any implementation directly into Home Assistant.
+
+### SAML support
+This integration is strictly OIDC only. Implementation of SAML is not in scope and feature requests for it will be declined.
+
+While SAML has it's strenghts and weaknesses, the configuration and implementation of SAML is simply much harder, both on the developer and the user. OIDC is designed for a modern mobile-first world and therefore suits the needs of applications like Home Assistant much better. There are also many best-practices and security recommendations available for OIDC to make it suitable for many different environments.
+
+SAML could be made to work, but as many providers support both, and OIDC is the more native fit, no effort will be made to maintain SAML support for this integration.
+
+#### Is there any difference in the security profile between SAML and OIDC?
+
+No, in a well maintained and implemented client there is no difference in security profile between the standards. It is therefore not necessary to use SAML to 'improve safety'.
+
 ## Why does this integration only allow for sign-in on mobile with a device code?
 Several attempts have been made at implementing a direct mobile sign-in, but due to many issues (which can be found in https://github.com/orgs/home-assistant/discussions/48 and https://github.com/christiaangoossens/hass-oidc-auth/discussions/95), an approach was chosen that works for all setups and all authentication methods. The mobile apps now show a code, which can be entered into either the Chrome (Android)/Safari (iOS) apps on the mobile device or on another computer, after which the app automatically links and continues with the setup.
 
-If you would like to make another attempt at implementing direct sign-in anyway, please submit a PR.
+### Changes required in the HA mobile apps
+
+To be able to support all features required, the mobile apps will need to:
+
+- Use [Android Custom Tabs](https://developer.android.com/develop/ui/views/layout/webapps/overview-of-android-custom-tabs) on Android to show the login pages (at least for external URLs such as IdPs)
+- Use [ASWebAuthenticationSession](https://developer.apple.com/documentation/AuthenticationServices/ASWebAuthenticationSession) on iOS to show the login pages instead of WKWebView
+  - ASWebAuthenticationSession [has replaced SFSafariViewController](https://developer.apple.com/documentation/safariservices/sfsafariviewcontroller) for authentication purposes on iOS
+- Provide a method to return back to the normal webview/login pages (OIDC finish) from that IdP through a deep link
+
+Only when those changes are made, will PR's to implement this be accepted.
+
+See the "Proposal" section of https://github.com/orgs/home-assistant/discussions/48 for more details on what the HA team will need to change for this functionality to work.
 
 ## I am using a proxy setup where my reverse proxy authenticates users
 This integration is intended to be public-facing (as most OIDC apps). If you are authenticating users at the reverse proxy level (such as if you are migrating from https://github.com/BeryJu/hass-auth-header), **you should remove this authentication layer after installing this integration.**.
