@@ -21,7 +21,7 @@
   <h3 align="center">OpenID Connect for Home Assistant</h3>
 
   <p align="center">
-    OpenID Connect (OIDC) client/RP implementation for Home Assistant through a custom component/integration,<br/>with a strong focus on <b>security, stability and accessibility.</b>
+    OpenID Connect (OIDC) client/RP implementation for Home Assistant<br/>through a custom component/integration,<br/>with a strong focus on <b>security, stability and accessibility.</b>
     <br />
     <br />
     <a href="https://github.com/christiaangoossens/hass-oidc-auth/blob/main/docs/configuration.md">YAML Configuration Guide</a>
