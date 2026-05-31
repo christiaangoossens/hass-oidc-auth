@@ -5,7 +5,7 @@ import binascii
 from urllib.parse import urlparse, parse_qs, unquote, urlencode
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
-from ..tools.helpers import error_response, get_url, template_response
+from ..tools.helpers import error_response, get_url, template_response, concat_url_query
 from ..provider import OpenIDAuthProvider
 from ..tools.types import OIDCWelcomeOptions
 
@@ -31,11 +31,11 @@ class OIDCWelcomeView(HomeAssistantView):
     async def _process_url(self, redirect_uri: str) -> tuple[str, bool]:
         """Processes the redirect URI to determine if we need setTokens and if this is mobile."""
         # decodeURIComponent(btoa(...)) -> unquote first, then base64 decode
-        redirect_uri = base64.b64decode(unquote(redirect_uri), validate=True).decode(
-            "utf-8"
-        )
+        decoded_redirect_uri = base64.b64decode(
+            unquote(redirect_uri), validate=True
+        ).decode("utf-8")
 
-        oauth2_url = urlparse(redirect_uri)
+        oauth2_url = urlparse(decoded_redirect_uri)
         oauth2_query = parse_qs(oauth2_url.query)
         client_id = oauth2_query.get("client_id")[0]
         original_redirect_uri = oauth2_query.get("redirect_uri")[0]
@@ -54,20 +54,21 @@ class OIDCWelcomeView(HomeAssistantView):
 
         if is_web_client:
             # Adjust the original_redirect_uri to include the storeTokens parameter
-            separator = "?"
-            if "?" in original_redirect_uri:
-                separator = "&"
-
-            original_redirect_uri = f"{original_redirect_uri}{separator}storeToken=true"
+            original_redirect_uri = concat_url_query(
+                original_redirect_uri, "storeToken=true"
+            )
             oauth2_query.update({"redirect_uri": original_redirect_uri})
 
             # Create new redirect_uri with the updated query parameters
             new_oauth2_url = oauth2_url._replace(
                 query=urlencode(oauth2_query, doseq=True)
             )
-            redirect_uri = new_oauth2_url.geturl()
+            state_redirect_uri = new_oauth2_url.geturl()
+        else:
+            state_redirect_uri = decoded_redirect_uri
 
-        return redirect_uri, is_mobile
+        # Make sure to also return the original decoded URL for other_return_url
+        return decoded_redirect_uri, state_redirect_uri, is_mobile
 
     async def get(self, req: web.Request) -> web.Response:
         """Receive response."""
@@ -75,11 +76,16 @@ class OIDCWelcomeView(HomeAssistantView):
         # Get the query parameter with the redirect_uri
         redirect_uri = req.query.get("redirect_uri")
 
+        # Failsafe the other return to / in case of mobile or direct open of the welcome page
+        other_return_url = get_url("/", self.force_https)
+
         # Do some processing on the redirect_uri to correct it
         # and determine if this is a mobile client.
         if redirect_uri:
             try:
-                redirect_uri, is_mobile = await self._process_url(redirect_uri)
+                other_return_url, redirect_uri, is_mobile = await self._process_url(
+                    redirect_uri
+                )
             except (
                 binascii.Error,
                 UnicodeDecodeError,
@@ -128,7 +134,7 @@ class OIDCWelcomeView(HomeAssistantView):
         # And add the other link if we have other auth providers
         other_link = None
         if self.has_other_auth_providers:
-            other_link = get_url("/?skip_oidc_redirect=true", self.force_https)
+            other_link = concat_url_query(other_return_url, "skip_oidc_redirect=true")
 
         # And display
         response = await template_response(
