@@ -21,7 +21,7 @@
   <h3 align="center">OpenID Connect for Home Assistant</h3>
 
   <p align="center">
-    OpenID Connect (OIDC) implementation for Home Assistant through a custom component/integration,<br/>with a strong focus on <b>security, stability and accessibility.</b>
+    OpenID Connect (OIDC) client/RP implementation for Home Assistant through a custom component/integration,<br/>with a strong focus on <b>security, stability and accessibility.</b>
     <br />
     <br />
     <a href="https://github.com/christiaangoossens/hass-oidc-auth/blob/main/docs/configuration.md">YAML Configuration Guide</a>
@@ -40,11 +40,11 @@
   </p>
 </div>
 
-Provides a **stable and secure** OpenID Connect (OIDC) implementation for Home Assistant through a custom component/integration. With this integration, you can create a single-sign-on (SSO) environment in your self-hosted application stack / homelab.
+Provides a **stable and secure** OpenID Connect (OIDC) client/relying party (RP) implementation for Home Assistant through a custom component/integration. With this integration, you can create a single-sign-on (SSO) environment in your self-hosted application stack / homelab.
 
 The core values for this integration are:
 
-1. **Security**: strict adherence to the [OpenID Connect specification](https://openid.net/specs/openid-connect-core-1_0.html), [RFC 6749 (OAuth2)](https://datatracker.ietf.org/doc/html/rfc6749), [RFC 7519 (JWT)](https://datatracker.ietf.org/doc/html/rfc7519), [RFC 7636 (PKCE)](https://datatracker.ietf.org/doc/html/rfc7636) and [RFC 9700 (OAuth2 Security Best Practices)](https://datatracker.ietf.org/doc/html/rfc9700) as well as a focus on security tests in the automated test suite.
+1. **Security**: strict adherence to the [OpenID Connect specification (client/RP role only)](https://openid.net/specs/openid-connect-core-1_0.html), [RFC 6749 (OAuth2)](https://datatracker.ietf.org/doc/html/rfc6749), [RFC 7519 (JWT)](https://datatracker.ietf.org/doc/html/rfc7519), [RFC 7636 (PKCE)](https://datatracker.ietf.org/doc/html/rfc7636) and [RFC 9700 (OAuth2 Security Best Practices)](https://datatracker.ietf.org/doc/html/rfc9700) as well as a focus on security tests in the automated test suite.
 2. **Stability**: minimal patching of the core Home Assistant code such that updates of HA are less likely to break the integration and leave you without a way to login.
 3. **Accessibility**: the integration should work for everyone as much as possible with default settings, regardless of your preferred authentication method.
 
