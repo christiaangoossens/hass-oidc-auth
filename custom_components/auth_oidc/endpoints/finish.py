@@ -7,7 +7,7 @@ from ..tools.helpers import (
     error_response,
     get_valid_state_id,
     template_response,
-    concat_url_query
+    concat_url_query,
 )
 
 PATH = "/auth/oidc/finish"

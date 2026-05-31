@@ -31,9 +31,9 @@ class OIDCWelcomeView(HomeAssistantView):
     async def _process_url(self, redirect_uri: str) -> tuple[str, bool]:
         """Processes the redirect URI to determine if we need setTokens and if this is mobile."""
         # decodeURIComponent(btoa(...)) -> unquote first, then base64 decode
-        decoded_redirect_uri = base64.b64decode(unquote(redirect_uri), validate=True).decode(
-            "utf-8"
-        )
+        decoded_redirect_uri = base64.b64decode(
+            unquote(redirect_uri), validate=True
+        ).decode("utf-8")
 
         oauth2_url = urlparse(decoded_redirect_uri)
         oauth2_query = parse_qs(oauth2_url.query)
@@ -54,7 +54,9 @@ class OIDCWelcomeView(HomeAssistantView):
 
         if is_web_client:
             # Adjust the original_redirect_uri to include the storeTokens parameter
-            original_redirect_uri = concat_url_query(original_redirect_uri, "storeToken=true")
+            original_redirect_uri = concat_url_query(
+                original_redirect_uri, "storeToken=true"
+            )
             oauth2_query.update({"redirect_uri": original_redirect_uri})
 
             # Create new redirect_uri with the updated query parameters
@@ -81,7 +83,9 @@ class OIDCWelcomeView(HomeAssistantView):
         # and determine if this is a mobile client.
         if redirect_uri:
             try:
-                other_return_url, redirect_uri, is_mobile = await self._process_url(redirect_uri)
+                other_return_url, redirect_uri, is_mobile = await self._process_url(
+                    redirect_uri
+                )
             except (
                 binascii.Error,
                 UnicodeDecodeError,

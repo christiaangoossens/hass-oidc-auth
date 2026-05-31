@@ -428,10 +428,33 @@ async def test_callback_registration(
 
 
 @pytest.mark.asyncio
-async def test_callback_rejects_missing_code_or_state(
+async def test_callback_rejects_missing_state(
     hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
-    """Callback must reject requests missing either code or state."""
+    """Callback must reject requests missing state."""
+    await setup(hass)
+
+    client = await hass_client()
+    redirect_uri = create_redirect_uri(client.make_url("/"))
+    encoded = encode_redirect_uri(redirect_uri)
+    await client.get(
+        f"/auth/oidc/welcome?redirect_uri={encoded}",
+        allow_redirects=False,
+    )
+
+    resp_missing_state = await client.get(
+        "/auth/oidc/callback?code=testcode",
+        allow_redirects=False,
+    )
+    assert resp_missing_state.status == 400
+    assert "Missing code or state parameter." in await resp_missing_state.text()
+
+
+@pytest.mark.asyncio
+async def test_callback_rejects_missing_code(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """Callback must reject requests missing code."""
     await setup(hass)
 
     client = await hass_client()
@@ -449,14 +472,6 @@ async def test_callback_rejects_missing_code_or_state(
     )
     assert resp_missing_code.status == 400
     assert "Missing code or state parameter." in await resp_missing_code.text()
-
-    resp_missing_state = await client.get(
-        "/auth/oidc/callback?code=testcode",
-        allow_redirects=False,
-    )
-    assert resp_missing_state.status == 400
-    assert "Missing code or state parameter." in await resp_missing_state.text()
-
 
 @pytest.mark.asyncio
 async def test_callback_rejects_state_mismatch(
