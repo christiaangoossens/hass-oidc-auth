@@ -8,7 +8,7 @@ direct_only = false
 detailed = true
 include_withdrawn = false
 no_ci_detect = false
-# scope main is broken, see https://github.com/nyudenkov/pysentry/issues/158
+scope = "main"
 
 [sources]
 enabled = [
