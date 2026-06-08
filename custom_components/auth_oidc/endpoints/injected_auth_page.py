@@ -55,8 +55,22 @@ async def frontend_injection(
                 )
                 break
 
-            # The original frontend path is the first argument of the handler
-            frontend_path = route.handler.args[0]
+            if not hasattr(route.handler, "args"):
+                _LOGGER.info(
+                    "Route handler for /auth/authorize should have been called with arguments (StaticPathConfig)"
+                )
+                break
+
+            # Get the first string argument, which is the path to the frontend HTML file
+            # See: https://github.com/home-assistant/core/blob/master/homeassistant/components/frontend/__init__.py#L546
+            frontend_path = next(
+                (
+                    arg
+                    for arg in route.handler.args
+                    if (isinstance(arg, str) and arg.endswith(".html"))
+                ),
+                None,
+            )
 
             # Remove the old resource to prevent conflicts with our injected view
             resource.add_prefix("/auth/oidc/unused")

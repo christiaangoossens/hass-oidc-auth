@@ -473,6 +473,7 @@ async def test_callback_rejects_missing_code(
     assert resp_missing_code.status == 400
     assert "Missing code or state parameter." in await resp_missing_code.text()
 
+
 @pytest.mark.asyncio
 async def test_callback_rejects_state_mismatch(
     hass: HomeAssistant, hass_client: ClientSessionGenerator
