@@ -57,12 +57,13 @@ async def frontend_injection(
 
             if not hasattr(route.handler, "args"):
                 _LOGGER.info(
-                    "Route handler for /auth/authorize should have been called with arguments (StaticPathConfig)"
+                    "Route handler for /auth/authorize should have "
+                    + "been called with arguments (StaticPathConfig)"
                 )
                 break
 
             # Get the first string argument, which is the path to the frontend HTML file
-            # See: https://github.com/home-assistant/core/blob/master/homeassistant/components/frontend/__init__.py#L546
+            # https://github.com/home-assistant/core/blob/master/homeassistant/components/frontend/__init__.py#L546
             frontend_path = next(
                 (
                     arg
