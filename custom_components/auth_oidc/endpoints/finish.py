@@ -33,6 +33,19 @@ class OIDCFinishView(HomeAssistantView):
         if not state_id:
             return await error_response("Missing state cookie, please restart login.")
 
+        # For mobile clients, skip the finish page and redirect directly
+        is_mobile = await self.oidc_provider.async_get_is_mobile_for_state(state_id)
+        if is_mobile:
+            # Get redirect_uri from the state
+            redirect_uri = await self.oidc_provider.async_get_redirect_uri_for_state(
+                state_id
+            )
+            if not redirect_uri:
+                return await error_response("Invalid state, please restart login.")
+            separator = "?" if "?" not in redirect_uri else "&"
+            redirect_uri = f"{redirect_uri}{separator}skip_oidc_redirect=true"
+            raise web.HTTPFound(location=redirect_uri)
+
         return await template_response("finish", {})
 
     async def post(self, request: web.Request) -> web.Response:

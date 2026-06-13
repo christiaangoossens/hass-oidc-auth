@@ -104,33 +104,21 @@ class OIDCWelcomeView(HomeAssistantView):
             is_mobile = False
 
         # Create OIDC state with the redirect_uri so we can use it later in the flow
-        state_id = await self.oidc_provider.async_create_state(redirect_uri)
+        state_id = await self.oidc_provider.async_create_state(redirect_uri, None, is_mobile)
         cookie_header = self.oidc_provider.get_cookie_header(
             state_id, secure=self.force_https or req.url.scheme == "https"
         )
-
-        # If this is the only provider and we are on desktop,
-        # automatically go through the OIDC login
-        if not is_mobile and (
-            not self.has_other_auth_providers or self.prefers_skipping
-        ):
+        
+        # Automatically go through the OIDC login by redirecting to the IDP.
+        # Mobile apps open this via an in-app browser (SFSafariViewController / Chrome Custom Tab),
+        # and the IDP will eventually redirect back to the app's deep link via /finish.
+        if not self.has_other_auth_providers or self.prefers_skipping:
             raise web.HTTPFound(
                 location=get_url("/auth/oidc/redirect", self.force_https),
                 headers=cookie_header,
             )
-
-        # Otherwise display the screen with either mobile sign in or the buttons
-        # First generate code if mobile
+            
         code = None
-        if is_mobile:
-            # Create a code to login
-            code = await self.oidc_provider.async_generate_device_code(state_id)
-            if not code:
-                return await error_response(
-                    "Failed to generate device code, please restart login.",
-                    status=500,
-                )
-
         # And add the other link if we have other auth providers
         other_link = None
         if self.has_other_auth_providers:

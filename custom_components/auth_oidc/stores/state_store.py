@@ -59,7 +59,7 @@ class StateStore:
             and state["ip_address"] == ip
         )
 
-    async def async_create_state_from_url(self, redirect_uri: str, ip: str) -> str:
+    async def async_create_state_from_url(self, redirect_uri: str, ip: str, is_module: bool | None = None) -> str:
         """Generates a the OIDC state adds it to the database for 5 minutes."""
         if self._data is None:
             raise RuntimeError("Data not loaded")
@@ -75,6 +75,7 @@ class StateStore:
             "user_details": None,
             "expiration": expiration.isoformat(),
             "ip_address": ip,
+            "is_mobile": is_module,
         }
 
         await self._async_save()
@@ -117,6 +118,19 @@ class StateStore:
         state = self._data.get(state_id)
         if state and self._is_valid(state, ip):
             return state["redirect_uri"]
+
+        return None
+
+    async def async_get_is_mobile_for_state(
+        self, state_id: str, ip: str
+    ) -> Optional[bool]:
+        """Get the is_mobile for a given state_id."""
+        if self._data is None:
+            raise RuntimeError("Data not loaded")
+
+        state = self._data.get(state_id)
+        if state and self._is_valid(state, ip):
+            return state["is_mobile"]
 
         return None
 
