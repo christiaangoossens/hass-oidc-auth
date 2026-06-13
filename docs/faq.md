@@ -85,6 +85,6 @@ Therefore, issues that occur because of the use of the `main` branch (or any oth
 
 Releases, available at [Releases](https://github.com/christiaangoossens/hass-oidc-auth/releases), by constrast, are immutable and tested manually before release. While a release may be deleted, releases cannot be altered after publishing.
 
-This ensures that - even if a security issue with my accounts occured - no malicious code enters an existing release and that the release is installed exactly as intended.
+This ensures that - even if a security issue with my accounts occurred - no malicious code enters an existing release and that the release is installed exactly as intended.
 
 HACS automatically - and only - uses these releases and is thus the recommended install method. If you want to install a release manually, please specifically use the `hass-oidc-auth.zip` (and not the release source code zip), such that you get styling.
