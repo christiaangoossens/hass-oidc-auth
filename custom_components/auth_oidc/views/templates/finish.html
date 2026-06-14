@@ -1,62 +1,52 @@
 {% extends "base.html" %}
-{% block title %}Logged in!{% endblock %}
+{% block title %}Logged in! – Home Assistant{% endblock %}
 {% block head %}
 {{ super() }}
 {% endblock %}
 {% block content %}
-<div>
-    <h1 class="text-2xl font-bold mb-4 text-center">Logged in!</h1>
+<div class="card">
+    <h1>Logged in!</h1>
 
-    <div class="mb-4 rounded-lg border border-gray-300 bg-gray-50 p-6 text-left">
-        <h2 class="mb-2 text-lg font-semibold text-gray-800">Continue on this device</h2>
-        <p class="mb-4 text-sm text-gray-600">Tap Continue to login to Home Assistant on this device.</p>
+    <div class="card-secondary">
+        <h2>Continue on this device</h2>
+        <p>Tap Continue to login to Home Assistant on this device.</p>
         <form method="post">
             <button
                 id="continue-on-this-device"
                 type="submit"
-                class="w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg 
-                    shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 
-                    focus:ring-opacity-75 hover:cursor-pointer"
+                class="btn-primary"
             >
                 Continue on this device
             </button>
         </form>
     </div>
 
-    <div class="rounded-lg border border-gray-300 bg-white p-6 text-left">
-        <h2 class="mb-2 text-lg font-semibold text-gray-800">Use a code from another device</h2>
-        <p class="mb-2 text-sm text-gray-600">On your other device, open the Home Assistant app. You will see a
-                6-digit code.</p>
-            <p class="mb-4 text-sm text-gray-600">Input that code here and click Approve to login on the other device.
-            </p>
-            <form method="post">
-                <div>
-                    <input 
-                        type="tel" 
-                        id="device-code-input"
-                        name="device_code"
-                        required
-                        minlength="6"
-                        maxlength="6"
-                        pattern="[0-9]{6}"
-                        inputmode="numeric"
-                        placeholder="123456" 
-                        class="mb-2 w-full rounded-md border border-gray-300 px-5 py-3 text-center text-base 
-                        tracking-[0.15em] text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400
-                         focus:ring-opacity-75"
-                        >
-                </div>
-                <button 
-                    id="approve-login-button"
-                    type="submit"
-                    class="w-full py-2 px-4 bg-white text-blue-600 
-                        font-semibold rounded-lg border border-blue-500 shadow-md hover:bg-gray-100
-                        hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 
-                        focus:ring-opacity-75 hover:cursor-pointer"
-                    >
-                    Approve login on the other device
-                </button>
-            </form>
+    <div class="card-secondary">
+        <h2>Use a code from another device</h2>
+        <p>On your other device, open the Home Assistant app. You will see a 6-digit code.</p>
+        <p>Input that code here and click Approve to login on the other device.</p>
+        <form method="post">
+            <input
+                type="tel"
+                id="device-code-input"
+                name="device_code"
+                required
+                minlength="6"
+                maxlength="6"
+                pattern="[0-9]{6}"
+                inputmode="numeric"
+                placeholder="123456"
+                class="form-input"
+                style="letter-spacing: 0.15em;"
+            />
+            <button
+                id="approve-login-button"
+                type="submit"
+                class="btn-secondary"
+            >
+                Approve login on the other device
+            </button>
+        </form>
     </div>
 </div>
 {% endblock %}

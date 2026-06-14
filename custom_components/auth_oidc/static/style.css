@@ -1,0 +1,528 @@
+/* ==================================================================
+   hass-oidc-auth – design tokens and styles matching Home Assistant
+   ================================================================== */
+
+/* ------------------------------------------------------------------ */
+/* Design tokens – HA variable names (light)                           */
+/* ------------------------------------------------------------------ */
+
+:root {
+  /* Backgrounds */
+  --primary-background-color: #fafafa;
+  --card-background-color: #ffffff;
+
+  /* Text */
+  --primary-text-color: #212121;
+  --disabled-text-color: #bdbdbd;
+
+  /* Brand */
+  --primary-color: #009ac7;
+  --dark-primary-color: #0288d1;
+
+  /* Divider */
+  --divider-color: rgba(0, 0, 0, 0.12);
+
+  /* Border */
+  --ha-border-width-sm: 1px;
+  --ha-border-width-md: 2px;
+  --ha-border-radius-sm: 4px;
+  --ha-border-radius-md: 8px;
+  --ha-border-radius-lg: 12px;
+  --ha-border-radius-pill: 9999px;
+
+  /* Spacing */
+  --ha-space-1: 4px;
+  --ha-space-2: 8px;
+  --ha-space-3: 12px;
+  --ha-space-4: 16px;
+  --ha-space-6: 24px;
+  --ha-space-8: 32px;
+
+  /* Typography */
+  --ha-font-family-body: Roboto, Noto, sans-serif;
+  --ha-font-size-m: 14px;
+  --ha-font-size-l: 16px;
+  --ha-font-size-xl: 20px;
+  --ha-font-size-3xl: 28px;
+  --ha-font-weight-normal: 400;
+  --ha-font-weight-medium: 500;
+  --ha-font-weight-bold: 700;
+  --ha-line-height-condensed: 1.2;
+  --ha-line-height-normal: 1.6;
+
+  /* Animation */
+  --ha-animation-duration-fast: 150ms;
+
+  /* Spinner */
+  --ha-spinner-indicator-color: var(--primary-color);
+  --ha-spinner-divider-color: var(--divider-color);
+  --ha-spinner-size: 48px;
+  --ha-spinner-track-width: 4px;
+  --ha-spinner-speed: 3.5s;
+
+  /* Card */
+  --ha-card-background: var(--card-background-color);
+  --ha-card-box-shadow: none;
+  --ha-card-border-radius: var(--ha-border-radius-lg);
+  --ha-card-border-width: 1px;
+  --ha-card-border-color: var(--divider-color);
+
+  /* Form */
+  --ha-color-form-background: #f5f5f5;
+  --ha-color-form-background-hover: #eeeeee;
+  --ha-input-border-color: rgba(0, 0, 0, 0.42);
+  --ha-input-focus-color: var(--primary-color);
+
+  /* Focus */
+  --ha-color-focus: #757575;
+}
+
+/* ------------------------------------------------------------------ */
+/* Dark mode                                                          */
+/* ------------------------------------------------------------------ */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary-background-color: #111111;
+    --card-background-color: #1c1c1c;
+    --primary-text-color: #e1e1e1;
+    --disabled-text-color: #6f6f6f;
+    --divider-color: rgba(225, 225, 225, 0.12);
+    --ha-spinner-divider-color: rgba(225, 225, 225, 0.12);
+    --ha-color-form-background: #363636;
+    --ha-color-form-background-hover: #4a4a4a;
+    --ha-input-border-color: rgba(255, 255, 255, 0.42);
+    --ha-color-focus: #9e9e9e;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Fonts                                                              */
+/* ------------------------------------------------------------------ */
+
+@font-face {
+  font-family: "Roboto";
+  src:
+    local("Roboto Light"),
+    local("Roboto-Light"),
+    url("/static/fonts/roboto/Roboto-Light.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Roboto";
+  src:
+    local("Roboto Regular"),
+    local("Roboto-Regular"),
+    url("/static/fonts/roboto/Roboto-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Roboto";
+  src:
+    local("Roboto Medium"),
+    local("Roboto-Medium"),
+    url("/static/fonts/roboto/Roboto-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Roboto";
+  src:
+    local("Roboto Bold"),
+    local("Roboto-Bold"),
+    url("/static/fonts/roboto/Roboto-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+}
+
+/* ------------------------------------------------------------------ */
+/* Reset & base                                                       */
+/* ------------------------------------------------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--ha-font-family-body);
+  font-size: var(--ha-font-size-m);
+  font-weight: var(--ha-font-weight-normal);
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  background-color: var(--primary-background-color);
+  color: var(--primary-text-color);
+}
+
+body {
+  padding: var(--ha-space-8) 0;
+  min-height: 100vh;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  background-color: var(--primary-background-color);
+  color: var(--primary-text-color);
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+/* ------------------------------------------------------------------ */
+/* Typography                                                         */
+/* ------------------------------------------------------------------ */
+
+h1 {
+  font-size: var(--ha-font-size-3xl);
+  font-weight: var(--ha-font-weight-normal);
+  margin: var(--ha-space-4) 0;
+}
+
+h2 {
+  font-size: var(--ha-font-size-xl);
+  font-weight: var(--ha-font-weight-normal);
+}
+
+p {
+  font-size: var(--ha-font-size-m);
+  line-height: var(--ha-line-height-normal);
+}
+
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Accessibility                                                      */
+/* ------------------------------------------------------------------ */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Page layout                                                        */
+/* ------------------------------------------------------------------ */
+
+.content-wrapper {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 0 var(--ha-space-4);
+  box-sizing: content-box;
+}
+
+.content-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--ha-space-8);
+}
+
+.content-header img {
+  height: 56px;
+  width: 56px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Card                                                               */
+/* ------------------------------------------------------------------ */
+
+.card {
+  background: var(--ha-card-background, var(--card-background-color));
+  box-shadow: var(--ha-card-box-shadow);
+  border-radius: var(--ha-card-border-radius, var(--ha-border-radius-lg));
+  border: var(--ha-card-border-width, 1px) solid var(--ha-card-border-color, var(--divider-color));
+  color: var(--primary-text-color);
+  padding: var(--ha-space-4);
+  text-align: center;
+}
+
+.card > * + * {
+  margin-top: var(--ha-space-4);
+}
+
+.card h1 {
+  margin: var(--ha-space-4) 0;
+}
+
+.card-secondary {
+  background: var(--card-background-color);
+  border: var(--ha-border-width-sm) solid var(--divider-color);
+  border-radius: var(--ha-border-radius-lg);
+  padding: var(--ha-space-6);
+  text-align: left;
+}
+
+.card-secondary > * + * {
+  margin-top: var(--ha-space-4);
+}
+
+.card-secondary h2 {
+  margin-bottom: var(--ha-space-2);
+}
+
+.card-secondary p {
+  font-size: 0.875rem;
+}
+
+.card-secondary .form-input {
+  text-align: center;
+  margin-bottom: var(--ha-space-3);
+}
+
+/* ------------------------------------------------------------------ */
+/* Buttons                                                            */
+/* ------------------------------------------------------------------ */
+
+.btn-primary,
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 40px;
+  padding: 0 var(--ha-space-4);
+  font: inherit;
+  font-size: var(--ha-font-size-m);
+  font-weight: var(--ha-font-weight-medium);
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  border-radius: var(--ha-border-radius-pill);
+  transition: background-color var(--ha-animation-duration-fast) ease-out;
+}
+
+.btn-primary:focus,
+.btn-secondary:focus {
+  outline: none;
+}
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible {
+  outline: var(--ha-border-width-md) solid var(--ha-color-focus);
+  outline-offset: var(--ha-space-1);
+}
+
+.btn-primary {
+  color: #ffffff;
+  background-color: var(--primary-color);
+  border: none;
+}
+
+.btn-primary:hover {
+  background-color: var(--dark-primary-color);
+  text-decoration: none;
+}
+
+.btn-secondary {
+  color: var(--primary-color);
+  background-color: transparent;
+  border: var(--ha-border-width-sm) solid var(--primary-color);
+}
+
+.btn-secondary:hover {
+  background-color: rgba(0, 154, 199, 0.08);
+  text-decoration: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Form input                                                         */
+/* ------------------------------------------------------------------ */
+
+.form-input {
+  display: block;
+  width: 100%;
+  height: 56px;
+  padding: 0 var(--ha-space-4);
+  font: inherit;
+  font-size: var(--ha-font-size-m);
+  font-weight: var(--ha-font-weight-normal);
+  line-height: var(--ha-line-height-condensed);
+  color: var(--primary-text-color);
+  background-color: var(--ha-color-form-background);
+  border: none;
+  border-radius: var(--ha-border-radius-sm) var(--ha-border-radius-sm) 0 0;
+  box-shadow: inset 0 -1px 0 var(--ha-input-border-color);
+  transition: box-shadow var(--ha-animation-duration-fast) ease-in-out,
+              background-color var(--ha-animation-duration-fast) ease-in-out;
+}
+
+.form-input::placeholder {
+  color: var(--disabled-text-color);
+}
+
+.form-input:hover {
+  background-color: var(--ha-color-form-background-hover);
+}
+
+.form-input:focus {
+  outline: none;
+  box-shadow: inset 0 -2px 0 var(--ha-input-focus-color);
+}
+
+/* ------------------------------------------------------------------ */
+/* Code display                                                       */
+/* ------------------------------------------------------------------ */
+
+.code-display {
+  display: inline-block;
+  padding: var(--ha-space-4) var(--ha-space-6);
+  font-size: var(--ha-font-size-3xl);
+  font-weight: var(--ha-font-weight-medium);
+  letter-spacing: 0.1em;
+  background-color: var(--ha-color-form-background);
+  border: var(--ha-border-width-sm) solid var(--divider-color);
+  border-radius: var(--ha-border-radius-md);
+  color: var(--primary-text-color);
+}
+
+/* ------------------------------------------------------------------ */
+/* Text link                                                          */
+/* ------------------------------------------------------------------ */
+
+.text-link {
+  display: inline-block;
+  color: var(--primary-color);
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+
+.text-link:hover {
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------------------ */
+/* Auth divider – matches ha-pick-auth-provider h3                   */
+/* ------------------------------------------------------------------ */
+
+.auth-divider {
+  margin-left: -16px;
+  margin-right: -16px;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  font-size: var(--ha-font-size-m);
+  font-weight: var(--ha-font-weight-normal);
+  line-height: var(--ha-line-height-normal);
+  color: var(--primary-text-color);
+}
+
+.auth-divider::before {
+  border-top: 1px solid var(--divider-color);
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  z-index: -1;
+}
+
+.auth-divider span {
+  background: var(--card-background-color);
+  padding: 0 15px;
+}
+
+.auth-divider a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.auth-divider a:hover {
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------------------ */
+/* Spinner                                                            */
+/* ------------------------------------------------------------------ */
+
+@keyframes ha-spinner-rotate {
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes ha-spinner-dash {
+  0% {
+    stroke-dasharray: calc(0.008 * var(--ha-spinner-circumference)),
+                      calc(1.194 * var(--ha-spinner-circumference));
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: calc(0.716 * var(--ha-spinner-circumference)),
+                      calc(1.194 * var(--ha-spinner-circumference));
+    stroke-dashoffset: calc(-0.278 * var(--ha-spinner-circumference));
+  }
+  100% {
+    stroke-dasharray: calc(0.716 * var(--ha-spinner-circumference)),
+                      calc(1.194 * var(--ha-spinner-circumference));
+    stroke-dashoffset: calc(-0.987 * var(--ha-spinner-circumference));
+  }
+}
+
+.spinner {
+  --ha-spinner-radius: calc(var(--ha-spinner-size) / 2 - var(--ha-spinner-track-width) / 2);
+  --ha-spinner-circumference: calc(var(--ha-spinner-radius) * 2 * 3.141592654);
+
+  display: block;
+  width: var(--ha-spinner-size);
+  height: var(--ha-spinner-size);
+  animation: ha-spinner-rotate var(--ha-spinner-speed) linear infinite;
+}
+
+.spinner-track,
+.spinner-indicator {
+  cx: calc(var(--ha-spinner-size) / 2);
+  cy: calc(var(--ha-spinner-size) / 2);
+  r: var(--ha-spinner-radius);
+  fill: none;
+  stroke-width: var(--ha-spinner-track-width);
+}
+
+.spinner-track {
+  stroke: var(--ha-spinner-divider-color);
+}
+
+.spinner-indicator {
+  stroke: var(--ha-spinner-indicator-color);
+  stroke-linecap: round;
+  stroke-dasharray: calc(0.597 * var(--ha-spinner-circumference)),
+                    calc(0.796 * var(--ha-spinner-circumference));
+  stroke-dashoffset: calc(-0.04 * var(--ha-spinner-circumference));
+  animation: ha-spinner-dash 1.5s ease-in-out infinite;
+}
+
+.spinner-page {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

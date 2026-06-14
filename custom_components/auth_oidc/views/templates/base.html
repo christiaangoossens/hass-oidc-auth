@@ -1,19 +1,25 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full min-h-full max-h-full">
+<html lang="en">
 
 <head>
     {% block head %}
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, user-scalable=no, viewport-fit=cover, initial-scale=1">
+    <title>{% block title %}Home Assistant{% endblock %}</title>
+    <link rel="icon" href="/static/icons/favicon-192x192.png">
     <link rel="stylesheet" href="/auth/oidc/static/style.css?v=2">
     {% endblock %}
 </head>
 
-<body class="bg-gray-200 flex items-center justify-center h-full">
-    <div class="bg-white p-6 rounded-lg shadow-lg max-w-md">
+<body>
+    {% block body %}
+    <div class="content-wrapper">
+        <div class="content-header">
+            <img src="/static/icons/favicon-192x192.png" alt="Home Assistant" />
+        </div>
         {% block content %}{% endblock %}
     </div>
+    {% endblock %}
 </body>
 
 </html>

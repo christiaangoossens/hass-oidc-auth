@@ -1,28 +1,21 @@
 {% extends "base.html" %}
-{% block title %}OIDC Login{% endblock %}
+{% block title %}OIDC Login – Home Assistant{% endblock %}
 {% block head %}
 {{ super() }}
 {% endblock %}
 {% block content %}
-<div class="text-center">
+<div class="card">
     {% if code %}
-        <div>
-            <p id="device-instructions">Please login to Home Assistant on another device and enter this code when asked:</p>
-            <div class="mt-4 text-3xl tracking-wide font-bold bg-gray-100 border border-gray-300 rounded-lg py-4 px-6 inline-block" id="device-code">
-                {{ code }}
-            </div>
-            <p class="mt-4 text-sm text-gray-600">
-                The login will continue automatically when you complete the login on your other device. Please keep the app open.
-            </p>
-        </div>
+        <p id="device-instructions">Please login to Home Assistant on another device and enter this code when asked:</p>
+        <div id="device-code" class="code-display">{{ code }}</div>
+        <p>The login will continue automatically when you complete the login on your other device. Please keep the app open.</p>
         <script>
-            const source = new EventSource('/auth/oidc/device-sse');
+            var source = new EventSource('/auth/oidc/device-sse');
 
             source.addEventListener('ready', function () {
                 source.close();
 
-                // Perform a POST request to the finish endpoint to complete the login.
-                const form = document.createElement('form');
+                var form = document.createElement('form');
                 form.method = 'POST';
                 form.action = '/auth/oidc/finish';
                 document.body.appendChild(form);
@@ -34,21 +27,13 @@
             });
         </script>
     {% else %}
-        <div>
-                <a id="login-button" href="/auth/oidc/redirect" class="
-                    w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 
-                    focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75
-                    hover:cursor-pointer
-                ">
-                Login with {{ name }}
-            </a>
-        </div>
+        <a id="login-button" href="/auth/oidc/redirect" class="btn-primary">
+            Login with {{ name }}
+        </a>
     {% endif %}
 
     {% if other_link %}
-        <p class=" mt-4 text-sm text-center">
-            <a id="alternative-sign-in-link" href="{{ other_link }}" class="text-gray-600 hover:underline">Continue with default login</a>
-        </p>
+        <h3 class="auth-divider"><span><a id="alternative-sign-in-link" href="{{ other_link }}">Continue with default login</a></span></h3>
     {% endif %}
 </div>
 {% endblock %}
