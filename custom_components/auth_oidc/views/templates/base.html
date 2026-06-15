@@ -5,15 +5,38 @@
     {% block head %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/static/icons/favicon.ico" />
     <title>{% block title %}{% endblock %}</title>
-    <link rel="stylesheet" href="/auth/oidc/static/style.css?v=2">
+    <link rel="preload" as="font" type="font/woff2" crossorigin="anonymous"
+        href="/static/fonts/roboto/Roboto-Regular.woff2">
+    <link rel="preload" as="font" type="font/woff2" crossorigin="anonymous"
+        href="/static/fonts/roboto/Roboto-Medium.woff2">
+    <link rel="stylesheet" href="/auth/oidc/static/style.css?v=4">
     {% endblock %}
 </head>
 
-<body class="bg-gray-200 flex items-center justify-center h-full">
-    <div class="bg-white p-6 rounded-lg shadow-lg max-w-md">
-        {% block content %}{% endblock %}
+<body class="bg-background text-foreground flex items-center justify-center min-h-full p-4">
+    {% block layout %}
+    <div class="w-full max-w-sm">
+        <div class="flex items-center justify-center mb-8">
+            <img src="/auth/oidc/static/icon.png?v=1" alt="" class="h-14 w-14">
+        </div>
+        <div class="bg-card text-foreground border border-divider rounded-xl p-4">
+            {% block content %}{% endblock %}
+        </div>
+        <div class="flex justify-end pt-2">
+            <a href="https://github.com/christiaangoossens/hass-oidc-auth" target="_blank"
+                rel="noreferrer noopener"
+                class="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground">
+                Help
+                <!-- mdi: open-in-new -->
+                <svg viewBox="0 0 24 24" aria-hidden="true" class="h-4 w-4 fill-current">
+                    <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z" />
+                </svg>
+            </a>
+        </div>
     </div>
+    {% endblock %}
 </body>
 
 </html>
