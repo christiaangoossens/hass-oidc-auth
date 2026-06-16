@@ -6,6 +6,7 @@ from homeassistant.components import http
 from aiohttp import web
 
 from ..views.loader import AsyncTemplateRenderer
+from ..config.const import REPO_ROOT_URL
 
 if TYPE_CHECKING:
     from ..provider import OpenIDAuthProvider
@@ -68,13 +69,14 @@ async def template_response(
     template: str, parameters: dict | None = None
 ) -> web.Response:
     """Render a template and return it as an HTML response."""
+    parameters['help_url'] = REPO_ROOT_URL
     return html_response(await get_view(template, parameters))
 
 
 async def error_response(message: str, status: int = 400) -> web.Response:
     """Render the shared error view."""
     return html_response(
-        await get_view("error", {"error": message}),
+        await get_view("error", {"error": message, "help_url": REPO_ROOT_URL}),
         status=status,
         headers={
             "set-cookie": reset_state_cookie(),

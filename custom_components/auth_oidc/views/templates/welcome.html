@@ -6,7 +6,6 @@
 {% block content %}
 {% import "_alert.html" as ui %}
 <div class="text-center">
-    <h1 class="mb-4 text-3xl font-normal">Log in</h1>
     {% if code %}
         <div>
             <p id="device-instructions">Please login to Home Assistant on another device and enter this code when asked:</p>
@@ -59,7 +58,7 @@
             border border-divider transition-colors duration-150 ease-out hover:bg-input
             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus
         ">
-            Default login
+            Default login (username & password)
         </a>
     {% endif %}
 </div>
