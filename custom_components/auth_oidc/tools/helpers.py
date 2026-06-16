@@ -69,7 +69,7 @@ async def template_response(
     template: str, parameters: dict | None = None
 ) -> web.Response:
     """Render a template and return it as an HTML response."""
-    parameters['help_url'] = REPO_ROOT_URL
+    parameters["help_url"] = REPO_ROOT_URL
     return html_response(await get_view(template, parameters))
 
 
