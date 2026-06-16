@@ -1,19 +1,20 @@
 {% extends "base.html" %}
-{% block title %}OIDC Login{% endblock %}
+{% block title %}OIDC Login - Home Assistant{% endblock %}
 {% block head %}
 {{ super() }}
 {% endblock %}
 {% block content %}
+{% import "_alert.html" as ui %}
 <div class="text-center">
     {% if code %}
         <div>
             <p id="device-instructions">Please login to Home Assistant on another device and enter this code when asked:</p>
-            <div class="mt-4 text-3xl tracking-wide font-bold bg-gray-100 border border-gray-300 rounded-lg py-4 px-6 inline-block" id="device-code">
+            <div class="mt-4 text-3xl tracking-wide font-medium bg-input border border-divider rounded-lg py-4 px-6 inline-block" id="device-code">
                 {{ code }}
             </div>
-            <p class="mt-4 text-sm text-gray-600">
-                The login will continue automatically when you complete the login on your other device. Please keep the app open.
-            </p>
+            <div class="mt-4">
+                {% call ui.alert('info') %}The login will continue automatically when you complete the login on your other device. Please keep the app open.{% endcall %}
+            </div>
         </div>
         <script>
             const source = new EventSource('/auth/oidc/device-sse');
@@ -34,21 +35,31 @@
             });
         </script>
     {% else %}
-        <div>
-                <a id="login-button" href="/auth/oidc/redirect" class="
-                    w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 
-                    focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75
-                    hover:cursor-pointer
-                ">
+        <a id="login-button" href="/auth/oidc/redirect" class="
+            inline-flex items-center justify-center w-full h-10 px-4 bg-primary text-white font-medium leading-none rounded-full
+            transition-colors duration-150 ease-out hover:bg-primary-hover
+            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus
+        ">
                 Login with {{ name }}
             </a>
-        </div>
     {% endif %}
 
     {% if other_link %}
-        <p class=" mt-4 text-sm text-center">
-            <a id="alternative-sign-in-link" href="{{ other_link }}" class="text-gray-600 hover:underline">Continue with default login</a>
-        </p>
+        <div class="relative my-4">
+            <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                <div class="w-full border-t border-divider"></div>
+            </div>
+            <div class="relative flex justify-center">
+                <span class="bg-card px-4 text-sm text-muted">Or log in with</span>
+            </div>
+        </div>
+        <a id="alternative-sign-in-link" href="{{ other_link }}" class="
+            inline-flex items-center justify-center w-full h-10 px-4 bg-card text-foreground font-medium leading-none rounded-full
+            border border-divider transition-colors duration-150 ease-out hover:bg-input
+            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus
+        ">
+            Default login (username & password)
+        </a>
     {% endif %}
 </div>
 {% endblock %}

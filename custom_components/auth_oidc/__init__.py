@@ -193,6 +193,11 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
                 hass.config.path("custom_components/auth_oidc/static/style.css"),
                 cache_headers=True,
             ),
+            StaticPathConfig(
+                "/auth/oidc/static/icon.png",
+                hass.config.path("custom_components/auth_oidc/brand/icon.png"),
+                cache_headers=True,
+            ),
         ]
     )
 
