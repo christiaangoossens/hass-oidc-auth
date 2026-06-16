@@ -23,6 +23,8 @@ from custom_components.auth_oidc.tools.validation import (
     validate_url,
 )
 
+from custom_components.auth_oidc.config.const import REPO_ROOT_URL
+
 
 @pytest.mark.asyncio
 async def test_get_url():
@@ -110,7 +112,9 @@ async def test_html_response_and_template_helpers():
 
     assert rendered.status == 200
     assert rendered.text == "<p>rendered</p>"
-    mocked_get_view.assert_awaited_once_with("welcome", {"name": "OIDC"})
+    mocked_get_view.assert_awaited_once_with(
+        "welcome", {"name": "OIDC", "help_url": REPO_ROOT_URL}
+    )
 
 
 @pytest.mark.asyncio
@@ -124,7 +128,9 @@ async def test_error_response():
 
     assert rendered.status == 500
     assert rendered.text == "<p>error</p>"
-    mocked_get_view.assert_awaited_once_with("error", {"error": "boom"})
+    mocked_get_view.assert_awaited_once_with(
+        "error", {"error": "boom", "help_url": REPO_ROOT_URL}
+    )
 
 
 @pytest.mark.asyncio
