@@ -31,7 +31,9 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 managed = true
-override-dependencies = []
+override-dependencies = [
+    "cryptography>=48.0.1,<48.1",
+]
 
 [tool.hatch.metadata]
 allow-direct-references = true
