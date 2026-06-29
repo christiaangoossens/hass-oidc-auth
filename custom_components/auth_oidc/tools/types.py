@@ -39,6 +39,9 @@ class OIDCState(dict):
 
     # IP address
     ip_address: str | None
+    
+    # Is mobile device
+    is_mobile: bool | None
 
 
 class OIDCWelcomeOptions(dict):
