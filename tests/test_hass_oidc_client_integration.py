@@ -403,7 +403,7 @@ async def test_discovery_failures(hass: HomeAssistant, hass_client, caplog):
         hass_client,
         caplog,
         "invalid_grant_types",
-        "does not support required 'authorization_code' grant type, only supports: ['refresh_token']",
+        "does not support required authorization code grant type ('authorization_code' or 'authorization_code_with_pkce'), only supports: ['refresh_token']",
     )
     await direct_discovery_test(
         hass, "invalid_grant_types", "does_not_support_grant_type", "refresh_token"
