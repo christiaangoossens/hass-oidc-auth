@@ -196,18 +196,21 @@ class OIDCDiscoveryClient:
                 )
 
         # If grant_types_supported is set, should support 'authorization_code'
+        # or 'authorization_code_with_pkce'
+        supported_grant_types = {"authorization_code", "authorization_code_with_pkce"}
         if "grant_types_supported" in document:
-            if "authorization_code" not in document["grant_types_supported"]:
+            if supported_grant_types.isdisjoint(document["grant_types_supported"]):
                 _LOGGER.warning(
                     "Error: Discovery document %s does not support required "
-                    "'authorization_code' grant type, only supports: %s",
+                    "authorization code grant type (%s), only supports: %s",
                     self.discovery_url,
+                    "'authorization_code' or 'authorization_code_with_pkce'",
                     document["grant_types_supported"],
                 )
                 raise OIDCDiscoveryInvalid(
                     type="does_not_support_grant_type",
                     details={
-                        "required": "authorization_code",
+                        "required": "'authorization_code' or 'authorization_code_with_pkce'",
                         "supported": document["grant_types_supported"],
                     },
                 )

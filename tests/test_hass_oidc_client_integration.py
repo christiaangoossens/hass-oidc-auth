@@ -403,7 +403,7 @@ async def test_discovery_failures(hass: HomeAssistant, hass_client, caplog):
         hass_client,
         caplog,
         "invalid_grant_types",
-        "does not support required 'authorization_code' grant type, only supports: ['refresh_token']",
+        "does not support required authorization code grant type ('authorization_code' or 'authorization_code_with_pkce'), only supports: ['refresh_token']",
     )
     await direct_discovery_test(
         hass, "invalid_grant_types", "does_not_support_grant_type", "refresh_token"
@@ -472,6 +472,23 @@ async def test_discovery_failures(hass: HomeAssistant, hass_client, caplog):
         "invalid_endpoint",
         "endpoint: jwks_uri, url: /jwks",
     )
+
+
+@pytest.mark.asyncio
+async def test_discovery_accepts_pkce_only_grant_type(hass: HomeAssistant):
+    """Test discovery validation accepts providers advertising only PKCE grant type."""
+    with mock_oidc_responses("only_pkce_grant_type"):
+        session = async_get_clientsession(hass)
+        client = OIDCDiscoveryClient(
+            MockOIDCServer.get_discovery_url(),
+            session,
+            {
+                "id_token_signing_alg": "RS256",
+            },
+        )
+
+        document = await client.fetch_discovery_document()
+        assert document["grant_types_supported"] == ["authorization_code_with_pkce"]
 
 
 @pytest.mark.asyncio
