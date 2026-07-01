@@ -475,6 +475,23 @@ async def test_discovery_failures(hass: HomeAssistant, hass_client, caplog):
 
 
 @pytest.mark.asyncio
+async def test_discovery_accepts_pkce_only_grant_type(hass: HomeAssistant):
+    """Test discovery validation accepts providers advertising only PKCE grant type."""
+    with mock_oidc_responses("only_pkce_grant_type"):
+        session = async_get_clientsession(hass)
+        client = OIDCDiscoveryClient(
+            MockOIDCServer.get_discovery_url(),
+            session,
+            {
+                "id_token_signing_alg": "RS256",
+            },
+        )
+
+        document = await client.fetch_discovery_document()
+        assert document["grant_types_supported"] == ["authorization_code_with_pkce"]
+
+
+@pytest.mark.asyncio
 async def test_direct_jwks_fetch(hass: HomeAssistant):
     """Test direct fetch of JWKS."""
     with mock_oidc_responses():
