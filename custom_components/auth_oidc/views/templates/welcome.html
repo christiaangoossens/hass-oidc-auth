@@ -15,11 +15,16 @@
             <div class="mt-4">
                 {% call ui.alert('info') %}The login will continue automatically when you complete the login on your other device. Please keep the app open.{% endcall %}
             </div>
+            <p class="mt-4">
+                <a id="manual-finish-link" href="#" class="text-sm text-muted hover:text-foreground">
+                    Already approved the code, but nothing happened? Click here to continue.
+                </a>
+            </p>
         </div>
         <script>
             const source = new EventSource('/auth/oidc/device-sse');
 
-            source.addEventListener('ready', function () {
+            function finishLogin() {
                 source.close();
 
                 // Perform a POST request to the finish endpoint to complete the login.
@@ -28,10 +33,22 @@
                 form.action = '/auth/oidc/finish';
                 document.body.appendChild(form);
                 form.submit();
-            });
+            }
 
-            source.addEventListener('error', function () {
-                source.close();
+            source.addEventListener('ready', finishLogin);
+
+            // No 'error' handler that closes the source: EventSource
+            // reconnects automatically after a dropped connection, e.g.
+            // when the OS suspends this webview while the user enters the
+            // code in their browser (#363). On reconnect, the server
+            // immediately sends 'ready' if the code was approved in the
+            // meantime. Fatal responses (such as a 400 after state expiry)
+            // stop the automatic reconnection on their own.
+
+            // Manual fallback in case the connection cannot be resumed.
+            document.getElementById('manual-finish-link').addEventListener('click', function (event) {
+                event.preventDefault();
+                finishLogin();
             });
         </script>
     {% else %}
