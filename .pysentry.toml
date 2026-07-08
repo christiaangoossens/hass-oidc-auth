@@ -2,7 +2,6 @@ version = 1
 
 [defaults]
 format = "human"
-severity = "low"
 fail_on = "medium"
 direct_only = false
 detailed = true

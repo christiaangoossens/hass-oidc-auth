@@ -1,2 +1,2 @@
 #! /bin/bash
-uvx pysentry-rs .
+uvx pysentry-rs@0.4.7  .

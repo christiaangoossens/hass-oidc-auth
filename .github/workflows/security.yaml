@@ -4,23 +4,23 @@ name: Security (pysentry)
 on:
   push:
     branches:
-      - main
+    - main
   pull_request:
   schedule:
-    - cron: "0 8 */3 * *"
+  - cron: "0 8 */3 * *"
 
 jobs:
   vulnerability-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - name: "Set up Python"
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: ".python-version"
-      - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v8.3.0
-        with:
-          enable-cache: true
-      - name: Scan dependencies for vulnerabilities
-        run: uvx pysentry-rs .
+    - uses: actions/checkout@v7
+    - name: "Set up Python"
+      uses: actions/setup-python@v6
+      with:
+        python-version-file: ".python-version"
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v8.3.0
+      with:
+        enable-cache: true
+    - name: Scan dependencies for vulnerabilities
+      run: scripts/security-check
