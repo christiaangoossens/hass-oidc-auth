@@ -478,7 +478,7 @@ class OIDCClient:
                         "kty": "oct",
                         "k": base64.urlsafe_b64encode(
                             self.client_secret.encode()
-                        ).decode(),
+                        ).decode().rstrip("="),
                         "alg": alg,
                     }
                 )
