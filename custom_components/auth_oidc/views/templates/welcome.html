@@ -15,11 +15,13 @@
             <div class="mt-4">
                 {% call ui.alert('info') %}The login will continue automatically when you complete the login on your other device. Please keep the app open.{% endcall %}
             </div>
-            <p class="mt-4">
+            <!-- Temporarily not shown until https://github.com/christiaangoossens/hass-oidc-auth/issues/300 is picked up -->
+            <!-- Currently sends you to a weird error when clicked before ready -->
+            <!-- <p class="mt-4">
                 <a id="manual-finish-link" href="#" class="text-sm text-muted hover:text-foreground">
                     Already approved the code, but nothing happened? Click here to continue.
                 </a>
-            </p>
+            </p> -->
         </div>
         <script>
             const source = new EventSource('/auth/oidc/device-sse');
