@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Done! - Home Assistant{% endblock %}
+{% block title %}{{ t('device_success.title') }}{% endblock %}
 {% block head %}
 {{ super() }}
 {% endblock %}
 {% block content %}
 {% import "_alert.html" as ui %}
 <div class="text-center">
-    <h1 class="mb-4 text-3xl font-normal">Success!</h1>
-    {% call ui.alert('info') %}<span id="mobile-success-message">You have successfully logged in on your mobile device. It should continue the login soon.</span>{% endcall %}
-    <p class="mt-4 mb-6 text-sm text-muted">You have been logged out on this device.</p>
+    <h1 class="mb-4 text-3xl font-normal">{{ t('device_success.heading') }}</h1>
+    {% call ui.alert('info') %}<span id="mobile-success-message">{{ t('device_success.message') }}</span>{% endcall %}
+    <p class="mt-4 mb-6 text-sm text-muted">{{ t('device_success.logged_out') }}</p>
     <a id="restart-login-button" href='/auth/oidc/redirect'
-        class="inline-flex items-center justify-center w-full h-10 px-4 bg-primary text-white font-medium leading-none rounded-full transition-colors duration-150 ease-out hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">Restart</a>
+        class="inline-flex items-center justify-center w-full h-10 px-4 bg-primary text-white font-medium leading-none rounded-full transition-colors duration-150 ease-out hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">{{ t('device_success.restart_button') }}</a>
 </div>
 {% endblock %}

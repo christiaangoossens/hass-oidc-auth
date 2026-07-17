@@ -108,9 +108,7 @@ class OIDCWelcomeView(HomeAssistantView):
                 KeyError,
                 TypeError,
             ):
-                return await error_response(
-                    "Invalid redirect_uri, please restart login."
-                )
+                return await error_response("invalid_redirect_uri")
 
         else:
             # Backwards compatibility with older versions that directly go to /auth/oidc/welcome
@@ -141,10 +139,7 @@ class OIDCWelcomeView(HomeAssistantView):
             # Create a code to login
             code = await self.oidc_provider.async_generate_device_code(state_id)
             if not code:
-                return await error_response(
-                    "Failed to generate device code, please restart login.",
-                    status=500,
-                )
+                return await error_response("device_code_failed", status=500)
 
         # And add the other link if we have other auth providers
         other_link = None
