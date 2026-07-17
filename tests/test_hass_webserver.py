@@ -161,6 +161,47 @@ async def test_welcome_rejects_invalid_encoded_redirect_uri(
 
 
 @pytest.mark.asyncio
+async def test_welcome_page_translated(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """Welcome page should render in German when the browser prefers it."""
+    await setup(hass)
+
+    client = await hass_client()
+    resp = await client.get(
+        "/auth/oidc/welcome",
+        headers={"Accept-Language": "de-DE,de;q=0.9,en;q=0.8"},
+        allow_redirects=False,
+    )
+    assert resp.status == 200
+    assert resp.headers["Vary"] == "Accept-Language"
+
+    body = await resp.text()
+    assert 'lang="de"' in body
+    assert "anmelden" in body
+
+
+@pytest.mark.asyncio
+async def test_error_page_translated(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """Error pages should render in German when the browser prefers it."""
+    await setup(hass)
+
+    client = await hass_client()
+    resp = await client.get(
+        "/auth/oidc/welcome?redirect_uri=%25%25%25",
+        headers={"Accept-Language": "de-DE,de;q=0.9,en;q=0.8"},
+        allow_redirects=False,
+    )
+    assert resp.status == 400
+
+    body = await resp.text()
+    assert 'lang="de"' in body
+    assert "Ungültige redirect_uri, bitte starte die Anmeldung neu." in body
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "redirect_uri",
     [

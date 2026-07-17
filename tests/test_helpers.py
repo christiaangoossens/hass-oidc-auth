@@ -119,17 +119,22 @@ async def test_html_response_and_template_helpers():
 
 @pytest.mark.asyncio
 async def test_error_response():
-    """Error response helper should render the shared error template with status."""
+    """Error response helper should render the shared error template with status
+    and translate the given error key."""
     with patch(
         "custom_components.auth_oidc.tools.helpers.get_view",
         new=AsyncMock(return_value="<p>error</p>"),
     ) as mocked_get_view:
-        rendered = await error_response("boom", status=500)
+        rendered = await error_response("misconfigured", status=500)
 
     assert rendered.status == 500
     assert rendered.text == "<p>error</p>"
     mocked_get_view.assert_awaited_once_with(
-        "error", {"error": "boom", "help_url": REPO_ROOT_URL}
+        "error",
+        {
+            "error": "Integration is misconfigured, discovery could not be obtained.",
+            "help_url": REPO_ROOT_URL,
+        },
     )
 
 

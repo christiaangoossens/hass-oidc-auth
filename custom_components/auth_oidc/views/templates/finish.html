@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Logged in! - Home Assistant{% endblock %}
+{% block title %}{{ t('finish.title') }}{% endblock %}
 {% block head %}
 {{ super() }}
 {% endblock %}
 {% block content %}
 <div>
-    <h1 class="mb-4 text-center text-3xl font-normal">Logged in!</h1>
+    <h1 class="mb-4 text-center text-3xl font-normal">{{ t('finish.heading') }}</h1>
     <div class="mb-4 rounded-lg border border-divider bg-background p-6 text-left">
-        <h2 class="mb-2 text-lg font-medium text-foreground">Continue on this device</h2>
-        <p class="mb-4 text-sm text-muted">Tap Continue to login to Home Assistant on this device.</p>
+        <h2 class="mb-2 text-lg font-medium text-foreground">{{ t('finish.continue_heading') }}</h2>
+        <p class="mb-4 text-sm text-muted">{{ t('finish.continue_text') }}</p>
         <form method="post">
             <button
                 id="continue-on-this-device"
@@ -18,21 +18,20 @@
                     focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus
                     hover:cursor-pointer"
             >
-                Continue on this device
+                {{ t('finish.continue_button') }}
             </button>
         </form>
     </div>
 
     <div class="rounded-lg border border-divider bg-background p-6 text-left">
-        <h2 class="mb-2 text-lg font-medium text-foreground">Use a code from another device</h2>
-        <p class="mb-2 text-sm text-muted">On your other device, open the Home Assistant app. You will see a
-                6-digit code.</p>
-            <p class="mb-4 text-sm text-muted">Input that code here and click Approve to login on the other device.
+        <h2 class="mb-2 text-lg font-medium text-foreground">{{ t('finish.device_code_heading') }}</h2>
+        <p class="mb-2 text-sm text-muted">{{ t('finish.device_code_text') }}</p>
+            <p class="mb-4 text-sm text-muted">{{ t('finish.device_code_input_text') }}
             </p>
             <form method="post">
                 <div>
-                    <input 
-                        type="tel" 
+                    <input
+                        type="tel"
                         id="device-code-input"
                         name="device_code"
                         required
@@ -46,14 +45,14 @@
                         hover:bg-input-hover focus:border-primary focus:outline-none"
                         >
                 </div>
-                <button 
+                <button
                     id="approve-login-button"
                     type="submit"
                     class="inline-flex items-center justify-center w-full h-10 px-4 bg-card text-primary
                         font-medium leading-none rounded-full border border-primary transition-colors duration-150 ease-out hover:bg-input
                         focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus hover:cursor-pointer"
                     >
-                    Approve login on the other device
+                    {{ t('finish.approve_button') }}
                 </button>
             </form>
     </div>
