@@ -16,6 +16,7 @@ from custom_components.auth_oidc.config.const import (
     DISPLAY_NAME,
     FEATURES,
     FEATURES_AUTOMATIC_USER_LINKING,
+    FEATURES_REQUIRE_EXISTING_USER,
     FEATURES_AUTOMATIC_PERSON_CREATION,
     FEATURES_INCLUDE_GROUPS_SCOPE,
     CLAIMS,
@@ -133,7 +134,10 @@ async def test_full_config_flow_success(hass: HomeAssistant):
         assert result["errors"] == {}
 
         # Fill in the user linking config
-        user_input_step_user_linking = {"enable_user_linking": False}
+        user_input_step_user_linking = {
+            "enable_user_linking": False,
+            "require_existing_user": True,
+        }
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], user_input_step_user_linking
         )
@@ -150,6 +154,7 @@ async def test_full_config_flow_success(hass: HomeAssistant):
             DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["name"],
             FEATURES: {
                 FEATURES_AUTOMATIC_USER_LINKING: False,
+                FEATURES_REQUIRE_EXISTING_USER: True,
                 FEATURES_AUTOMATIC_PERSON_CREATION: True,
                 FEATURES_INCLUDE_GROUPS_SCOPE: True,
             },
@@ -229,6 +234,7 @@ async def test_options_flow_success(hass: HomeAssistant):
     expected_keys = {
         "admin_group",
         "enable_user_linking",
+        "require_existing_user",
         "enable_groups",
         "user_group",
     }
@@ -236,6 +242,7 @@ async def test_options_flow_success(hass: HomeAssistant):
 
     # Change the client_id and client_secret
     new_enable_linking = True
+    new_require_existing_user = True
     new_enable_groups = True
     new_admin_group = "bazzbbb"
     new_user_group = "foobar"
@@ -244,6 +251,7 @@ async def test_options_flow_success(hass: HomeAssistant):
         result["flow_id"],
         {
             "enable_user_linking": new_enable_linking,
+            "require_existing_user": new_require_existing_user,
             "enable_groups": new_enable_groups,
             "admin_group": new_admin_group,
             "user_group": new_user_group,
@@ -263,6 +271,10 @@ async def test_options_flow_success(hass: HomeAssistant):
 
     assert (
         entries[0].data[FEATURES][FEATURES_AUTOMATIC_USER_LINKING] == new_enable_linking
+    )
+    assert (
+        entries[0].data[FEATURES][FEATURES_REQUIRE_EXISTING_USER]
+        == new_require_existing_user
     )
     assert entries[0].data[FEATURES][FEATURES_INCLUDE_GROUPS_SCOPE] == new_enable_groups
     assert entries[0].data[ROLES][ROLE_ADMINS] == new_admin_group

@@ -101,18 +101,35 @@ auth_oidc:
      force_https: true
 ```
 
-### Disabling registration for new users
-This integration does not allow disabling registration for new users, as there is no way to abort registration that late in the process while providing a good user experience.
-You can however set both roles to groups that only contain certain users or to a non-existent group.
+### Preventing creation of new Home Assistant users
+To prevent the integration from provisioning a new Home Assistant user for a
+previously unseen OIDC identity, enable `features.require_existing_user`:
 
 ```yaml
 auth_oidc:
-  roles:
-     user: "non_existent"
-     admin: "admins"
+  features:
+    require_existing_user: true
 ```
 
-Note that if you put both on non-existent groups, no users will be able to login.
+An OIDC identity that already has a credential linked to a Home Assistant user
+continues to work. For a first-time OIDC identity, behavior depends on
+`features.automatic_user_linking`:
+
+- When automatic linking is enabled, the configured OIDC username claim must
+  exactly match the username credential of an existing Home Assistant user. The
+  new OIDC credential is linked to that user; otherwise login is denied.
+- When automatic linking is disabled, every first-time OIDC identity is denied,
+  even when its username matches a local account. This preserves the security
+  meaning of disabling username-based account linking. Already-linked OIDC
+  identities are unaffected.
+
+This option defaults to `false`, so existing installations retain the current
+user-provisioning behavior unless it is explicitly enabled.
+
+> [!CAUTION]
+> Combining this option with automatic user linking has the same account-linking
+> and MFA-bypass risks described in the next section. A username match is not
+> proof that two independently managed identities belong to the same person.
 
 ### Migrating from HA username/password users to OIDC users
 If you already have users created within Home Assistant and would like to re-use the current user profile for your OIDC login, you can (temporarily) enable `features.automatic_user_linking`, with the following config (example):
@@ -170,7 +187,8 @@ Here's a table of all options that you can set:
 | `id_token_signing_alg`       | `string` | No       | `RS256`              | The signing algorithm that is used for your id_tokens.
 | `groups_scope`  | `string` | No       | `groups`           | Override the default groups scope with another scope of your choice. |
 | `additional_scopes`|`list of strings`| No        | `empty list`    | Add additional scopes to request for custom identity provider configurations in addition to the automatic `openid` and `profile` scopes and the `groups_scope` configuration option |
-| `features.automatic_user_linking`   | `boolean`| No       | `false`          | Automatically links users to existing Home Assistant users based on the OIDC username claim. Disabled by default for security. When disabled, OIDC users will get their own new user profile upon first login.     |
+| `features.automatic_user_linking`   | `boolean`| No       | `false`          | Automatically links users to existing Home Assistant users based on the OIDC username claim. Disabled by default for security. When disabled, OIDC users will get their own new user profile upon first login unless `require_existing_user` is enabled.     |
+| `features.require_existing_user`   | `boolean`| No       | `false`          | Prevents creation of new Home Assistant users. Existing OIDC credentials continue to work. First-time OIDC identities must be linked by `automatic_user_linking`, or login is denied.     |
 | `features.automatic_person_creation` | `boolean` | No       | `true`          | Automatically creates a person entry for new user profiles created by this integration. Recommended if you would like to assign presence detection to OIDC users.                                            |
 | `features.disable_rfc7636`  | `boolean`| No       | `false`         | Disables PKCE (RFC 7636) for OIDC providers that don't support it. You should not need this with most providers.                                    |
 | `features.include_groups_scope`  | `boolean` | No       | `true`           | Include the 'groups' scope in the OIDC request. Set to `false` to exclude it. |

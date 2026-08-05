@@ -24,6 +24,7 @@ from custom_components.auth_oidc.config.const import (
     FEATURES,
     FEATURES_AUTOMATIC_PERSON_CREATION,
     FEATURES_AUTOMATIC_USER_LINKING,
+    FEATURES_REQUIRE_EXISTING_USER,
 )
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
 
@@ -41,6 +42,15 @@ async def setup(hass: HomeAssistant, config: dict, expect_success: bool) -> bool
     if expect_success:
         assert result
         assert DOMAIN in hass.data
+
+
+async def get_auth_store_ids(hass: HomeAssistant) -> tuple[set[str], set[str]]:
+    """Return all user and credential IDs currently stored by Home Assistant."""
+    users = await hass.auth.async_get_users()
+    return (
+        {user.id for user in users},
+        {credential.id for user in users for credential in user.credentials},
+    )
 
 
 @pytest.mark.asyncio
@@ -376,6 +386,187 @@ async def test_login_with_linking(hass: HomeAssistant, hass_client):
         # Use the stored state to login directly with the registered auth provider
         user2 = await login_user(hass, state_id)
         assert user2.id == user.id  # Assert that the user was linked
+
+
+@pytest.mark.parametrize("automatic_user_linking", [False, True])
+@pytest.mark.asyncio
+async def test_require_existing_user_denies_new_oidc_identity(
+    hass: HomeAssistant, hass_client, automatic_user_linking: bool
+):
+    """New OIDC identities are denied without provisioning a HA user."""
+    await setup(
+        hass,
+        {
+            **DEFAULT_CONFIG,
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: False,
+                FEATURES_AUTOMATIC_USER_LINKING: automatic_user_linking,
+                FEATURES_REQUIRE_EXISTING_USER: True,
+            },
+        },
+        True,
+    )
+
+    with mock_oidc_responses("username"):
+        state_id = await get_login_state(hass, hass_client)
+        provider = hass.auth.get_auth_providers(DOMAIN)[0]
+        sub = await provider.async_get_subject(state_id, "127.0.0.1")
+        assert sub == MockOIDCServer.get_final_subject()
+
+        users_before, credentials_before = await get_auth_store_ids(hass)
+
+        with pytest.raises(
+            InvalidAuthError,
+            match="not linked to an existing Home Assistant user",
+        ):
+            await provider.async_get_or_create_credentials({"sub": sub})
+
+        assert await get_auth_store_ids(hass) == (users_before, credentials_before)
+
+
+@pytest.mark.asyncio
+async def test_require_existing_user_aborts_login_flow_cleanly(
+    hass: HomeAssistant, hass_client
+):
+    """The browser login flow returns an auth failure instead of raising."""
+    await setup(
+        hass,
+        {
+            **DEFAULT_CONFIG,
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: False,
+                FEATURES_AUTOMATIC_USER_LINKING: False,
+                FEATURES_REQUIRE_EXISTING_USER: True,
+            },
+        },
+        True,
+    )
+
+    with mock_oidc_responses("username"):
+        state_id = await get_login_state(hass, hass_client)
+        provider = hass.auth.get_auth_providers(DOMAIN)[0]
+        flow = await provider.async_login_flow({})
+        users_before, credentials_before = await get_auth_store_ids(hass)
+
+        fake_request = SimpleNamespace(
+            cookies={"auth_oidc_state": state_id}, remote="127.0.0.1"
+        )
+        with patch(
+            "custom_components.auth_oidc.provider.http.current_request"
+        ) as current_request:
+            current_request.get.return_value = fake_request
+            result = await flow.async_step_init({})
+
+        assert result["type"] == FlowResultType.ABORT
+        assert result["reason"] == "invalid_auth"
+        assert await get_auth_store_ids(hass) == (users_before, credentials_before)
+
+
+@pytest.mark.asyncio
+async def test_require_existing_user_does_not_link_when_linking_is_disabled(
+    hass: HomeAssistant, hass_client
+):
+    """A matching local username is still denied when linking is disabled."""
+    await setup(
+        hass,
+        {
+            **DEFAULT_CONFIG,
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: False,
+                FEATURES_AUTOMATIC_USER_LINKING: False,
+                FEATURES_REQUIRE_EXISTING_USER: True,
+            },
+        },
+        True,
+    )
+
+    with mock_oidc_responses("username"):
+        user = await hass.auth.async_create_user("Foo Bar")
+        hass_provider = hass.auth.get_auth_providers("homeassistant")[0]
+        local_credential = await hass_provider.async_get_or_create_credentials(
+            {"username": "foobar"}
+        )
+        await hass.auth.async_link_user(user, local_credential)
+        users_before, credentials_before = await get_auth_store_ids(hass)
+
+        state_id = await get_login_state(hass, hass_client)
+        provider = hass.auth.get_auth_providers(DOMAIN)[0]
+        sub = await provider.async_get_subject(state_id, "127.0.0.1")
+        assert sub == MockOIDCServer.get_final_subject()
+
+        with pytest.raises(InvalidAuthError):
+            await provider.async_get_or_create_credentials({"sub": sub})
+
+        assert await get_auth_store_ids(hass) == (users_before, credentials_before)
+
+
+@pytest.mark.asyncio
+async def test_require_existing_user_allows_automatic_linking(
+    hass: HomeAssistant, hass_client
+):
+    """A matching local user is linked instead of provisioning a new user."""
+    await setup(
+        hass,
+        {
+            **DEFAULT_CONFIG,
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: False,
+                FEATURES_AUTOMATIC_USER_LINKING: True,
+                FEATURES_REQUIRE_EXISTING_USER: True,
+            },
+        },
+        True,
+    )
+
+    with mock_oidc_responses("username"):
+        user = await hass.auth.async_create_user("Foo Bar")
+        hass_provider = hass.auth.get_auth_providers("homeassistant")[0]
+        credential = await hass_provider.async_get_or_create_credentials(
+            {"username": "foobar"}
+        )
+        await hass.auth.async_link_user(user, credential)
+        users_before = {
+            existing.id for existing in await hass.auth.async_get_users()
+        }
+
+        state_id = await get_login_state(hass, hass_client)
+        linked_user = await login_user(hass, state_id)
+
+        assert linked_user.id == user.id
+        assert {
+            existing.id for existing in await hass.auth.async_get_users()
+        } == users_before
+
+
+@pytest.mark.asyncio
+async def test_require_existing_user_allows_existing_oidc_credential(
+    hass: HomeAssistant, hass_client
+):
+    """Already-linked OIDC credentials work when automatic linking is disabled."""
+    await setup(
+        hass,
+        {
+            **DEFAULT_CONFIG,
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: False,
+                FEATURES_AUTOMATIC_USER_LINKING: False,
+                FEATURES_REQUIRE_EXISTING_USER: False,
+            },
+        },
+        True,
+    )
+
+    with mock_oidc_responses():
+        first_state = await get_login_state(hass, hass_client)
+        user = await login_user(hass, first_state)
+
+        provider = hass.auth.get_auth_providers(DOMAIN)[0]
+        provider.require_existing_user = True
+
+        second_state = await get_login_state(hass, hass_client)
+        existing_user = await login_user(hass, second_state)
+
+        assert existing_user.id == user.id
 
 
 @pytest.mark.asyncio

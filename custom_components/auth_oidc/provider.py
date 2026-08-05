@@ -29,6 +29,7 @@ from homeassistant.components import http, person
 from .config.const import (
     FEATURES,
     FEATURES_AUTOMATIC_USER_LINKING,
+    FEATURES_REQUIRE_EXISTING_USER,
     FEATURES_AUTOMATIC_PERSON_CREATION,
     DEFAULT_TITLE,
 )
@@ -46,6 +47,10 @@ COOKIE_NAME = "auth_oidc_state"
 
 class InvalidAuthError(HAInvalidAuthError):
     """Raised when submitting invalid authentication."""
+
+
+class ExistingUserRequiredError(InvalidAuthError):
+    """Raised when a new OIDC identity is not allowed to provision a user."""
 
 
 @AUTH_PROVIDERS.register("oidc")
@@ -88,6 +93,13 @@ class OpenIDAuthProvider(AuthProvider):
         # False by default to always make new accounts for OIDC users
         # Turn this on to migrate from HA accounts to OIDC
         self.user_linking = features.get(FEATURES_AUTOMATIC_USER_LINKING, False)
+
+        # Prevent provisioning new Home Assistant users?
+        # Existing OIDC credentials continue to work. A first-time OIDC identity
+        # can only proceed when automatic user linking finds an existing user.
+        self.require_existing_user = features.get(
+            FEATURES_REQUIRE_EXISTING_USER, False
+        )
 
         # Create person entries automatically?
         # True by default to create a person for each new user (just like normal HA)
@@ -364,26 +376,42 @@ class OpenIDAuthProvider(AuthProvider):
             if credential.data.get("sub") == sub:
                 return credential
 
-        # If no credential was found, create a new one
-        # Username cannot be supplied here as it won't be shown by Home Assistant regardless
+        # Resolve a Home Assistant user only when automatic linking is enabled.
+        # Keeping this lookup behind the existing feature flag avoids silently
+        # weakening the security semantics of automatic_user_linking=False.
+        user = None
+        if self.user_linking:
+            user = await self._async_find_user_by_username(meta["username"])
+
+        # A new, unlinked credential causes Home Assistant to create a user. Reject
+        # before creating the credential when provisioning has been disabled.
+        if self.require_existing_user and user is None:
+            _LOGGER.warning(
+                "Denied first OIDC sign in for subject '%s': creating new Home "
+                "Assistant users is disabled and no existing user could be linked.",
+                sub,
+            )
+            raise ExistingUserRequiredError(
+                "OIDC user is not linked to an existing Home Assistant user"
+            )
+
+        # If no credential was found, create a new one. Username cannot be supplied
+        # here as it won't be shown by Home Assistant regardless.
         # Source: homeassistant/components/config/auth.py, line 162
         credential = self.async_create_credentials({"sub": sub})
 
-        # If we have user linking enabled, try to link the user here
-        if self.user_linking:
-            user = await self._async_find_user_by_username(meta["username"])
-            if user is not None:
-                _LOGGER.info(
-                    "User already exists, adding credential for "
-                    + "OIDC to existing user with username '%s'.",
-                    meta["username"],
-                )
+        if user is not None:
+            _LOGGER.info(
+                "User already exists, adding credential for "
+                + "OIDC to existing user with username '%s'.",
+                meta["username"],
+            )
 
-                # Link the credential to the existing user
-                # Will set the credential isNew = false
-                await self.store.async_link_user(user, credential)
+            # Link the credential to the existing user. This sets is_new to False,
+            # preventing Home Assistant from provisioning another user.
+            await self.store.async_link_user(user, credential)
 
-        # If the credential is new, HA will automatically create a new user for us
+        # If the credential is still new, HA will automatically create a new user.
         return credential
 
     async def async_user_meta_for_credentials(
@@ -412,11 +440,21 @@ class OpenIdLoginFlow(LoginFlow):
     async def _finalize_user(self, state_id: str) -> AuthFlowResult:
         sub = await self._auth_provider.async_get_subject(state_id)
         if sub:
-            return await self.async_finish(
-                {
-                    "sub": sub,
-                }
+            # Preserve Home Assistant's normal auth flow unless strict
+            # provisioning policy must be enforced before async_finish().
+            if not self._auth_provider.require_existing_user:
+                return await self.async_finish(
+                    {
+                        "sub": sub,
+                    }
+                )
+
+            # Resolve credentials inside the flow only in strict mode so a
+            # policy rejection can be converted into a normal auth-flow abort.
+            credentials = await self._auth_provider.async_get_or_create_credentials(
+                {"sub": sub}
             )
+            return await self.async_finish(credentials)
 
         raise InvalidAuthError
 
@@ -433,6 +471,10 @@ class OpenIdLoginFlow(LoginFlow):
             if state_cookie:
                 try:
                     return await self._finalize_user(state_cookie)
+                except ExistingUserRequiredError:
+                    # Keep the browser response generic to avoid disclosing whether
+                    # a particular Home Assistant username exists.
+                    return self.async_abort(reason="invalid_auth")
                 except InvalidAuthError:
                     return self.async_abort(reason="oidc_cookie_invalid")
 
