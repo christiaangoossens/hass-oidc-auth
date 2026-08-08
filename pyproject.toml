@@ -32,7 +32,7 @@ build-backend = "hatchling.build"
 [tool.uv]
 managed = true
 override-dependencies = [
-    "cryptography>=48.0.1,<48.1",
+    "cryptography>=50.0",
 ]
 
 [tool.hatch.metadata]
