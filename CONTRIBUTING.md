@@ -29,17 +29,6 @@ Some useful scripts are in the `scripts` directory. If you run Linux (or WSL und
 
 You can also run these commands manually on Windows:
 
-##### Translating the login pages
-
-The server-rendered login pages (welcome, finish, error, etc.) are translated through JSON catalogs in `custom_components/auth_oidc/views/translations/`. The language is selected automatically from the browser's `Accept-Language` header, falling back to English.
-
-To add a new language:
-
-1. Copy `en.json` to `<language code>.json` (lowercase, e.g. `fr.json`) in the same directory.
-2. Translate the values. Keep the keys and any `{placeholders}` unchanged.
-
-The test suite verifies that all catalogs contain the same keys and placeholders as `en.json`.
-
 ##### Compiling css
 
 To compile tailwind css styles for the pages you need the NodeJS and NPM installed.
@@ -58,6 +47,17 @@ uv run pylint custom_components
 uv run ruff check --fix
 uv run ruff format
 ```
+
+#### Translating the login pages
+
+The server-rendered login pages (welcome, finish, error, etc.) are translated through JSON catalogs in `custom_components/auth_oidc/views/translations/`. The language is selected automatically from the browser's `Accept-Language` header, falling back to English.
+
+To add a new language:
+
+1. Copy `en.json` to `<language code>.json` (lowercase, e.g. `fr.json`) in the same directory.
+2. Translate the values. Keep the keys and any `{placeholders}` unchanged.
+
+Strings missing from a catalog fall back to English at runtime, so existing translations do not block new features or strings. The test suite only verifies that catalogs contain no unknown keys and that `{placeholders}` match `en.json`.
 
 ### Docker Compose Development Environment
 You can also use the following Docker Compose configuration to automatically start up the latest HA release with the `auth_oidc` integration:

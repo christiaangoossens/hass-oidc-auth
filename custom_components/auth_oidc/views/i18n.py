@@ -26,7 +26,7 @@ catalogs: Dict[str, dict] = {}
 async def fetch_catalogs(directory: str | None = None) -> None:
     """Fetches all JSON translation catalogs from the translations directory."""
     directory = directory or TRANSLATIONS_DIR
-    catalogs.clear()
+    loaded: Dict[str, dict] = {}
 
     files = await async_scandir(directory)
 
@@ -41,9 +41,14 @@ async def fetch_catalogs(directory: str | None = None) -> None:
                 _LOGGER.debug("Fetching translation catalog %s from disk", filename)
                 async with async_open(catalog_path, mode="r", encoding="utf-8") as f:
                     content = await f.read()
-                    catalogs[filename[: -len(".json")].lower()] = json.loads(content)
+                    loaded[filename[: -len(".json")].lower()] = json.loads(content)
             except (OSError, IOError, ValueError) as e:  # pragma: no cover
                 _LOGGER.warning("Error reading translation catalog %s: %s", filename, e)
+
+    # Swap without an await in between so concurrent requests never observe
+    # a cleared or partially loaded catalogs dict
+    catalogs.clear()
+    catalogs.update(loaded)
 
 
 def _parse_accept_language(header: str) -> list[str]:
