@@ -63,8 +63,9 @@ def test_resolve_locale():
 
 
 @pytest.mark.asyncio
-async def test_catalogs_are_complete():
-    """All catalogs should contain the same keys and placeholders as English."""
+async def test_catalogs_are_consistent():
+    """Catalogs may omit keys (those fall back to English at runtime), but must
+    not contain unknown keys or placeholders that differ from English."""
     await fetch_catalogs()
 
     assert DEFAULT_LOCALE in catalogs
@@ -73,8 +74,9 @@ async def test_catalogs_are_complete():
 
     for locale, catalog in catalogs.items():
         flat = _flatten(catalog)
-        assert set(flat) == set(reference), (
-            f"Catalog '{locale}' keys differ from '{DEFAULT_LOCALE}'"
+        unknown = set(flat) - set(reference)
+        assert not unknown, (
+            f"Catalog '{locale}' contains keys unknown to '{DEFAULT_LOCALE}': {unknown}"
         )
 
         for key, value in flat.items():
