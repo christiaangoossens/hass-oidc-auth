@@ -5,7 +5,7 @@
   "welcome": {
     "title": "OIDC-Anmeldung - Home Assistant",
     "device_instructions": "Bitte melde dich auf einem anderen Gerät bei Home Assistant an und gib diesen Code ein, wenn du danach gefragt wirst:",
-    "device_wait_hint": "Die Anmeldung wird automatisch fortgesetzt, sobald du die Anmeldung auf deinem anderen Gerät abgeschlossen hast. Bitte lasse die App geöffnet.",
+    "device_wait_hint": "Sobald du die Anmeldung auf deinem anderem Gerät abgeschlossen hast, wird Anmeldung wird automatisch fortgesetzt. Bitte die App geöffnet lassen.",
     "login_with": "Mit {name} anmelden",
     "or_login_with": "Oder anmelden mit",
     "default_login": "Standard-Anmeldung (Benutzername & Passwort)"
@@ -38,13 +38,13 @@
     "try_again": "Erneut versuchen",
     "messages": {
       "missing_state_cookie": "Sitzungs-Cookie fehlt, bitte starte die Anmeldung neu.",
-      "missing_code_or_state": "Code- oder State-Parameter fehlt.",
-      "state_mismatch": "Der State-Parameter stimmt nicht überein, möglicher CSRF-Angriff.",
-      "user_details_failed": "Benutzerdetails konnten nicht abgerufen werden, weitere Informationen findest du im Home-Assistant-Protokoll.",
-      "user_not_in_group": "Der Benutzer ist nicht in der richtigen Gruppe, um auf Home Assistant zuzugreifen. Kontaktiere deinen Administrator!",
-      "save_user_info_failed": "Benutzerinformationen konnten nicht gespeichert werden, die Sitzung ist vermutlich abgelaufen. Bitte melde dich erneut an.",
-      "invalid_state": "Ungültiger State, bitte starte die Anmeldung neu.",
-      "device_link_failed": "Der Code konnte nicht mit der Anmeldung verknüpft werden, bitte starte die Anmeldung neu.",
+      "missing_code_or_state": "Code- oder Status-Parameter fehlt.",
+      "state_mismatch": "Der Status-Parameter stimmt nicht überein, möglicher CSRF-Angriff.",
+      "user_details_failed": "Benutzerdetails konnten nicht abgerufen werden, weitere Informationen findest du im Home Assistant Protokoll.",
+      "user_not_in_group": "Der Benutzer ist nicht in der richtigen Gruppe, um auf Home Assistant zuzugreifen. Bitte kontaktiere deinen Administrator!",
+      "save_user_info_failed": "Benutzerinformationen konnten nicht gespeichert werden, vermutlich ist die Sitzung abgelaufen. Bitte melde dich erneut an.",
+      "invalid_state": "Ungültiger Status, bitte starte die Anmeldung neu.",
+      "device_link_failed": "Der Status konnte nicht mit dem Geräte-Code verknüpft werden, bitte starte die Anmeldung neu.",
       "invalid_redirect_uri": "Ungültige redirect_uri, bitte starte die Anmeldung neu.",
       "device_code_failed": "Gerätecode konnte nicht erstellt werden, bitte starte die Anmeldung neu.",
       "misconfigured": "Die Integration ist falsch konfiguriert, die Discovery-Konfiguration konnte nicht abgerufen werden."
