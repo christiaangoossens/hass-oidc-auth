@@ -5,7 +5,7 @@
   "welcome": {
     "title": "OIDC-Anmeldung - Home Assistant",
     "device_instructions": "Bitte melde dich auf einem anderen Gerät bei Home Assistant an und gib diesen Code ein, wenn du danach gefragt wirst:",
-    "device_wait_hint": "Sobald du die Anmeldung auf deinem anderem Gerät abgeschlossen hast, wird Anmeldung wird automatisch fortgesetzt. Bitte die App geöffnet lassen.",
+    "device_wait_hint": "Sobald du die Anmeldung auf deinem anderen Gerät abgeschlossen hast, wird die Anmeldung automatisch fortgesetzt. Bitte die App geöffnet lassen.",
     "login_with": "Mit {name} anmelden",
     "or_login_with": "Oder anmelden mit",
     "default_login": "Standard-Anmeldung (Benutzername & Passwort)"
