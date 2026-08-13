@@ -59,3 +59,4 @@ class OIDCPending(OIDCState):
 class OIDCDeviceApproving(OIDCRedirectState):
     flow_type: Literal["device_approving"] = "device_approving"
     device_code: str | None = None
+    current_device_code_attempt: int | None = 0
