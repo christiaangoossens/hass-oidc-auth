@@ -1,6 +1,6 @@
 [project]
 name = "hass-oidc-auth"
-version = "1.1.1"
+version = "1.2.0"
 description = "OIDC component for Home Assistant"
 authors = [
     { name = "Christiaan Goossens", email = "contact@christiaangoossens.nl" }
