@@ -27,11 +27,20 @@ from custom_components.auth_oidc.config.const import (
 )
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
 
-FAKE_REDIR_URL = "http://example.com/auth/authorize?response_type=code&redirect_uri=http%3A%2F%2Fexample.com%3A8123%2F%3Fauth_callback%3D1&client_id=http%3A%2F%2Fexample.com%3A8123%2F&state=example"
 DEFAULT_CONFIG = {
     CLIENT_ID: "dummy",
     DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
 }
+
+
+def make_fake_redirect_url(client) -> str:
+    """Build a same-origin redirect URI for the current HA test client."""
+    origin = str(client.make_url("/")).rstrip("/")
+    return (
+        f"{origin}/auth/authorize?response_type=code"
+        f"&redirect_uri={origin}%2F%3Fauth_callback%3D1"
+        f"&client_id={origin}%2F&state=example"
+    )
 
 
 async def setup(hass: HomeAssistant, config: dict, expect_success: bool) -> bool:
@@ -237,7 +246,8 @@ async def test_welcome_redirects_when_only_trusted_networks_and_not_in_trusted_n
     await setup(hass, DEFAULT_CONFIG, True)
 
     client = await hass_client()
-    encoded_redirect_uri = base64.b64encode(FAKE_REDIR_URL.encode("utf-8")).decode(
+    redirect_uri = make_fake_redirect_url(client)
+    encoded_redirect_uri = base64.b64encode(redirect_uri.encode("utf-8")).decode(
         "utf-8"
     )
 
@@ -273,7 +283,7 @@ async def get_login_state(hass: HomeAssistant, hass_client):
     """Helper to complete the browser login flow and return the OIDC state id."""
     client = await hass_client()
 
-    redirect_uri = FAKE_REDIR_URL
+    redirect_uri = make_fake_redirect_url(client)
     encoded_redirect_uri = base64.b64encode(redirect_uri.encode("utf-8")).decode(
         "utf-8"
     )

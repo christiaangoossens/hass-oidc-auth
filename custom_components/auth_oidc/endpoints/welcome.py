@@ -2,6 +2,7 @@
 
 import base64
 import binascii
+import logging
 from urllib.parse import urlparse, parse_qs, unquote, urlencode
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
@@ -11,6 +12,7 @@ from ..tools.types import OIDCWelcomeOptions
 
 PATH = "/auth/oidc/welcome"
 
+_LOGGER = logging.getLogger(__name__)
 
 class OIDCWelcomeView(HomeAssistantView):
     """OIDC Plugin Welcome View."""
@@ -36,6 +38,19 @@ class OIDCWelcomeView(HomeAssistantView):
         ).decode("utf-8")
 
         oauth2_url = urlparse(decoded_redirect_uri)
+
+        base = urlparse(get_url("/", self.force_https))
+        if oauth2_url.scheme != base.scheme or \
+            oauth2_url.netloc.lower() != base.netloc.lower():
+            _LOGGER.warning("Rejected redirect_uri based on mismatch same-origin " +
+                            "same-scheme: is your proxy misconfigured?")
+            raise ValueError("redirect_uri is not a same-origin same-scheme URL")
+
+        if oauth2_url.path != '/auth/authorize':
+            _LOGGER.warning("Rejected redirect_uri based on invalid OAuth2 url, " +
+                            "did HA change its implementation?")
+            raise ValueError("redirect_uri is not an HA OAuth2 URL")
+
         oauth2_query = parse_qs(oauth2_url.query)
         client_id = oauth2_query.get("client_id")[0]
         original_redirect_uri = oauth2_query.get("redirect_uri")[0]
