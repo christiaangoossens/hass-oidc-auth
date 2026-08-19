@@ -46,7 +46,7 @@ async def assert_normal_login_screen(resp) -> None:
     assert INJECTION_SCRIPT_MARKER in await resp.text()
 
 
-def create_redirect_uri(client_id: str) -> str:
+def create_redirect_uri(client_id: str, origin: str = "http://example.com") -> str:
     """Build a redirect URI that includes a client_id query parameter."""
     params = {
         "response_type": "code",
@@ -55,7 +55,7 @@ def create_redirect_uri(client_id: str) -> str:
         "state": "example",
     }
 
-    return f"http://example.com/auth/authorize?{urlencode(params)}"
+    return f"{origin}/auth/authorize?{urlencode(params)}"
 
 
 def encode_redirect_uri(redirect_uri: str) -> str:
@@ -184,6 +184,38 @@ async def test_welcome_rejects_redirect_uris_missing_required_query_params(
     assert resp.status == 400
     assert "Invalid redirect_uri, please restart login." in await resp.text()
 
+@pytest.mark.asyncio
+async def test_welcome_rejects_evil_redirect_uri(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """Welcome should reject well-formed but evil values."""
+    await setup(hass)
+
+    client = await hass_client()
+    resp = await client.get(
+        "/auth/oidc/welcome?redirect_uri=amF2YXNjcmlwdDphbGVydChkb2N1bWVudC5kb21haW4p",
+        allow_redirects=False,
+    )
+    assert resp.status == 400
+    assert "Invalid redirect_uri, please restart login." in await resp.text()
+
+
+@pytest.mark.asyncio
+async def test_welcome_rejects_weird_origin_redirect_uri(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """Welcome should reject well-formed but bad-origin values."""
+    await setup(hass)
+
+    client = await hass_client()
+    redirect_uri = create_redirect_uri("random_client_id", "https://evil.com")
+    encoded = encode_redirect_uri(redirect_uri)
+    resp = await client.get(
+        "/auth/oidc/welcome?redirect_uri=" + encoded,
+        allow_redirects=False,
+    )
+    assert resp.status == 400
+    assert "Invalid redirect_uri, please restart login." in await resp.text()
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
