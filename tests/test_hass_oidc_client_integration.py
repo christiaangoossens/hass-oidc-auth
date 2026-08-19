@@ -37,16 +37,21 @@ def encode_redirect_uri(redirect_uri: str) -> str:
     return base64.b64encode(redirect_uri.encode("utf-8")).decode("utf-8")
 
 
-def create_redirect_uri(client_id: str) -> str:
-    """Create a redirect URI for Home Assistant Android app."""
+def get_test_origin(client) -> str:
+    """Return the actual origin of the current HA test client."""
+    return str(client.make_url("/")).rstrip("/")
+
+
+def create_redirect_uri(client_id: str, origin: str | None = None) -> str:
+    """Create a redirect URI for the current HA test client origin."""
     params = {
         "response_type": "code",
         "redirect_uri": client_id,
         "client_id": client_id,
         "state": "example",
     }
-
-    return f"http://example.com/auth/authorize?{urlencode(params)}"
+    origin = origin or "http://example.com"
+    return f"{origin.rstrip('/')}/auth/authorize?{urlencode(params)}"
 
 
 async def get_welcome_for_client(client, redirect_uri: str) -> tuple[str, str, int]:
@@ -196,7 +201,7 @@ async def test_full_oidc_flow(hass: HomeAssistant, hass_client):
 
     with mock_oidc_responses():
         client = await hass_client()
-        redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(client))
 
         # Go to welcome and get state cookie
         state, _, status = await get_welcome_for_client(client, redirect_uri)
@@ -260,7 +265,7 @@ async def test_login_flow_init_completes_with_state_cookie(
 
     with mock_oidc_responses():
         client = await hass_client()
-        redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(client))
 
         state, _, status = await get_welcome_for_client(client, redirect_uri)
         assert status == 200
@@ -298,7 +303,7 @@ async def discovery_test_through_redirect(
     """Test that discovery document retrieval fails gracefully through redirect endpoint."""
     with mock_oidc_responses(scenario):
         client = await hass_client()
-        redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(client))
 
         await client.get(
             f"/auth/oidc/welcome?redirect_uri={encode_redirect_uri(redirect_uri)}",
@@ -507,7 +512,9 @@ async def test_device_login_flow_two_browsers(hass: HomeAssistant, hass_client):
         # ==================== DEVICE 1: Mobile ====================
         # Mobile client starts the login flow
         mobile_client = await hass_client()
-        mobile_redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID)
+        mobile_redirect_uri = create_redirect_uri(
+            MOBILE_CLIENT_ID, get_test_origin(mobile_client)
+        )
 
         mobile_state, mobile_html, status = await get_welcome_for_client(
             mobile_client, mobile_redirect_uri
@@ -532,7 +539,7 @@ async def test_device_login_flow_two_browsers(hass: HomeAssistant, hass_client):
         # ==================== DEVICE 2: Desktop ====================
         # Desktop client in a separate session
         desktop_client = await hass_client()
-        desktop_redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+        desktop_redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(desktop_client))
 
         desktop_state, _, status = await get_welcome_for_client(
             desktop_client, desktop_redirect_uri
@@ -594,7 +601,7 @@ async def test_finish_rejects_device_code_when_state_not_ready(
     with mock_oidc_responses():
         # Device session that owns the device code.
         mobile_client = await hass_client()
-        mobile_redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID)
+        mobile_redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID, get_test_origin(mobile_client))
         _, mobile_html, status = await get_welcome_for_client(
             mobile_client, mobile_redirect_uri
         )
@@ -609,7 +616,7 @@ async def test_finish_rejects_device_code_when_state_not_ready(
 
         # Separate browser starts but does not complete callback flow.
         desktop_client = await hass_client()
-        desktop_redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+        desktop_redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(desktop_client))
         _, _, desktop_status = await get_welcome_for_client(
             desktop_client, desktop_redirect_uri
         )
@@ -641,7 +648,7 @@ async def test_callback_shows_error_if_userinfo_save_fails(
         ),
     ):
         client = await hass_client()
-        redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(client))
         state, _, status = await get_welcome_for_client(client, redirect_uri)
         assert status == 200
 
@@ -680,7 +687,7 @@ async def test_callback_rejects_nonce_mismatch(hass: HomeAssistant, hass_client)
         ),
     ):
         client = await hass_client()
-        redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(client))
 
         state, _, status = await get_welcome_for_client(client, redirect_uri)
         assert status == 200
@@ -706,7 +713,7 @@ async def test_callback_replay_is_rejected(hass: HomeAssistant, hass_client):
 
     with mock_oidc_responses():
         client = await hass_client()
-        redirect_uri = create_redirect_uri(WEB_CLIENT_ID)
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(client))
 
         state, _, status = await get_welcome_for_client(client, redirect_uri)
         assert status == 200

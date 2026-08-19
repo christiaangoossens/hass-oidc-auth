@@ -46,7 +46,7 @@ async def assert_normal_login_screen(resp) -> None:
     assert INJECTION_SCRIPT_MARKER in await resp.text()
 
 
-def create_redirect_uri(client_id: str, origin: str = "http://example.com") -> str:
+def create_redirect_uri(client_id: str, origin: str) -> str:
     """Build a redirect URI that includes a client_id query parameter."""
     params = {
         "response_type": "code",
@@ -55,7 +55,12 @@ def create_redirect_uri(client_id: str, origin: str = "http://example.com") -> s
         "state": "example",
     }
 
-    return f"{origin}/auth/authorize?{urlencode(params)}"
+    return f"{origin.rstrip('/')}/auth/authorize?{urlencode(params)}"
+
+
+def get_test_origin(client) -> str:
+    """Return the actual HTTP origin for the current test client session."""
+    return str(client.make_url("/")).rstrip("/")
 
 
 def encode_redirect_uri(redirect_uri: str) -> str:
@@ -259,7 +264,7 @@ async def test_welcome_only_adds_store_token_for_web_clients(
             # emulate the normal website/Lovelace/dashboard
             client_id = str(client.make_url("/?test=true"))
 
-        redirect_uri = create_redirect_uri(client_id)
+        redirect_uri = create_redirect_uri(client_id, get_test_origin(client))
         encoded = encode_redirect_uri(redirect_uri)
         resp = await client.get(
             f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -290,7 +295,7 @@ async def test_welcome_sets_secure_state_cookie_flags(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"))
+    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
     encoded = encode_redirect_uri(redirect_uri)
 
     resp = await client.get(
@@ -320,7 +325,7 @@ async def test_welcome_mobile_device_code_generation_failure(
         new=AsyncMock(return_value=None),
     ):
         client = await hass_client()
-        redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID)
+        redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID, get_test_origin(client))
         encoded = encode_redirect_uri(redirect_uri)
 
         resp = await client.get(
@@ -341,7 +346,7 @@ async def test_welcome_shows_alternative_sign_in_link_when_other_providers_exist
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"))
+    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
     encoded = encode_redirect_uri(redirect_uri)
     resp = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -367,7 +372,7 @@ async def test_welcome_desktop_auto_redirects_without_other_providers(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"))
+    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
     encoded = encode_redirect_uri(redirect_uri)
     resp = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -398,7 +403,7 @@ async def test_redirect_shows_error_on_oidc_runtime_error(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"))
+    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -426,7 +431,7 @@ async def test_redirect_shows_error_when_auth_url_empty(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"))
+    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -467,7 +472,7 @@ async def test_callback_rejects_missing_state(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"))
+    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
     encoded = encode_redirect_uri(redirect_uri)
     await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -490,7 +495,7 @@ async def test_callback_rejects_missing_code(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"))
+    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -514,7 +519,7 @@ async def test_callback_rejects_state_mismatch(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"))
+    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -538,7 +543,7 @@ async def test_callback_rejects_when_user_details_fetch_fails(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"))
+    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -569,7 +574,7 @@ async def test_callback_rejects_invalid_role(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"))
+    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -629,7 +634,7 @@ async def test_finish_post_rejects_invalid_state(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"))
+    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -671,7 +676,7 @@ async def test_device_sse_emits_expired_for_unknown_state(
         new=AsyncMock(return_value=None),
     ):
         client = await hass_client()
-        redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID)
+        redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID, get_test_origin(client))
         encoded = encode_redirect_uri(redirect_uri)
         resp_welcome = await client.get(
             f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -693,7 +698,7 @@ async def test_device_sse_emits_timeout(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID)
+    redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID, get_test_origin(client))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -732,7 +737,7 @@ async def test_device_sse_handles_runtime_error_and_returns_cleanly(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID)
+    redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID, get_test_origin(client))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -762,7 +767,7 @@ async def test_device_sse_ignores_write_eof_connection_reset(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID)
+    redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID, get_test_origin(client))
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -868,7 +873,9 @@ async def test_injected_auth_page_redirects_to_welcome_when_not_skipped(
     await setup(hass)
 
     client = await hass_client()
-    encoded_redirect_uri = quote(create_redirect_uri(client.make_url("/")), safe="")
+    encoded_redirect_uri = quote(
+        create_redirect_uri(client.make_url("/"), get_test_origin(client)), safe=""
+    )
 
     resp = await client.get(
         f"/auth/authorize?redirect_uri={encoded_redirect_uri}",
@@ -932,7 +939,9 @@ async def test_injected_auth_page_trusted_networks_bypass_skips_oidc_redirect(
     await setup(hass)
 
     client = await hass_client()
-    encoded_redirect_uri = quote(create_redirect_uri(client.make_url("/")), safe="")
+    encoded_redirect_uri = quote(
+        create_redirect_uri(client.make_url("/"), get_test_origin(client)), safe=""
+    )
 
     resp = await client.get(
         f"/auth/authorize?redirect_uri={encoded_redirect_uri}",
@@ -969,7 +978,9 @@ async def test_injected_auth_page_ignores_trusted_networks_when_not_first(
     await setup(hass)
 
     client = await hass_client()
-    encoded_redirect_uri = quote(create_redirect_uri(client.make_url("/")), safe="")
+    encoded_redirect_uri = quote(
+        create_redirect_uri(client.make_url("/"), get_test_origin(client)), safe=""
+    )
 
     resp = await client.get(
         f"/auth/authorize?redirect_uri={encoded_redirect_uri}",
