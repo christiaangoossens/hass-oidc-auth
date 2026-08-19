@@ -222,6 +222,30 @@ async def test_welcome_rejects_weird_origin_redirect_uri(
     assert resp.status == 400
     assert "Invalid redirect_uri, please restart login." in await resp.text()
 
+
+@pytest.mark.asyncio
+async def test_welcome_rejects_non_ha_oauth2_path_redirect_uri(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """Welcome should reject redirect URIs that have the right origin but the wrong HA path."""
+    await setup(hass)
+
+    client = await hass_client()
+    origin = get_test_origin(client)
+    redirect_uri = (
+        f"{origin}/auth/not-ha-authorize?response_type=code"
+        f"&redirect_uri={origin}%2F%3Fauth_callback%3D1"
+        f"&client_id={origin}%2F&state=example"
+    )
+    encoded = encode_redirect_uri(redirect_uri)
+    resp = await client.get(
+        "/auth/oidc/welcome?redirect_uri=" + encoded,
+        allow_redirects=False,
+    )
+    assert resp.status == 400
+    assert "Invalid redirect_uri, please restart login." in await resp.text()
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("client_id", "should_store_token", "is_mobile"),
@@ -839,6 +863,47 @@ async def test_frontend_injection_logs_and_returns_when_route_handler_is_unexpec
         )
 
     assert "Unexpected route handler type" in caplog.text
+    assert (
+        "Failed to find GET route for /auth/authorize, cannot inject OIDC frontend code"
+        in caplog.text
+    )
+
+
+@pytest.mark.asyncio
+async def test_frontend_injection_logs_when_route_handler_lacks_args(
+    hass: HomeAssistant, caplog
+):
+    """frontend_injection should log and stop when handler is callable but lacks StaticPathConfig args."""
+
+    await async_setup_component(hass, HTTP_DOMAIN, {})
+
+    def fake_handler(*args, **kwargs):
+        return None
+
+    class FakeRoute:
+        method = "GET"
+        handler = staticmethod(fake_handler)
+
+    class FakeResource:
+        canonical = "/auth/authorize"
+
+        def __init__(self):
+            self.prefix = None
+
+        def add_prefix(self, prefix):
+            self.prefix = prefix
+
+        def __iter__(self):
+            return iter([FakeRoute()])
+
+    provider = MagicMock()
+
+    with patch.object(hass.http.app.router, "resources", return_value=[FakeResource()]):
+        await frontend_injection(
+            hass, provider, force_https=False, has_trusted_networks_provider_first=False
+        )
+
+    assert "Route handler for /auth/authorize should have been called with arguments" in caplog.text
     assert (
         "Failed to find GET route for /auth/authorize, cannot inject OIDC frontend code"
         in caplog.text
