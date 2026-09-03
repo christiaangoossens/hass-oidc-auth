@@ -57,6 +57,7 @@ CONF_ENABLE_GROUPS = "enable_groups"
 CONF_ADMIN_GROUP = "admin_group"
 CONF_USER_GROUP = "user_group"
 CONF_ENABLE_USER_LINKING = "enable_user_linking"
+CONF_REQUIRE_EXISTING_USER = "require_existing_user"
 
 # Cache settings
 DISCOVERY_CACHE_TTL = 300  # 5 minutes
@@ -87,6 +88,7 @@ class FeatureConfig:
     admin_group: str = DEFAULT_ADMIN_GROUP
     user_group: str | None = None
     enable_user_linking: bool = False
+    require_existing_user: bool = False
 
 
 class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -546,10 +548,16 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._feature_config.enable_user_linking = user_input.get(
                 CONF_ENABLE_USER_LINKING, False
             )
+            self._feature_config.require_existing_user = user_input.get(
+                CONF_REQUIRE_EXISTING_USER, False
+            )
             return await self.async_step_finalize()
 
         data_schema = vol.Schema(
-            {vol.Optional(CONF_ENABLE_USER_LINKING, default=False): bool}
+            {
+                vol.Optional(CONF_ENABLE_USER_LINKING, default=False): bool,
+                vol.Optional(CONF_REQUIRE_EXISTING_USER, default=False): bool,
+            }
         )
 
         return self.async_show_form(
@@ -583,6 +591,7 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Configure features
         features = {
             "automatic_user_linking": self._feature_config.enable_user_linking,
+            "require_existing_user": self._feature_config.require_existing_user,
             "automatic_person_creation": True,
             "include_groups_scope": self._feature_config.enable_groups,
         }
@@ -732,6 +741,9 @@ class OIDCOptionsFlowHandler(config_entries.OptionsFlow):
             # Process the updated configuration
             updated_features = {
                 "automatic_user_linking": user_input.get("enable_user_linking", False),
+                "require_existing_user": user_input.get(
+                    "require_existing_user", False
+                ),
                 "include_groups_scope": user_input.get("enable_groups", False),
             }
 
@@ -774,7 +786,11 @@ class OIDCOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(
                 "enable_user_linking",
                 default=current_features.get("automatic_user_linking", False),
-            ): bool
+            ): bool,
+            vol.Optional(
+                "require_existing_user",
+                default=current_features.get("require_existing_user", False),
+            ): bool,
         }
 
         # Add groups options if provider supports them

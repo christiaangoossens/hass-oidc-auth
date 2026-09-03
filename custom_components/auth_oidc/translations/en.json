@@ -43,7 +43,8 @@
         "title": "User Linking Options",
         "description": "Configure how OIDC users are linked to existing Home Assistant users.\n\n**⚠️ Important Security Information:**\n\n**User Linking Disabled (Recommended):** New OIDC accounts are created for each user. This is the most secure option.\n\n**User Linking Enabled:** OIDC users can be linked to existing Home Assistant users by username. **This has security implications:**\n- If someone can guess or obtain a Home Assistant username, they might gain access to that account\n- Only enable this if you're migrating from local Home Assistant accounts to OIDC\n- You can disable this later if needed",
         "data": {
-          "enable_user_linking": "Enable automatic user linking (⚠️ Security Risk)"
+          "enable_user_linking": "Enable automatic user linking (⚠️ Security Risk)",
+          "require_existing_user": "Prevent creation of new Home Assistant users"
         }
       },
       "finalize": {
@@ -84,6 +85,7 @@
         "description": "Update configuration options for your {provider_name} OIDC authentication.\n\n**User Linking:** Control how OIDC users are linked to existing Home Assistant accounts (⚠️ security implications).\n\n**Groups Configuration:** Configure role assignment based on group membership from your identity provider.\n\n**Note:** Changes take effect immediately but may require users to log out and back in.",
         "data": {
           "enable_user_linking": "Enable automatic user linking (⚠️ Security Risk)",
+          "require_existing_user": "Prevent creation of new Home Assistant users",
           "enable_groups": "Enable group-based role assignment",
           "admin_group": "Admin group name",
           "user_group": "User group name (optional - leave empty to allow all authenticated users)"
