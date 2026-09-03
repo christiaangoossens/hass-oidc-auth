@@ -1,7 +1,6 @@
 """State Store, store authentication states (redirect_uri)."""
 
 import secrets
-import random
 import string
 
 from datetime import datetime, timedelta, timezone
@@ -44,7 +43,7 @@ class StateStore:
 
     def _generate_code(self) -> str:
         """Generate a random six-digit code."""
-        return "".join(random.choices(string.digits, k=6))
+        return "".join(secrets.choice(string.digits) for _ in range(6))
 
     def _is_expired(self, state: OIDCState) -> bool:
         """Check if a state is expired."""
@@ -149,18 +148,27 @@ class StateStore:
             if attempts >= MAX_DEVICE_CODE_ATTEMPTS:
                 return False
 
-            # Find the state with the matching device code and link it
-            for state in self._data.values():
-                if state["device_code"] == code and not self._is_expired(state):
-                    # Set user details on the device state to allow it to complete login
-                    state["user_details"] = state_data["user_details"]
+            matching_states = [
+                state
+                for state in self._data.values()
+                if state["device_code"] == code and not self._is_expired(state)
+            ]
 
-                    # Delete the 'donor' state as it's one time use
-                    self._data.pop(state_id)
+            if len(matching_states) > 1:
+                raise ValueError("Multiple states match the provided device code")
 
-                    # Save and return true
-                    await self._async_save()
-                    return True
+            if matching_states:
+                state = matching_states[0]
+
+                # Set user details on the device state to allow it to complete login
+                state["user_details"] = state_data["user_details"]
+
+                # Delete the 'donor' state as it's one time use
+                self._data.pop(state_id)
+
+                # Save and return true
+                await self._async_save()
+                return True
 
             state_data["device_code_attempts"] = attempts + 1
             await self._async_save()
