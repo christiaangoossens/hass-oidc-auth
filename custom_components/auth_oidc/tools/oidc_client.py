@@ -340,7 +340,7 @@ class OIDCClient:
         # HA never seems to run this, but it's good practice to close the session
         if self.http_session:
             _LOGGER.debug("Closing HTTP session")
-            self.http_session.close()
+            self.http_session.close() # TODO: check with maintainer if this should be awaited
 
     def _base64url_encode(self, value: str) -> str:
         """Uses base64url encoding on a given string"""

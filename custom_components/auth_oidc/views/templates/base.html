@@ -5,6 +5,7 @@
     {% block head %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="is_companion_app" content="{{ (is_mobile or False) | lower }}">
     <link rel="icon" href="/static/icons/favicon.ico" />
     <title>{% block title %}{% endblock %}</title>
     <link rel="preload" as="font" type="font/woff2" crossorigin="anonymous"
