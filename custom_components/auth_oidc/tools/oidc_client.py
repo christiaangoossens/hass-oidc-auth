@@ -18,6 +18,7 @@ from ..config.const import (
     CLAIMS_DISPLAY_NAME,
     CLAIMS_USERNAME,
     CLAIMS_GROUPS,
+    CLAIMS_PICTURE,
     ROLE_ADMINS,
     ROLE_USERS,
     NETWORK_TLS_VERIFY,
@@ -329,6 +330,7 @@ class OIDCClient:
         self.display_name_claim = claims.get(CLAIMS_DISPLAY_NAME, "name")
         self.username_claim = claims.get(CLAIMS_USERNAME, "preferred_username")
         self.groups_claim = claims.get(CLAIMS_GROUPS, "groups")
+        self.picture_claim = claims.get(CLAIMS_PICTURE, "picture")
         self.user_role = roles.get(ROLE_USERS, None)
         self.admin_role = roles.get(ROLE_ADMINS, "admins")
         self.tls_verify = network.get(NETWORK_TLS_VERIFY, True)
@@ -604,6 +606,7 @@ class OIDCClient:
                 self.groups_claim,
                 self.display_name_claim,
                 self.username_claim,
+                self.picture_claim,
             ):
                 if claim not in id_token and claim in userinfo:
                     id_token[claim] = userinfo[claim]
@@ -635,6 +638,8 @@ class OIDCClient:
             "display_name": id_token.get(self.display_name_claim),
             # Username, configurable
             "username": id_token.get(self.username_claim),
+            # Profile picture URL, configurable
+            "picture": id_token.get(self.picture_claim),
             # Role
             "role": role,
         }

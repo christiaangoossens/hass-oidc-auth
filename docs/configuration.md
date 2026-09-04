@@ -60,6 +60,7 @@ auth_oidc:
     display_name: <display name claim from your provider>
     username: <username claim from your provider>
     groups: <groups claim from your provider>
+    picture: <profile picture claim from your provider>
   roles:
     admin: <group name to use for admins>
     user: <group name to use for users>
@@ -172,6 +173,7 @@ Here's a table of all options that you can set:
 | `additional_scopes`|`list of strings`| No        | `empty list`    | Add additional scopes to request for custom identity provider configurations in addition to the automatic `openid` and `profile` scopes and the `groups_scope` configuration option |
 | `features.automatic_user_linking`   | `boolean`| No       | `false`          | Automatically links users to existing Home Assistant users based on the OIDC username claim. Disabled by default for security. When disabled, OIDC users will get their own new user profile upon first login.     |
 | `features.automatic_person_creation` | `boolean` | No       | `true`          | Automatically creates a person entry for new user profiles created by this integration. Recommended if you would like to assign presence detection to OIDC users.                                            |
+| `features.update_picture_on_login` | `boolean` | No       | `false`          | Updates the profile picture of the user on every login. When false, the picture is only set upon person creation.
 | `features.disable_rfc7636`  | `boolean`| No       | `false`         | Disables PKCE (RFC 7636) for OIDC providers that don't support it. You should not need this with most providers.                                    |
 | `features.include_groups_scope`  | `boolean` | No       | `true`           | Include the 'groups' scope in the OIDC request. Set to `false` to exclude it. |
 | `features.force_https`  | `boolean` | No       | `false`           | Set to `true` to force all URLs generated to use `https` instead of automatically determining based on the request scheme or `X-Forwarded-Proto`. |
@@ -179,6 +181,7 @@ Here's a table of all options that you can set:
 | `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
 | `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.
 | `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |
+| `claims.picture`           | `string` | No       | `picture`                     | The claim to use to obtain the user's profile picture URL, when person creation or `features.update_picture_on_login` is enabled. Must be valid `http(s)` URL. |
 | `roles.admin`            | `string` | No       | `admins`                     | Group name to require for users to get the 'admin' role in Home Assistant. Defaults to 'admins', the default group name for admins in Authentik. Doesn't do anything if no groups claim is found in your token. |
 | `roles.user`            | `string` | No       |                     | Group name to require for users to get the 'user' role in Home Assistant. Defaults to giving all users this role, unless configured. |
 | `network.tls_verify`         | `boolean` | No       | `true`                     | Verify TLS certificate. You may want to set this to `false` when testing locally. |
