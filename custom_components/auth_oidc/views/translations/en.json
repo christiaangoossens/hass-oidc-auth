@@ -1,0 +1,53 @@
+{
+  "base": {
+    "help": "Help"
+  },
+  "welcome": {
+    "title": "OIDC Login - Home Assistant",
+    "device_instructions": "Please login to Home Assistant on another device and enter this code when asked:",
+    "device_wait_hint": "The login will continue automatically when you complete the login on your other device. Please keep the app open.",
+    "login_with": "Login with {name}",
+    "or_login_with": "Or log in with",
+    "default_login": "Default login (username & password)"
+  },
+  "finish": {
+    "title": "Logged in! - Home Assistant",
+    "heading": "Logged in!",
+    "continue_heading": "Continue on this device",
+    "continue_text": "Tap Continue to login to Home Assistant on this device.",
+    "continue_button": "Continue on this device",
+    "device_code_heading": "Use a code from another device",
+    "device_code_text": "On your other device, open the Home Assistant app. You will see a 6-digit code.",
+    "device_code_input_text": "Input that code here and click Approve to login on the other device.",
+    "approve_button": "Approve login on the other device"
+  },
+  "device_success": {
+    "title": "Done! - Home Assistant",
+    "heading": "Success!",
+    "message": "You have successfully logged in on your mobile device. It should continue the login soon.",
+    "logged_out": "You have been logged out on this device.",
+    "restart_button": "Restart"
+  },
+  "redirect": {
+    "title": "OIDC Redirect - Home Assistant",
+    "redirecting": "Redirecting..."
+  },
+  "error": {
+    "title": "Oops! - Home Assistant",
+    "heading": "Login failed.",
+    "try_again": "Try again",
+    "messages": {
+      "missing_state_cookie": "Missing state cookie, please restart login.",
+      "missing_code_or_state": "Missing code or state parameter.",
+      "state_mismatch": "State parameter does not match, possible CSRF attack.",
+      "user_details_failed": "Failed to get user details, see Home Assistant logs for more information.",
+      "user_not_in_group": "User is not in the correct group to access Home Assistant, contact your administrator!",
+      "save_user_info_failed": "Failed to save user information, session probably expired. Please sign in again.",
+      "invalid_state": "Invalid state, please restart login.",
+      "device_link_failed": "Failed to link state to device code, please restart login.",
+      "invalid_redirect_uri": "Invalid redirect_uri, please restart login.",
+      "device_code_failed": "Failed to generate device code, please restart login.",
+      "misconfigured": "Integration is misconfigured, discovery could not be obtained."
+    }
+  }
+}

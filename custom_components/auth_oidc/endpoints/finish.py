@@ -31,7 +31,7 @@ class OIDCFinishView(HomeAssistantView):
         # Get cookie to get the state_id
         state_id = await get_valid_state_id(request, self.oidc_provider)
         if not state_id:
-            return await error_response("Missing state cookie, please restart login.")
+            return await error_response("missing_state_cookie")
 
         return await template_response("finish", {})
 
@@ -41,7 +41,7 @@ class OIDCFinishView(HomeAssistantView):
         # Get cookie to get the state_id
         state_id = await get_valid_state_id(request, self.oidc_provider)
         if not state_id:
-            return await error_response("Missing state cookie, please restart login.")
+            return await error_response("missing_state_cookie")
 
         # Get redirect_uri from the state
         redirect_uri = await self.oidc_provider.async_get_redirect_uri_for_state(
@@ -49,7 +49,7 @@ class OIDCFinishView(HomeAssistantView):
         )
 
         if not redirect_uri:
-            return await error_response("Invalid state, please restart login.")
+            return await error_response("invalid_state")
 
         # Get the message body
         data = await request.post()
@@ -67,8 +67,6 @@ class OIDCFinishView(HomeAssistantView):
         )
 
         if not linked:
-            return await error_response(
-                "Failed to link state to device code, please restart login."
-            )
+            return await error_response("device_link_failed")
 
         return await template_response("device_success", {})

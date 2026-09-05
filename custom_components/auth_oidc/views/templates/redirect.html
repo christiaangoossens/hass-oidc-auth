@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}OIDC Redirect - Home Assistant{% endblock %}
+{% block title %}{{ t('redirect.title') }}{% endblock %}
 {% block head %}
 {{ super() }}
 {% endblock %}
@@ -10,7 +10,7 @@
         <circle class="stroke-primary" cx="24" cy="24" r="20" stroke-width="4" stroke-linecap="round"
             stroke-dasharray="31.4 94.3" />
     </svg>
-    <span class="sr-only">Redirecting...</span>
+    <span class="sr-only">{{ t('redirect.redirecting') }}</span>
 </div>
 <script>
     // Redirect after loading the page to show the redirect visual

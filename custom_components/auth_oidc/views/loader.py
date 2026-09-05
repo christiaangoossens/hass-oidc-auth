@@ -7,6 +7,8 @@ from jinja2 import Environment, DictLoader
 from aiofiles.os import scandir as async_scandir
 from aiofiles import open as async_open
 
+from .i18n import async_get_translator
+
 _LOGGER = logging.getLogger(__name__)
 
 templates: Dict[str, str] = {}
@@ -43,8 +45,15 @@ class AsyncTemplateRenderer:
                 except (OSError, IOError) as e:  # pragma: no cover
                     _LOGGER.warning("Error reading template file %s: %s", filename, e)
 
-    async def render_template(self, template_name: str, **kwargs: Any) -> str:
-        """Renders a template with the given parameters."""
+    async def render_template(
+        self, template_name: str, accept_language: str | None = None, **kwargs: Any
+    ) -> str:
+        """Renders a template with the given parameters.
+
+        The template language is negotiated from the given Accept-Language
+        header value and exposed to the template as the 't' translation
+        function and the 'lang' variable.
+        """
 
         if not templates:
             await (
@@ -57,6 +66,9 @@ class AsyncTemplateRenderer:
         env = Environment(
             loader=DictLoader(templates), enable_async=True, autoescape=True
         )
+        translator = await async_get_translator(accept_language)
+        env.globals["t"] = translator
+        env.globals["lang"] = translator.locale
         template = env.get_template(template_name)
 
         # Render template

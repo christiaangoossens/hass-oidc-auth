@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}OIDC Login - Home Assistant{% endblock %}
+{% block title %}{{ t('welcome.title') }}{% endblock %}
 {% block head %}
 {{ super() }}
 {% endblock %}
@@ -8,12 +8,12 @@
 <div class="text-center">
     {% if code %}
         <div>
-            <p id="device-instructions">Please login to Home Assistant on another device and enter this code when asked:</p>
+            <p id="device-instructions">{{ t('welcome.device_instructions') }}</p>
             <div class="mt-4 text-3xl tracking-wide font-medium bg-input border border-divider rounded-lg py-4 px-6 inline-block" id="device-code">
                 {{ code }}
             </div>
             <div class="mt-4">
-                {% call ui.alert('info') %}The login will continue automatically when you complete the login on your other device. Please keep the app open.{% endcall %}
+                {% call ui.alert('info') %}{{ t('welcome.device_wait_hint') }}{% endcall %}
             </div>
             <!-- Temporarily not shown until https://github.com/christiaangoossens/hass-oidc-auth/issues/300 is picked up -->
             <!-- Currently sends you to a weird error when clicked before ready -->
@@ -59,7 +59,7 @@
             transition-colors duration-150 ease-out hover:bg-primary-hover
             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus
         ">
-                Login with {{ name }}
+                {{ t('welcome.login_with', name=name) }}
             </a>
     {% endif %}
 
@@ -69,7 +69,7 @@
                 <div class="w-full border-t border-divider"></div>
             </div>
             <div class="relative flex justify-center">
-                <span class="bg-card px-4 text-sm text-muted">Or log in with</span>
+                <span class="bg-card px-4 text-sm text-muted">{{ t('welcome.or_login_with') }}</span>
             </div>
         </div>
         <a id="alternative-sign-in-link" href="{{ other_link }}" class="
@@ -77,7 +77,7 @@
             border border-divider transition-colors duration-150 ease-out hover:bg-input
             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus
         ">
-            Default login (username & password)
+            {{ t('welcome.default_login') }}
         </a>
     {% endif %}
 </div>

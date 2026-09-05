@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from homeassistant.components import http
 from aiohttp import web
 
+from ..views.i18n import async_get_translator
 from ..views.loader import AsyncTemplateRenderer
 from ..config.const import REPO_ROOT_URL
 
@@ -25,13 +26,23 @@ def get_url(path: str, force_https: bool) -> str:
     return f"{base_uri}{path}"
 
 
+def get_accept_language() -> str | None:
+    """Returns the Accept-Language header of the current request, if any."""
+    if (req := http.current_request.get()) is None:
+        return None
+    return req.headers.get("Accept-Language")
+
+
 async def get_view(template: str, parameters: dict | None = None) -> str:
-    """Returns the generated HTML of the requested view."""
+    """Returns the generated HTML of the requested view,
+    translated for the current request."""
     if parameters is None:
         parameters = {}
 
     renderer = AsyncTemplateRenderer()
-    return await renderer.render_template(f"{template}.html", **parameters)
+    return await renderer.render_template(
+        f"{template}.html", accept_language=get_accept_language(), **parameters
+    )
 
 
 def get_state_id(request: web.Request) -> str | None:
@@ -70,16 +81,25 @@ async def template_response(
 ) -> web.Response:
     """Render a template and return it as an HTML response."""
     parameters["help_url"] = REPO_ROOT_URL
-    return html_response(await get_view(template, parameters))
+    return html_response(
+        await get_view(template, parameters),
+        headers={
+            "vary": "Accept-Language",
+        },
+    )
 
 
-async def error_response(message: str, status: int = 400) -> web.Response:
-    """Render the shared error view."""
+async def error_response(error_key: str, status: int = 400) -> web.Response:
+    """Render the shared error view with the translated message
+    for the given error key."""
+    translator = await async_get_translator(get_accept_language())
+    message = translator(f"error.messages.{error_key}")
     return html_response(
         await get_view("error", {"error": message, "help_url": REPO_ROOT_URL}),
         status=status,
         headers={
             "set-cookie": reset_state_cookie(),
+            "vary": "Accept-Language",
         },
     )
 
