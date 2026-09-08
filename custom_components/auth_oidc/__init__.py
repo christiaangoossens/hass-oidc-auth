@@ -6,7 +6,7 @@ from typing import OrderedDict
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.http.server import StaticPathConfig
 
 # Import and re-export config schema explictly
 # pylint: disable=useless-import-alias
@@ -31,6 +31,7 @@ from .config import (
     FEATURES_DEFAULT_REDIRECT,
     FEATURES_FORCE_HTTPS,
     REQUIRED_SCOPES,
+    STATIC_FILE_REGISTRATIONS,
 )
 
 from .config import convert_ui_config_entry_to_internal_format
@@ -186,20 +187,15 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
     force_https = features_config.get(FEATURES_FORCE_HTTPS, False)
     default_redirect = features_config.get(FEATURES_DEFAULT_REDIRECT, False)
 
-    await hass.http.async_register_static_paths(
-        [
+    # Register the static paths
+    for url_path, (file_path, cache_headers) in STATIC_FILE_REGISTRATIONS.items():
+        await hass.http.async_register_static_paths([
             StaticPathConfig(
-                "/auth/oidc/static/style.css",
-                hass.config.path("custom_components/auth_oidc/static/style.css"),
-                cache_headers=True,
-            ),
-            StaticPathConfig(
-                "/auth/oidc/static/icon.png",
-                hass.config.path("custom_components/auth_oidc/brand/icon.png"),
-                cache_headers=True,
-            ),
-        ]
-    )
+                url_path,
+                hass.config.path(file_path),
+                cache_headers,
+            )
+        ])
 
     has_only_trusted_networks = (
         auth_provider_count == 1 and has_trusted_networks_provider_first

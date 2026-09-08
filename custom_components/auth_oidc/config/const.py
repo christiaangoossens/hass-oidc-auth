@@ -90,3 +90,9 @@ OIDC_PROVIDERS: Dict[str, Dict[str, Any]] = {
         "claims": {"display_name": "name", "username": "preferred_username"},
     },
 }
+
+STATIC_FILE_REGISTRATIONS = {
+    "/static/auth_oidc/style.css": ["custom_components/auth_oidc/static/style.css", True],
+    "/static/auth_oidc/icon.png": ["custom_components/auth_oidc/brand/icon.png", True],
+    "/static/auth_oidc/injection.js": ["custom_components/auth_oidc/static/injection.js", True]
+}

@@ -29,7 +29,7 @@ from custom_components.auth_oidc.endpoints.injected_auth_page import (
 
 MOBILE_CLIENT_ID = "https://home-assistant.io/Android"
 WELCOME_PATH = "/auth/oidc/welcome"
-INJECTION_SCRIPT_MARKER = "<script src='/auth/oidc/static/injection.js"
+INJECTION_SCRIPT_MARKER = "<script src='/static/auth_oidc/injection.js"
 
 
 def assert_redirects_to_welcome(resp) -> None:
