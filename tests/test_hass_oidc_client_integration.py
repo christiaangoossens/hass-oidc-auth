@@ -1,26 +1,27 @@
 """Tests for the OIDC client"""
 
-import base64
 import asyncio
+import base64
 import re
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
-from urllib.parse import parse_qs, unquote, urlparse, urlencode
+from urllib.parse import parse_qs, unquote, urlencode, urlparse
+
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.setup import async_setup_component
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.setup import async_setup_component
 
 from custom_components.auth_oidc import DOMAIN
+from custom_components.auth_oidc.config.const import (
+    CLIENT_ID,
+    DISCOVERY_URL,
+)
 from custom_components.auth_oidc.provider import COOKIE_NAME
 from custom_components.auth_oidc.tools.oidc_client import (
     OIDCDiscoveryClient,
     OIDCDiscoveryInvalid,
-)
-from custom_components.auth_oidc.config.const import (
-    DISCOVERY_URL,
-    CLIENT_ID,
 )
 
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
@@ -169,7 +170,7 @@ async def listen_for_sse_events(
         result = await asyncio.wait_for(stream_reader(), timeout=timeout_seconds)
         if result:
             return received_events
-    except asyncio.TimeoutError as exc:
+    except TimeoutError as exc:
         raise AssertionError(
             f"Timeout after {timeout_seconds}s waiting for '{expected_event}' event"
         ) from exc
@@ -225,7 +226,7 @@ async def test_full_oidc_flow(hass: HomeAssistant, hass_client):
         assert "scope" in query_params and query_params.get("scope") == [
             "openid profile groups"
         ]
-        assert "state" in query_params and query_params["state"]
+        assert query_params.get("state")
         assert query_params["state"][0] == state
         assert len(query_params["state"][0]) >= 16  # Ensure state is sufficiently long
         assert (
@@ -233,11 +234,11 @@ async def test_full_oidc_flow(hass: HomeAssistant, hass_client):
             and query_params["redirect_uri"]
             and query_params["redirect_uri"][0].endswith("/auth/oidc/callback")
         )
-        assert "nonce" in query_params and query_params["nonce"]
+        assert query_params.get("nonce")
         assert "code_challenge_method" in query_params and query_params.get(
             "code_challenge_method"
         ) == ["S256"]
-        assert "code_challenge" in query_params and query_params["code_challenge"]
+        assert query_params.get("code_challenge")
 
         session = async_get_clientsession(hass)
         resp = session.get(authorization_url, allow_redirects=False)
@@ -245,7 +246,7 @@ async def test_full_oidc_flow(hass: HomeAssistant, hass_client):
 
         # JSON response from mock server, normally would be interactive
         json_parsed = await resp.json()
-        assert "code" in json_parsed and json_parsed["code"]
+        assert json_parsed.get("code")
 
         # Now go back to the callback with a sample code
         code = json_parsed["code"]
@@ -539,7 +540,9 @@ async def test_device_login_flow_two_browsers(hass: HomeAssistant, hass_client):
         # ==================== DEVICE 2: Desktop ====================
         # Desktop client in a separate session
         desktop_client = await hass_client()
-        desktop_redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(desktop_client))
+        desktop_redirect_uri = create_redirect_uri(
+            WEB_CLIENT_ID, get_test_origin(desktop_client)
+        )
 
         desktop_state, _, status = await get_welcome_for_client(
             desktop_client, desktop_redirect_uri
@@ -601,7 +604,9 @@ async def test_finish_rejects_device_code_when_state_not_ready(
     with mock_oidc_responses():
         # Device session that owns the device code.
         mobile_client = await hass_client()
-        mobile_redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID, get_test_origin(mobile_client))
+        mobile_redirect_uri = create_redirect_uri(
+            MOBILE_CLIENT_ID, get_test_origin(mobile_client)
+        )
         _, mobile_html, status = await get_welcome_for_client(
             mobile_client, mobile_redirect_uri
         )
@@ -616,7 +621,9 @@ async def test_finish_rejects_device_code_when_state_not_ready(
 
         # Separate browser starts but does not complete callback flow.
         desktop_client = await hass_client()
-        desktop_redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(desktop_client))
+        desktop_redirect_uri = create_redirect_uri(
+            WEB_CLIENT_ID, get_test_origin(desktop_client)
+        )
         _, _, desktop_status = await get_welcome_for_client(
             desktop_client, desktop_redirect_uri
         )

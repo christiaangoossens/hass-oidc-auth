@@ -2,12 +2,12 @@
 
 from typing import TYPE_CHECKING
 
-from homeassistant.components import http
 from aiohttp import web
+from homeassistant.components import http
 
+from ..config.const import REPO_ROOT_URL
 from ..views.i18n import async_get_translator
 from ..views.loader import AsyncTemplateRenderer
-from ..config.const import REPO_ROOT_URL
 
 if TYPE_CHECKING:
     from ..provider import OpenIDAuthProvider

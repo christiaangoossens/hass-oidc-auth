@@ -1,29 +1,30 @@
 """OIDC Client class"""
 
-import urllib.parse
-import logging
-import os
 import base64
 import hashlib
+import logging
+import os
 import ssl
-from typing import Optional
+import urllib.parse
 from functools import partial
-import aiohttp
-from joserfc import jwt, jwk, jws, errors as joserfc_errors
-from homeassistant.core import HomeAssistant
 
-from .types import UserDetails
+import aiohttp
+from homeassistant.core import HomeAssistant
+from joserfc import errors as joserfc_errors
+from joserfc import jwk, jws, jwt
+
 from ..config.const import (
-    FEATURES_DISABLE_PKCE,
     CLAIMS_DISPLAY_NAME,
-    CLAIMS_USERNAME,
     CLAIMS_GROUPS,
+    CLAIMS_USERNAME,
+    DEFAULT_ID_TOKEN_SIGNING_ALGORITHM,
+    FEATURES_DISABLE_PKCE,
+    NETWORK_TLS_CA_PATH,
+    NETWORK_TLS_VERIFY,
     ROLE_ADMINS,
     ROLE_USERS,
-    NETWORK_TLS_VERIFY,
-    NETWORK_TLS_CA_PATH,
-    DEFAULT_ID_TOKEN_SIGNING_ALGORITHM,
 )
+from .types import UserDetails
 from .validation import validate_url
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,8 +37,8 @@ class OIDCClientException(Exception):
 class OIDCDiscoveryInvalid(OIDCClientException):
     "Raised when the discovery document is not found, invalid or otherwise malformed."
 
-    type: Optional[str]
-    details: Optional[dict]
+    type: str | None
+    details: dict | None
 
     def __init__(self, **kwargs):
         self.message = "OIDC Discovery document is invalid"
@@ -147,7 +148,6 @@ class OIDCDiscoveryClient:
             _LOGGER.warning("Error fetching JWKS: %s", e)
             raise OIDCJWKSInvalid from e
 
-    # pylint: disable=too-many-branches
     async def _validate_discovery_document(self, document):
         """Validates the discovery document."""
 
@@ -182,69 +182,77 @@ class OIDCDiscoveryClient:
                 )
 
         # Verify optional response_modes_supported
-        if "response_modes_supported" in document:
-            if "query" not in document["response_modes_supported"]:
-                _LOGGER.warning(
-                    "Error: Discovery document %s does not support required 'query' "
-                    "response mode, only supports: %s",
-                    self.discovery_url,
-                    document["response_modes_supported"],
-                )
-                raise OIDCDiscoveryInvalid(
-                    type="does_not_support_response_mode",
-                    details={"modes": document["response_modes_supported"]},
-                )
+        if (
+            "response_modes_supported" in document
+            and "query" not in document["response_modes_supported"]
+        ):
+            _LOGGER.warning(
+                "Error: Discovery document %s does not support required 'query' "
+                "response mode, only supports: %s",
+                self.discovery_url,
+                document["response_modes_supported"],
+            )
+            raise OIDCDiscoveryInvalid(
+                type="does_not_support_response_mode",
+                details={"modes": document["response_modes_supported"]},
+            )
 
         # If grant_types_supported is set, should support 'authorization_code'
-        if "grant_types_supported" in document:
-            if "authorization_code" not in document["grant_types_supported"]:
-                _LOGGER.warning(
-                    "Error: Discovery document %s does not support required "
-                    "'authorization_code' grant type, only supports: %s",
-                    self.discovery_url,
-                    document["grant_types_supported"],
-                )
-                raise OIDCDiscoveryInvalid(
-                    type="does_not_support_grant_type",
-                    details={
-                        "required": "authorization_code",
-                        "supported": document["grant_types_supported"],
-                    },
-                )
+        if (
+            "grant_types_supported" in document
+            and "authorization_code" not in document["grant_types_supported"]
+        ):
+            _LOGGER.warning(
+                "Error: Discovery document %s does not support required "
+                "'authorization_code' grant type, only supports: %s",
+                self.discovery_url,
+                document["grant_types_supported"],
+            )
+            raise OIDCDiscoveryInvalid(
+                type="does_not_support_grant_type",
+                details={
+                    "required": "authorization_code",
+                    "supported": document["grant_types_supported"],
+                },
+            )
 
         # If response_types_supported is set, should support 'code'
-        if "response_types_supported" in document:
-            if "code" not in document["response_types_supported"]:
-                _LOGGER.warning(
-                    "Error: Discovery document %s does not support required "
-                    "'code' response type, only supports: %s",
-                    self.discovery_url,
-                    document["response_types_supported"],
-                )
-                raise OIDCDiscoveryInvalid(
-                    type="does_not_support_response_type",
-                    details={
-                        "required": "code",
-                        "supported": document["response_types_supported"],
-                    },
-                )
+        if (
+            "response_types_supported" in document
+            and "code" not in document["response_types_supported"]
+        ):
+            _LOGGER.warning(
+                "Error: Discovery document %s does not support required "
+                "'code' response type, only supports: %s",
+                self.discovery_url,
+                document["response_types_supported"],
+            )
+            raise OIDCDiscoveryInvalid(
+                type="does_not_support_response_type",
+                details={
+                    "required": "code",
+                    "supported": document["response_types_supported"],
+                },
+            )
 
         # If code_challenge_methods_supported is present, check that it contains S256
-        if "code_challenge_methods_supported" in document:
-            if "S256" not in document["code_challenge_methods_supported"]:
-                _LOGGER.warning(
-                    "Error: Discovery document %s does not support required "
-                    "'S256' code challenge method, only supports: %s",
-                    self.discovery_url,
-                    document["code_challenge_methods_supported"],
-                )
-                raise OIDCDiscoveryInvalid(
-                    type="does_not_support_required_code_challenge_method",
-                    details={
-                        "required": "S256",
-                        "supported": document["code_challenge_methods_supported"],
-                    },
-                )
+        if (
+            "code_challenge_methods_supported" in document
+            and "S256" not in document["code_challenge_methods_supported"]
+        ):
+            _LOGGER.warning(
+                "Error: Discovery document %s does not support required "
+                "'S256' code challenge method, only supports: %s",
+                self.discovery_url,
+                document["code_challenge_methods_supported"],
+            )
+            raise OIDCDiscoveryInvalid(
+                type="does_not_support_required_code_challenge_method",
+                details={
+                    "required": "S256",
+                    "supported": document["code_challenge_methods_supported"],
+                },
+            )
 
         # Verify the id_token_signing_alg_values_supported field is present and filled
         signing_values = document.get("id_token_signing_alg_values_supported", None)
@@ -285,8 +293,7 @@ class OIDCDiscoveryClient:
         return await self._fetch_jwks(jwks_uri)
 
 
-# pylint: disable=too-many-instance-attributes
-class OIDCClient:
+class OIDCClient:  # pylint: disable=too-many-instance-attributes
     """OIDC Client implementation for Python, including PKCE."""
 
     # HTTP session to be used
@@ -433,7 +440,7 @@ class OIDCClient:
         """Fetches JWKS."""
         return await self.discovery_class.fetch_jwks(jwks_uri)
 
-    async def _parse_id_token(self, id_token: str) -> Optional[dict]:
+    async def _parse_id_token(self, id_token: str) -> dict | None:
         """Parses the ID token into a dict containing token contents."""
         if self.discovery_document is None:
             self.discovery_document = await self._fetch_discovery_document()
@@ -476,9 +483,9 @@ class OIDCClient:
                 jwk_obj = jwk.import_key(
                     {
                         "kty": "oct",
-                        "k": base64.urlsafe_b64encode(
-                            self.client_secret.encode()
-                        ).decode().rstrip("="),
+                        "k": base64.urlsafe_b64encode(self.client_secret.encode())
+                        .decode()
+                        .rstrip("="),
                         "alg": alg,
                     }
                 )
@@ -546,7 +553,7 @@ class OIDCClient:
 
     async def async_get_authorization_url(
         self, redirect_uri: str, state: str
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generates the authorization URL for the OIDC flow."""
         try:
             discovery_document = await self._fetch_discovery_document()
@@ -629,7 +636,7 @@ class OIDCClient:
             # Only unique per issuer, so we combine it with the issuer and hash it.
             # This might allow multiple OIDC providers to be used with this integration.
             "sub": hashlib.sha256(
-                f"{discovery_document['issuer']}.{id_token.get('sub')}".encode("utf-8")
+                f"{discovery_document['issuer']}.{id_token.get('sub')}".encode()
             ).hexdigest(),
             # Display name, configurable
             "display_name": id_token.get(self.display_name_claim),
@@ -641,7 +648,7 @@ class OIDCClient:
 
     async def async_complete_token_flow(
         self, redirect_uri: str, code: str, state: str
-    ) -> Optional[UserDetails]:
+    ) -> UserDetails | None:
         """Completes the OIDC token flow to obtain a user's details."""
 
         try:

@@ -2,36 +2,36 @@
 Allow access to users based on login with an external OpenID Connect Identity Provider (IdP).
 """
 
-import logging
-
-from typing import Dict, Optional
 import asyncio
+import logging
 from ipaddress import (
-    ip_address,
     IPv4Address,
     IPv6Address,
+    ip_address,
 )
-from homeassistant.auth import EVENT_USER_ADDED, InvalidAuthError as HAInvalidAuthError
+
+from homeassistant.auth import EVENT_USER_ADDED
+from homeassistant.auth import InvalidAuthError as HAInvalidAuthError
 from homeassistant.auth.providers import (
     AUTH_PROVIDERS,
-    AuthProvider,
-    LoginFlow,
     AuthFlowResult,
-    Credentials,
-    UserMeta,
-    User,
+    AuthProvider,
     AuthStore,
+    Credentials,
+    LoginFlow,
+    User,
+    UserMeta,
 )
+from homeassistant.components import http, person
 from homeassistant.const import CONF_ID, CONF_NAME, CONF_TYPE
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.components import http, person
 
 from .config.const import (
+    DEFAULT_TITLE,
     FEATURES,
+    FEATURES_AUTOMATIC_PERSON_CREATION,
     FEATURES_AUTOMATIC_USER_LINKING,
     FEATURES_REQUIRE_EXISTING_USER,
-    FEATURES_AUTOMATIC_PERSON_CREATION,
-    DEFAULT_TITLE,
 )
 from .stores.state_store import StateStore
 from .tools.types import UserDetails
@@ -97,9 +97,7 @@ class OpenIDAuthProvider(AuthProvider):
         # Prevent provisioning new Home Assistant users?
         # Existing OIDC credentials continue to work. A first-time OIDC identity
         # can only proceed when automatic user linking finds an existing user.
-        self.require_existing_user = features.get(
-            FEATURES_REQUIRE_EXISTING_USER, False
-        )
+        self.require_existing_user = features.get(FEATURES_REQUIRE_EXISTING_USER, False)
 
         # Create person entries automatically?
         # True by default to create a person for each new user (just like normal HA)
@@ -163,8 +161,8 @@ class OpenIDAuthProvider(AuthProvider):
             )
             return False
         # Catch every other error, HA might have changed the API.
-        # pylint: disable=broad-exception-caught
-        except Exception as e:
+        # pylint: disable-next=broad-except
+        except Exception as e:  # noqa: BLE001
             _LOGGER.warning(
                 "Error while validating trusted network for IP %s: %s", ip, e
             )
@@ -180,7 +178,7 @@ class OpenIDAuthProvider(AuthProvider):
             redirect_uri, self._resolve_ip(ip)
         )
 
-    async def async_generate_device_code(self, state_id: str) -> Optional[str]:
+    async def async_generate_device_code(self, state_id: str) -> str | None:
         """Generate a device code for the state, used for device login."""
         if self._state_store is None:
             await self.async_initialize()
@@ -200,7 +198,7 @@ class OpenIDAuthProvider(AuthProvider):
 
     async def async_get_redirect_uri_for_state(
         self, state_id: str, ip: str | None = None
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get the redirect_uri for the given state."""
         if self._state_store is None:
             await self.async_initialize()
@@ -247,7 +245,7 @@ class OpenIDAuthProvider(AuthProvider):
 
     async def async_get_subject(
         self, state_id: str, ip: str | None = None
-    ) -> Optional[str]:
+    ) -> str | None:
         """Retrieve user from the state_id, return subject and save meta
         for later use with this provider instance."""
         if self._state_store is None:
@@ -265,7 +263,7 @@ class OpenIDAuthProvider(AuthProvider):
         self._user_meta[sub] = user_data
         return sub
 
-    async def _async_find_user_by_username(self, username: str) -> Optional[User]:
+    async def _async_find_user_by_username(self, username: str) -> User | None:
         """Find a user by username."""
         users = await self.store.async_get_users()
         for user in users:
@@ -341,18 +339,17 @@ class OpenIDAuthProvider(AuthProvider):
                 user_id=user.id,
             )
         # Catch all, we don't want to fail here
-        # pylint: disable=broad-exception-caught
-        except Exception:
+        # pylint: disable-next=broad-except
+        except Exception:  # noqa: BLE001
             _LOGGER.warning(
                 "Requested automatic person creation, but person creation failed"
             )
-        # pylint: enable=broad-exception-caught
 
     # ====
     # Required functions for Home Assistant Auth Providers
     # ====
 
-    async def async_login_flow(self, context: Optional[Dict]) -> LoginFlow:
+    async def async_login_flow(self, context: dict | None) -> LoginFlow:
         """Return a flow to login."""
         return OpenIdLoginFlow(self)
 

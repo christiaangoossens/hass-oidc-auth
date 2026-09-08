@@ -1,11 +1,12 @@
 """Tests for the helpers and validation tools"""
 
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-
-from aiohttp.test_utils import make_mocked_request
 from aiohttp import web
+from aiohttp.test_utils import make_mocked_request
 
+from custom_components.auth_oidc.config.const import REPO_ROOT_URL
 from custom_components.auth_oidc.tools.helpers import (
     STATE_COOKIE_NAME,
     error_response,
@@ -17,13 +18,11 @@ from custom_components.auth_oidc.tools.helpers import (
     template_response,
 )
 from custom_components.auth_oidc.tools.validation import (
-    validate_client_id,
     sanitize_client_secret,
+    validate_client_id,
     validate_discovery_url,
     validate_url,
 )
-
-from custom_components.auth_oidc.config.const import REPO_ROOT_URL
 
 
 @pytest.mark.asyncio

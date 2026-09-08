@@ -3,16 +3,16 @@
 import base64
 import logging
 from urllib.parse import quote, unquote
-from aiohttp import web
+
 from aiofiles import open as async_open
-
-from homeassistant.helpers.http import HomeAssistantView
+from aiohttp import web
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.http import HomeAssistantView
 
-from .welcome import PATH as WELCOME_PATH
 from ..provider import OpenIDAuthProvider
 from ..tools.helpers import get_url
 from ..views.loader import AsyncTemplateRenderer
+from .welcome import PATH as WELCOME_PATH
 
 PATH = "/auth/authorize"
 
@@ -89,7 +89,9 @@ async def frontend_injection(
     frontend_code = await read_file(frontend_path)
 
     # Inject JS and register that route
-    static_url = await AsyncTemplateRenderer.get_static_file_url("/static/auth_oidc/injection.js")
+    static_url = await AsyncTemplateRenderer.get_static_file_url(
+        "/static/auth_oidc/injection.js"
+    )
     injection_js = "<script src='" + static_url + "'></script>"
     frontend_code = frontend_code.replace("</body>", f"{injection_js}</body>")
 
@@ -135,7 +137,8 @@ class OIDCInjectedAuthPage(HomeAssistantView):
             await frontend_injection(
                 hass, provider, force_https, has_trusted_networks_provider_first
             )
-        except Exception as e:  # pylint: disable=broad-except
+        # pylint: disable-next=broad-except
+        except Exception as e:  # noqa: BLE001
             _LOGGER.error("Failed to inject OIDC auth page: %s", e)
 
     def _should_do_oidc_redirect(self, req: web.Request) -> bool:

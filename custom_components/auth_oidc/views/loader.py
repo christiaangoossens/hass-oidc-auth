@@ -1,27 +1,28 @@
 """Jinja2 Async Environment"""
 
 import logging
-from sys import modules
 from hashlib import md5
 from os import path
-from typing import Dict, Any
-from jinja2 import Environment, DictLoader
-from aiofiles.os import scandir as async_scandir
-from aiofiles import open as async_open
-from ..config import STATIC_FILE_REGISTRATIONS
+from sys import modules
+from typing import Any
 
+from aiofiles import open as async_open
+from aiofiles.os import scandir as async_scandir
+from jinja2 import DictLoader, Environment
+
+from ..config import STATIC_FILE_REGISTRATIONS
 from .i18n import async_get_translator
 
 _LOGGER = logging.getLogger(__name__)
 
-templates: Dict[str, str] = {}
-computed_hashes: Dict[str, str] = {}
+templates: dict[str, str] = {}
+computed_hashes: dict[str, str] = {}
 
 
 class AsyncTemplateRenderer:
     """An asynchronous template renderer that caches rendered templates."""
 
-    def __init__(self, template_dir: str = None):
+    def __init__(self, template_dir: str | None = None):
         self.template_dir = template_dir or path.join(
             path.dirname(path.abspath(__file__)), "templates"
         )
@@ -46,7 +47,7 @@ class AsyncTemplateRenderer:
                     ) as f:
                         content = await f.read()
                         templates[filename] = content
-                except (OSError, IOError) as e:  # pragma: no cover
+                except OSError as e:  # pragma: no cover
                     _LOGGER.warning("Error reading template file %s: %s", filename, e)
 
     async def render_template(
@@ -71,7 +72,7 @@ class AsyncTemplateRenderer:
             loader=DictLoader(templates), enable_async=True, autoescape=True
         )
 
-        env.filters['static_url'] = self.get_static_file_url
+        env.filters["static_url"] = self.get_static_file_url
 
         translator = await async_get_translator(accept_language)
         env.globals["t"] = translator
@@ -98,9 +99,7 @@ class AsyncTemplateRenderer:
 
         # Otherwise, compute the hash and store it
         try:
-            async with async_open(
-                file_path, mode="r", encoding="utf-8"
-            ) as f:
+            async with async_open(file_path, mode="r", encoding="utf-8") as f:
                 content = f.buffer.read()
                 file_hash = md5(content).hexdigest()[:8]
                 computed_hashes[file_path] = file_hash

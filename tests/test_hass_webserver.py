@@ -3,23 +3,22 @@
 import base64
 import os
 from collections import OrderedDict
-from urllib.parse import parse_qs, quote, unquote, urlparse, urlencode
 from unittest.mock import AsyncMock, MagicMock, patch
-from aiohttp import web
+from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse
 
+import pytest
+from aiohttp import web
 from auth_oidc.config.const import (
-    DISCOVERY_URL,
     CLIENT_ID,
+    DISCOVERY_URL,
     FEATURES,
     FEATURES_DEFAULT_REDIRECT,
 )
-
-from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
-import pytest
-
+from homeassistant.components.http import DOMAIN as HTTP_DOMAIN
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
-from homeassistant.components.http import StaticPathConfig, DOMAIN as HTTP_DOMAIN
+from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
 
 from custom_components.auth_oidc import DOMAIN
 from custom_components.auth_oidc.endpoints.injected_auth_page import (
@@ -230,6 +229,7 @@ async def test_welcome_rejects_redirect_uris_missing_required_query_params(
     assert resp.status == 400
     assert "Invalid redirect_uri, please restart login." in await resp.text()
 
+
 @pytest.mark.asyncio
 async def test_welcome_rejects_evil_redirect_uri(
     hass: HomeAssistant, hass_client: ClientSessionGenerator
@@ -430,9 +430,7 @@ async def test_welcome_desktop_auto_redirects_without_other_providers(
 ):
     """Welcome should auto-redirect desktop clients when no other providers exist."""
 
-    # pylint: disable=protected-access
     hass.auth._providers = {}  # Clear initial providers out
-    # pylint: enable=protected-access
 
     await setup(hass)
 
@@ -944,7 +942,10 @@ async def test_frontend_injection_logs_when_route_handler_lacks_args(
             hass, provider, force_https=False, has_trusted_networks_provider_first=False
         )
 
-    assert "Route handler for /auth/authorize should have been called with arguments" in caplog.text
+    assert (
+        "Route handler for /auth/authorize should have been called with arguments"
+        in caplog.text
+    )
     assert (
         "Failed to find GET route for /auth/authorize, cannot inject OIDC frontend code"
         in caplog.text
@@ -1035,11 +1036,9 @@ async def test_injected_auth_page_trusted_networks_bypass_skips_oidc_redirect(
         def async_validate_access(self, _ip_addr):
             return None
 
-    # pylint: disable=protected-access
     hass.auth._providers = OrderedDict(
         [(("trusted_networks", None), TrustedNetworksAllowProvider())]
     )
-    # pylint: enable=protected-access
 
     await setup_mock_authorize_route(hass)
     await setup(hass)
@@ -1071,14 +1070,12 @@ async def test_injected_auth_page_ignores_trusted_networks_when_not_first(
             return None
 
     # Keep trusted_networks present but not first, so bypass should not apply.
-    # pylint: disable=protected-access
     hass.auth._providers = OrderedDict(
         [
             (("homeassistant", None), DummyProvider()),
             (("trusted_networks", None), TrustedNetworksAllowProvider()),
         ]
     )
-    # pylint: enable=protected-access
 
     await setup_mock_authorize_route(hass)
     await setup(hass)
@@ -1122,9 +1119,7 @@ async def test_injected_auth_page_converts_http_to_https_in_redirect(
             "https://example.com/auth/oidc/welcome?redirect_uri=..."
         )
 
-        # pylint: disable=protected-access
         injected_page._get_welcome_redirect_location(mock_req)
-        # pylint: enable=protected-access
 
         # Verify that the URL was converted from HTTP to HTTPS before being passed to get_url
         call_args = mock_get_url.call_args

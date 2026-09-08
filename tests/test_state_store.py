@@ -1,12 +1,11 @@
 """Tests for the state store."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from homeassistant.core import HomeAssistant
-
 from auth_oidc.stores.state_store import MAX_DEVICE_CODE_ATTEMPTS, StateStore
+from homeassistant.core import HomeAssistant
 
 TEST_IP = "127.0.0.1"
 
@@ -188,7 +187,7 @@ async def test_state_store_expired_state(hass: HomeAssistant):
             "https://example.com/expired", TEST_IP
         )
         state_store.get_data()[state_id]["expiration"] = (
-            datetime.now(timezone.utc) - timedelta(minutes=10)
+            datetime.now(UTC) - timedelta(minutes=10)
         ).isoformat()
 
         assert (

@@ -1,10 +1,11 @@
 """Callback route to return the user to after external OIDC interaction."""
 
-from homeassistant.components.http import HomeAssistantView
 from aiohttp import web
-from ..tools.oidc_client import OIDCClient
+from homeassistant.components.http import HomeAssistantView
+
 from ..provider import OpenIDAuthProvider
 from ..tools.helpers import error_response, get_url, get_valid_state_id
+from ..tools.oidc_client import OIDCClient
 
 PATH = "/auth/oidc/callback"
 

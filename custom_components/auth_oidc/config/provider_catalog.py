@@ -1,12 +1,13 @@
 """Provider catalog and helpers for OIDC providers."""
 
 from __future__ import annotations
-from typing import Any, Dict
+
+from typing import Any
 
 from .const import OIDC_PROVIDERS, REPO_ROOT_URL
 
 
-def get_provider_config(key: str) -> Dict[str, Any]:
+def get_provider_config(key: str) -> dict[str, Any]:
     """Return provider configuration by key."""
     return OIDC_PROVIDERS.get(key, {})
 

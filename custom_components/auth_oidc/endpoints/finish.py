@@ -1,13 +1,14 @@
 """Finish route to allow the user to view their code."""
 
-from homeassistant.components.http import HomeAssistantView
 from aiohttp import web
+from homeassistant.components.http import HomeAssistantView
+
 from ..provider import OpenIDAuthProvider
 from ..tools.helpers import (
+    concat_url_query,
     error_response,
     get_valid_state_id,
     template_response,
-    concat_url_query,
 )
 
 PATH = "/auth/oidc/finish"

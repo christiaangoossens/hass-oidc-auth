@@ -6,43 +6,39 @@ import logging
 import time
 from dataclasses import dataclass
 from typing import Any
+
 import aiohttp
-
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
-
-from .const import (
-    DOMAIN,
-    DEFAULT_ADMIN_GROUP,
-    CLIENT_ID,
-    CLIENT_SECRET,
-    DISCOVERY_URL,
-    DISPLAY_NAME,
-    FEATURES,
-    CLAIMS,
-    ROLES,
-    DEFAULT_ID_TOKEN_SIGNING_ALGORITHM,
-)
 
 from ..tools.oidc_client import (
     OIDCDiscoveryClient,
     OIDCDiscoveryInvalid,
     OIDCJWKSInvalid,
 )
-
-from .provider_catalog import (
-    OIDC_PROVIDERS,
-    get_provider_name,
-    get_provider_docs_url,
-)
-
 from ..tools.validation import (
-    validate_discovery_url,
     sanitize_client_secret,
     validate_client_id,
+    validate_discovery_url,
+)
+from .const import (
+    CLAIMS,
+    CLIENT_ID,
+    CLIENT_SECRET,
+    DEFAULT_ADMIN_GROUP,
+    DEFAULT_ID_TOKEN_SIGNING_ALGORITHM,
+    DISCOVERY_URL,
+    DISPLAY_NAME,
+    DOMAIN,
+    FEATURES,
+    ROLES,
+)
+from .provider_catalog import (
+    OIDC_PROVIDERS,
+    get_provider_docs_url,
+    get_provider_name,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -324,7 +320,8 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["base"] = "jwks_invalid"
         except aiohttp.ClientError:
             errors["base"] = "cannot_connect"
-        except Exception:  # pylint: disable=broad-except
+        # pylint: disable-next=broad-except
+        except Exception:
             _LOGGER.exception("Unexpected error during validation")
             errors["base"] = "unknown"
 
@@ -683,7 +680,8 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     return self.async_update_reload_and_abort(
                         entry, data_updates=data_updates
                     )
-            except Exception:  # pylint: disable=broad-except
+            # pylint: disable-next=broad-except
+            except Exception:
                 _LOGGER.exception("Unexpected error during reconfiguration")
                 errors["base"] = "unknown"
 
@@ -741,9 +739,7 @@ class OIDCOptionsFlowHandler(config_entries.OptionsFlow):
             # Process the updated configuration
             updated_features = {
                 "automatic_user_linking": user_input.get("enable_user_linking", False),
-                "require_existing_user": user_input.get(
-                    "require_existing_user", False
-                ),
+                "require_existing_user": user_input.get("require_existing_user", False),
                 "include_groups_scope": user_input.get("enable_groups", False),
             }
 
@@ -759,10 +755,9 @@ class OIDCOptionsFlowHandler(config_entries.OptionsFlow):
             new_data["features"] = {**new_data.get("features", {}), **updated_features}
             if updated_roles:
                 new_data["roles"] = updated_roles
-            elif "roles" in new_data:
+            elif "roles" in new_data and not user_input.get("enable_groups", False):
                 # Remove roles if groups are disabled
-                if not user_input.get("enable_groups", False):
-                    del new_data["roles"]
+                del new_data["roles"]
 
             # Update the config entry
             self.hass.config_entries.async_update_entry(

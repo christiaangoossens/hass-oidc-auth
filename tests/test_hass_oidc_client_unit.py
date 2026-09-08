@@ -1,17 +1,16 @@
 """Unit tests for OIDC client token and security behavior."""
 
-# pylint: disable=protected-access
-
+import base64
 import hashlib
 import json
-import base64
 import time
-from urllib.parse import parse_qs, urlparse
 from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from homeassistant.core import HomeAssistant
-from joserfc import errors as joserfc_errors, jwt, jwk
+from joserfc import errors as joserfc_errors
+from joserfc import jwk, jwt
 
 from custom_components.auth_oidc.tools.oidc_client import (
     HTTPClientError,
@@ -264,7 +263,7 @@ async def test_parse_user_details_uses_userinfo_for_missing_claims(
     ):
         details = await client.parse_user_details({"sub": "subject"}, "access-token")
 
-    expected_sub = hashlib.sha256("https://issuer.subject".encode("utf-8")).hexdigest()
+    expected_sub = hashlib.sha256(b"https://issuer.subject").hexdigest()
     assert details["sub"] == expected_sub
     assert details["display_name"] == "From UserInfo"
     assert details["username"] == "userinfo-user"
@@ -400,13 +399,15 @@ async def test_parse_id_token_rejects_hs_without_client_secret(hass: HomeAssista
 
     token = make_jwt({"alg": "HS256"})
 
-    with patch.object(
-        client,
-        "_fetch_jwks",
-        new=AsyncMock(return_value={"keys": []}),
+    with (
+        patch.object(
+            client,
+            "_fetch_jwks",
+            new=AsyncMock(return_value={"keys": []}),
+        ),
+        pytest.raises(OIDCIdTokenSigningAlgorithmInvalid),
     ):
-        with pytest.raises(OIDCIdTokenSigningAlgorithmInvalid):
-            await client._parse_id_token(token)
+        await client._parse_id_token(token)
 
 
 @pytest.mark.asyncio
@@ -451,13 +452,15 @@ async def test_parse_id_token_rejects_wrong_signing_algorithm(hass: HomeAssistan
 
     token = make_jwt({"alg": "HS256"})
 
-    with patch.object(
-        client,
-        "_fetch_jwks",
-        new=AsyncMock(return_value={"keys": []}),
+    with (
+        patch.object(
+            client,
+            "_fetch_jwks",
+            new=AsyncMock(return_value={"keys": []}),
+        ),
+        pytest.raises(OIDCIdTokenSigningAlgorithmInvalid),
     ):
-        with pytest.raises(OIDCIdTokenSigningAlgorithmInvalid):
-            await client._parse_id_token(token)
+        await client._parse_id_token(token)
 
 
 @pytest.mark.asyncio
@@ -771,9 +774,11 @@ async def test_make_token_request_raises_invalid_on_non_400_http_error(
     session = MagicMock()
     session.post.return_value = context_manager
 
-    with patch.object(client, "_get_http_session", new=AsyncMock(return_value=session)):
-        with pytest.raises(OIDCTokenResponseInvalid):
-            await client._make_token_request("https://issuer/token", {"code": "abc"})
+    with (
+        patch.object(client, "_get_http_session", new=AsyncMock(return_value=session)),
+        pytest.raises(OIDCTokenResponseInvalid),
+    ):
+        await client._make_token_request("https://issuer/token", {"code": "abc"})
 
 
 @pytest.mark.asyncio
@@ -813,6 +818,8 @@ async def test_get_userinfo_raises_invalid_on_http_error(hass: HomeAssistant):
     session = MagicMock()
     session.get.return_value = context_manager
 
-    with patch.object(client, "_get_http_session", new=AsyncMock(return_value=session)):
-        with pytest.raises(OIDCUserinfoInvalid):
-            await client._get_userinfo("https://issuer/userinfo", "access")
+    with (
+        patch.object(client, "_get_http_session", new=AsyncMock(return_value=session)),
+        pytest.raises(OIDCUserinfoInvalid),
+    ):
+        await client._get_userinfo("https://issuer/userinfo", "access")

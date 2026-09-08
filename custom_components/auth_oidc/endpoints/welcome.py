@@ -3,16 +3,19 @@
 import base64
 import binascii
 import logging
-from urllib.parse import urlparse, parse_qs, unquote, urlencode
+from urllib.parse import parse_qs, unquote, urlencode, urlparse
+
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
-from ..tools.helpers import error_response, get_url, template_response, concat_url_query
+
 from ..provider import OpenIDAuthProvider
+from ..tools.helpers import concat_url_query, error_response, get_url, template_response
 from ..tools.types import OIDCWelcomeOptions
 
 PATH = "/auth/oidc/welcome"
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class OIDCWelcomeView(HomeAssistantView):
     """OIDC Plugin Welcome View."""
@@ -40,15 +43,21 @@ class OIDCWelcomeView(HomeAssistantView):
         oauth2_url = urlparse(decoded_redirect_uri)
 
         base = urlparse(get_url("/", self.force_https))
-        if oauth2_url.scheme != base.scheme or \
-            oauth2_url.netloc.lower() != base.netloc.lower():
-            _LOGGER.warning("Rejected redirect_uri based on mismatch same-origin " +
-                            "same-scheme: is your proxy misconfigured?")
+        if (
+            oauth2_url.scheme != base.scheme
+            or oauth2_url.netloc.lower() != base.netloc.lower()
+        ):
+            _LOGGER.warning(
+                "Rejected redirect_uri based on mismatch same-origin "
+                + "same-scheme: is your proxy misconfigured?"
+            )
             raise ValueError("redirect_uri is not a same-origin same-scheme URL")
 
-        if oauth2_url.path != '/auth/authorize':
-            _LOGGER.warning("Rejected redirect_uri based on invalid OAuth2 url, " +
-                            "did HA change its implementation?")
+        if oauth2_url.path != "/auth/authorize":
+            _LOGGER.warning(
+                "Rejected redirect_uri based on invalid OAuth2 url, "
+                + "did HA change its implementation?"
+            )
             raise ValueError("redirect_uri is not an HA OAuth2 URL")
 
         oauth2_query = parse_qs(oauth2_url.query)

@@ -2,17 +2,18 @@
 can either be linked to directly or accessed through the welcome page."""
 
 from urllib.parse import quote
+
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from ..provider import OpenIDAuthProvider
-from ..tools.oidc_client import OIDCClient
 from ..tools.helpers import (
     error_response,
     get_url,
     get_valid_state_id,
     template_response,
 )
+from ..tools.oidc_client import OIDCClient
 
 PATH = "/auth/oidc/redirect"
 

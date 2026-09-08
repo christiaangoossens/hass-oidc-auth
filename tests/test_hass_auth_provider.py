@@ -4,28 +4,29 @@ import base64
 import re
 from collections import OrderedDict
 from types import SimpleNamespace
-from urllib.parse import parse_qs, unquote, urlparse
 from unittest.mock import patch
-import pytest
+from urllib.parse import parse_qs, unquote, urlparse
 
+import pytest
 from homeassistant.auth import InvalidAuthError
+from homeassistant.components.person import DOMAIN as PERSON_DOMAIN
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.setup import async_setup_component
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.components.person import DOMAIN as PERSON_DOMAIN
+from homeassistant.setup import async_setup_component
 
 from custom_components.auth_oidc import DOMAIN
 from custom_components.auth_oidc.config.const import (
-    DISCOVERY_URL,
     CLIENT_ID,
     DEFAULT_TITLE,
+    DISCOVERY_URL,
     DISPLAY_NAME,
     FEATURES,
     FEATURES_AUTOMATIC_PERSON_CREATION,
     FEATURES_AUTOMATIC_USER_LINKING,
     FEATURES_REQUIRE_EXISTING_USER,
 )
+
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
 
 DEFAULT_CONFIG = {
@@ -151,14 +152,12 @@ async def test_provider_is_trusted_network_host_true_for_allowed_ip(
         def async_validate_access(self, _ip_addr):
             return None
 
-    # pylint: disable=protected-access
     hass.auth._providers = OrderedDict(
         [
             (("trusted_networks", None), TrustedNetworksAllowProvider()),
             ((provider.type, provider.id), provider),
         ]
     )
-    # pylint: enable=protected-access
 
     with patch(
         "custom_components.auth_oidc.provider.http.current_request"
@@ -184,14 +183,12 @@ async def test_provider_is_trusted_network_host_false_for_disallowed_ip(
         def async_validate_access(self, _ip_addr):
             raise InvalidAuthError("Not in trusted_networks")
 
-    # pylint: disable=protected-access
     hass.auth._providers = OrderedDict(
         [
             (("trusted_networks", None), TrustedNetworksDenyProvider()),
             ((provider.type, provider.id), provider),
         ]
     )
-    # pylint: enable=protected-access
 
     with patch(
         "custom_components.auth_oidc.provider.http.current_request"
@@ -244,13 +241,11 @@ async def test_welcome_redirects_when_only_trusted_networks_and_not_in_trusted_n
             raise InvalidAuthError("Not in trusted_networks")
 
     # Simulate that only trusted_networks is registered before OIDC provider setup
-    # pylint: disable=protected-access
     hass.auth._providers = OrderedDict(
         [
             (("trusted_networks", None), TrustedNetworksDenyProvider()),
         ]
     )
-    # pylint: enable=protected-access
 
     # Now setup the OIDC provider which should detect trusted_networks as the only other provider
     await setup(hass, DEFAULT_CONFIG, True)
@@ -321,7 +316,7 @@ async def get_login_state(hass: HomeAssistant, hass_client):
 
     # Mock OIDC returns JSON
     json_parsed = await resp.json()
-    assert "code" in json_parsed and json_parsed["code"]
+    assert json_parsed.get("code")
 
     code = json_parsed["code"]
     resp = await client.get(
@@ -535,9 +530,7 @@ async def test_require_existing_user_allows_automatic_linking(
             {"username": "foobar"}
         )
         await hass.auth.async_link_user(user, credential)
-        users_before = {
-            existing.id for existing in await hass.auth.async_get_users()
-        }
+        users_before = {existing.id for existing in await hass.auth.async_get_users()}
 
         state_id = await get_login_state(hass, hass_client)
         linked_user = await login_user(hass, state_id)

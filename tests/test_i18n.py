@@ -14,7 +14,6 @@ from custom_components.auth_oidc.views.i18n import (
     resolve_locale,
 )
 
-
 FAKE_TEMPLATE_PATH = path.join(
     path.dirname(path.abspath(__file__)), "resources", "fake_templates"
 )
