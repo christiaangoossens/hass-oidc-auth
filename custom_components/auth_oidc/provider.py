@@ -440,20 +440,13 @@ class OpenIdLoginFlow(LoginFlow):
     async def _finalize_user(self, state_id: str) -> AuthFlowResult:
         sub = await self._auth_provider.async_get_subject(state_id)
         if sub:
-            # Preserve Home Assistant's normal auth flow unless strict
-            # provisioning policy must be enforced before async_finish().
-            if not self._auth_provider.require_existing_user:
-                return await self.async_finish(
-                    {
-                        "sub": sub,
-                    }
-                )
-
-            # Resolve credentials inside the flow only in strict mode so a
-            # policy rejection can be converted into a normal auth-flow abort.
             credentials = await self._auth_provider.async_get_or_create_credentials(
                 {"sub": sub}
             )
+
+            # Giving a Credential prevents calling async_get_or_create_credentials again
+            # Some side-effects about MFA are irrelevant for us
+            # https://github.com/home-assistant/core/blob/master/homeassistant/auth/__init__.py#L143
             return await self.async_finish(credentials)
 
         raise InvalidAuthError
