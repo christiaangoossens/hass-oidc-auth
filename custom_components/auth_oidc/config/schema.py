@@ -12,6 +12,7 @@ from .const import (
     FEATURES,
     FEATURES_AUTOMATIC_USER_LINKING,
     FEATURES_AUTOMATIC_PERSON_CREATION,
+    FEATURES_UPDATE_PICTURE_ON_LOGIN,
     FEATURES_DISABLE_PKCE,
     FEATURES_INCLUDE_GROUPS_SCOPE,
     FEATURES_FORCE_HTTPS,
@@ -20,6 +21,7 @@ from .const import (
     CLAIMS_DISPLAY_NAME,
     CLAIMS_USERNAME,
     CLAIMS_GROUPS,
+    CLAIMS_PICTURE,
     ROLES,
     ROLE_ADMINS,
     ROLE_USERS,
@@ -65,6 +67,10 @@ CONFIG_SCHEMA = vol.Schema(
                         vol.Optional(FEATURES_AUTOMATIC_PERSON_CREATION): vol.Coerce(
                             bool
                         ),
+                        # Update the profile picture from the picture claim on every login
+                        vol.Optional(FEATURES_UPDATE_PICTURE_ON_LOGIN): vol.Coerce(
+                            bool
+                        ),
                         # Feature flag to disable PKCE to support OIDC servers that do not
                         # allow additional parameters and don't support RFC 7636
                         vol.Optional(FEATURES_DISABLE_PKCE): vol.Coerce(bool),
@@ -95,6 +101,8 @@ CONFIG_SCHEMA = vol.Schema(
                         vol.Optional(CLAIMS_USERNAME): vol.Coerce(str),
                         # Which claim should we use to obtain the group(s) from OIDC?
                         vol.Optional(CLAIMS_GROUPS): vol.Coerce(str),
+                        # Which claim should we use to obtain the profile picture from OIDC?
+                        vol.Optional(CLAIMS_PICTURE): vol.Coerce(str),
                     }
                 ),
                 # Determine which specific group values will be mapped to which roles

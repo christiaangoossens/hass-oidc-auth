@@ -30,10 +30,12 @@ from .config.const import (
     FEATURES,
     FEATURES_AUTOMATIC_USER_LINKING,
     FEATURES_AUTOMATIC_PERSON_CREATION,
+    FEATURES_UPDATE_PICTURE_ON_LOGIN,
     DEFAULT_TITLE,
 )
 from .stores.state_store import StateStore
 from .tools.types import UserDetails
+from .tools.validation import validate_url
 
 type IPAddress = IPv4Address | IPv6Address
 
@@ -93,6 +95,13 @@ class OpenIDAuthProvider(AuthProvider):
         # True by default to create a person for each new user (just like normal HA)
         # Turn this off if you don't want OIDC to interfere more than necessary
         self.create_persons = features.get(FEATURES_AUTOMATIC_PERSON_CREATION, True)
+
+        # Update the user's profile picture on every login?
+        # False by default to only set the picture when a person is first created
+        # Turn this on to update the profile picture on every login
+        self.update_picture_on_login = features.get(
+            FEATURES_UPDATE_PICTURE_ON_LOGIN, False
+        )
 
     async def async_initialize(self) -> None:
         """Initialize the auth provider."""
@@ -315,9 +324,14 @@ class OpenIDAuthProvider(AuthProvider):
         # If person creation is enabled, add a person for this user
         if self.create_persons:
             user_meta = await self.async_user_meta_for_credentials(credential)
-            await self._async_create_person(user, user_meta.name)
+            raw_meta = self._user_meta.get(credential.data.get("sub"), {})
+            await self._async_create_person(
+                user, user_meta.name, raw_meta.get("picture")
+            )
 
-    async def _async_create_person(self, user: User, name: str) -> None:
+    async def _async_create_person(
+        self, user: User, name: str, picture: str | None = None
+    ) -> None:
         """Create a person for the user."""
         _LOGGER.info("Automatically creating person for new user %s", user.id)
 
@@ -333,6 +347,36 @@ class OpenIDAuthProvider(AuthProvider):
         except Exception:
             _LOGGER.warning(
                 "Requested automatic person creation, but person creation failed"
+            )
+            return
+        # pylint: enable=broad-exception-caught
+
+        await self._async_update_person_picture(user.id, picture)
+
+    async def _async_update_person_picture(
+        self, user_id: str, picture: str | None
+    ) -> None:
+        """Update the linked person's picture from the OIDC claim, if valid."""
+        if picture and validate_url(picture):
+            await self._async_set_person_picture(user_id, picture)
+
+    async def _async_set_person_picture(self, user_id: str, picture: str) -> None:
+        """Set the picture on the person linked to the given user, if any."""
+        # Public helper doesn't support setting a picture, so set using storage collection directly
+        try:
+            collection = self.hass.data[person.DOMAIN][1]
+            for item in collection.async_items():
+                if item.get(person.CONF_USER_ID) == user_id:
+                    # Skip if the picture is already up to date
+                    if item.get(person.CONF_PICTURE) != picture:
+                        await collection.async_update_item(
+                            item[person.CONF_ID], {person.CONF_PICTURE: picture}
+                        )
+                    break
+        # pylint: disable=broad-exception-caught
+        except Exception:
+            _LOGGER.warning(
+                "Setting the profile picture on the person for user %s failed", user_id
             )
         # pylint: enable=broad-exception-caught
 
@@ -362,6 +406,15 @@ class OpenIDAuthProvider(AuthProvider):
             # OpenID spec says that sub is the only claim we can rely on, as username
             # might change over time.
             if credential.data.get("sub") == sub:
+                # If enabled update profile picture on every login
+                if self.update_picture_on_login:
+                    user = await self.hass.auth.async_get_user_by_credentials(
+                        credential
+                    )
+                    if user is not None:
+                        await self._async_update_person_picture(
+                            user.id, meta.get("picture")
+                        )
                 return credential
 
         # If no credential was found, create a new one
@@ -382,6 +435,12 @@ class OpenIDAuthProvider(AuthProvider):
                 # Link the credential to the existing user
                 # Will set the credential isNew = false
                 await self.store.async_link_user(user, credential)
+
+                # If enabled sync profile picture to existing user
+                if self.update_picture_on_login:
+                    await self._async_update_person_picture(
+                        user.id, meta.get("picture")
+                    )
 
         # If the credential is new, HA will automatically create a new user for us
         return credential

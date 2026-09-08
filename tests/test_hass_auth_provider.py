@@ -24,6 +24,7 @@ from custom_components.auth_oidc.config.const import (
     FEATURES,
     FEATURES_AUTOMATIC_PERSON_CREATION,
     FEATURES_AUTOMATIC_USER_LINKING,
+    FEATURES_UPDATE_PICTURE_ON_LOGIN,
 )
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
 
@@ -446,6 +447,156 @@ async def test_login_without_person_create_does_not_create_person(
         person_store = hass.data[PERSON_DOMAIN][1]
         persons = person_store.async_items()
         assert len(persons) == 0
+
+
+# Matches the picture claim in the 'picture' mock scenario
+PICTURE_URL = "https://example.com/avatar.png"
+
+
+def get_single_person(hass: HomeAssistant) -> dict:
+    """Helper to get the only person entry from the person store."""
+    person_store = hass.data[PERSON_DOMAIN][1]
+    persons = person_store.async_items()
+    assert len(persons) == 1
+    return persons[0]
+
+
+@pytest.mark.asyncio
+async def test_login_with_person_create_sets_picture(hass: HomeAssistant, hass_client):
+    """Test that a created person gets the picture from the OIDC claim."""
+    await setup(
+        hass,
+        {
+            **DEFAULT_CONFIG,
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: True,
+                FEATURES_AUTOMATIC_USER_LINKING: False,
+            },
+        },
+        True,
+    )
+
+    await async_setup_component(hass, PERSON_DOMAIN, {})
+
+    with mock_oidc_responses("picture"):
+        state_id = await get_login_state(hass, hass_client)
+        user = await login_user(hass, state_id)
+        await hass.async_block_till_done()
+
+        person = get_single_person(hass)
+        assert person["user_id"] == user.id
+        assert person["picture"] == PICTURE_URL
+
+
+@pytest.mark.asyncio
+async def test_login_with_invalid_picture_claim_does_not_set_picture(
+    hass: HomeAssistant, hass_client
+):
+    """Test that a picture claim that is not a valid http(s) URL is ignored."""
+    await setup(
+        hass,
+        {
+            **DEFAULT_CONFIG,
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: True,
+                FEATURES_AUTOMATIC_USER_LINKING: False,
+            },
+        },
+        True,
+    )
+
+    await async_setup_component(hass, PERSON_DOMAIN, {})
+
+    with mock_oidc_responses("invalid_picture"):
+        state_id = await get_login_state(hass, hass_client)
+        user = await login_user(hass, state_id)
+        await hass.async_block_till_done()
+
+        person = get_single_person(hass)
+        assert person["user_id"] == user.id
+        assert not person.get("picture")
+
+
+@pytest.mark.asyncio
+async def test_login_with_update_picture_on_login_refreshes_picture(
+    hass: HomeAssistant, hass_client
+):
+    """Test that the picture is synced from the claim on every login when enabled."""
+    await setup(
+        hass,
+        {
+            **DEFAULT_CONFIG,
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: True,
+                FEATURES_AUTOMATIC_USER_LINKING: False,
+                FEATURES_UPDATE_PICTURE_ON_LOGIN: True,
+            },
+        },
+        True,
+    )
+
+    await async_setup_component(hass, PERSON_DOMAIN, {})
+
+    with mock_oidc_responses("picture"):
+        state_id = await get_login_state(hass, hass_client)
+        user = await login_user(hass, state_id)
+        await hass.async_block_till_done()
+
+        person = get_single_person(hass)
+        assert person["picture"] == PICTURE_URL
+
+        # Simulate the picture going stale between logins
+        person_store = hass.data[PERSON_DOMAIN][1]
+        await person_store.async_update_item(
+            person["id"], {"picture": "https://example.com/stale.png"}
+        )
+        assert get_single_person(hass)["picture"] == "https://example.com/stale.png"
+
+        # Logging in again should sync the picture back from the claim
+        state_id2 = await get_login_state(hass, hass_client)
+        user2 = await login_user(hass, state_id2)
+        assert user2.id == user.id
+        assert get_single_person(hass)["picture"] == PICTURE_URL
+
+
+@pytest.mark.asyncio
+async def test_login_does_not_update_picture_by_default(
+    hass: HomeAssistant, hass_client
+):
+    """Test that without the feature flag the picture is only set on creation."""
+    await setup(
+        hass,
+        {
+            **DEFAULT_CONFIG,
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: True,
+                FEATURES_AUTOMATIC_USER_LINKING: False,
+            },
+        },
+        True,
+    )
+
+    await async_setup_component(hass, PERSON_DOMAIN, {})
+
+    with mock_oidc_responses("picture"):
+        state_id = await get_login_state(hass, hass_client)
+        user = await login_user(hass, state_id)
+        await hass.async_block_till_done()
+
+        person = get_single_person(hass)
+        assert person["picture"] == PICTURE_URL
+
+        # Change the picture between logins
+        person_store = hass.data[PERSON_DOMAIN][1]
+        await person_store.async_update_item(
+            person["id"], {"picture": "https://example.com/custom.png"}
+        )
+
+        # Logging in again should leave the manually set picture alone
+        state_id2 = await get_login_state(hass, hass_client)
+        user2 = await login_user(hass, state_id2)
+        assert user2.id == user.id
+        assert get_single_person(hass)["picture"] == "https://example.com/custom.png"
 
 
 @pytest.mark.asyncio

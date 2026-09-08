@@ -14,6 +14,8 @@ class UserDetails(dict):
     # Preferred username for the user, will be used when first generating the account
     # or to link the account on first login
     username: str
+    # Profile picture URL for the user
+    picture: str | None
     # Home Assistant role to assign to this user
     role: Literal["system-admin", "system-users", "invalid"]
 

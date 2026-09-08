@@ -139,6 +139,9 @@ class MockOIDCServer:
             "preferred_username": username,
         }
 
+        if "picture" in self._scenario:
+            claims["picture"] = self._scenario["picture"]
+
         now = int(time.time())
         claims["nbf"] = now
         claims["iat"] = now
