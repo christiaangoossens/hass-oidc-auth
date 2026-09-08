@@ -11,6 +11,7 @@ from .const import (
     ADDITIONAL_SCOPES,
     FEATURES,
     FEATURES_AUTOMATIC_USER_LINKING,
+    FEATURES_REQUIRE_EXISTING_USER,
     FEATURES_AUTOMATIC_PERSON_CREATION,
     FEATURES_DISABLE_PKCE,
     FEATURES_INCLUDE_GROUPS_SCOPE,
@@ -60,6 +61,10 @@ CONFIG_SCHEMA = vol.Schema(
                         # Automatically links users to the HA user based on OIDC username claim
                         # See provider.py for explanation
                         vol.Optional(FEATURES_AUTOMATIC_USER_LINKING): vol.Coerce(bool),
+                        # Reject new OIDC identities unless they can be linked to an
+                        # existing Home Assistant user. Existing OIDC credentials are
+                        # unaffected.
+                        vol.Optional(FEATURES_REQUIRE_EXISTING_USER): vol.Coerce(bool),
                         # Automatically creates a person entry for your new OIDC user
                         # See provider.py for explanation
                         vol.Optional(FEATURES_AUTOMATIC_PERSON_CREATION): vol.Coerce(
