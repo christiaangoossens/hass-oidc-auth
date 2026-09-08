@@ -89,8 +89,8 @@ async def frontend_injection(
     frontend_code = await read_file(frontend_path)
 
     # Inject JS and register that route
-    static_injection_url = await AsyncTemplateRenderer.get_static_file_url("/static/auth_oidc/injection.js")
-    injection_js = "<script src='" + static_injection_url + "'></script>"
+    static_url = await AsyncTemplateRenderer.get_static_file_url("/static/auth_oidc/injection.js")
+    injection_js = "<script src='" + static_url + "'></script>"
     frontend_code = frontend_code.replace("</body>", f"{injection_js}</body>")
 
     # If everything is succesful, register a fake view that just returns the modified HTML

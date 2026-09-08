@@ -82,7 +82,7 @@ class AsyncTemplateRenderer:
 
         # Otherwise, compute the hash and store it
         try:
-             async with async_open(
+            async with async_open(
                 file_path, mode="r", encoding="utf-8"
             ) as f:
                 content = f.buffer.read()

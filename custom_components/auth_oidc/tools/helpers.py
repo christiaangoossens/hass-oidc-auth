@@ -1,13 +1,12 @@
 """Helper functions for the integration."""
 
-import hashlib
 from typing import TYPE_CHECKING
 
 from homeassistant.components import http
 from aiohttp import web
 
 from ..views.loader import AsyncTemplateRenderer
-from ..config.const import REPO_ROOT_URL, STATIC_FILE_REGISTRATIONS
+from ..config.const import REPO_ROOT_URL
 
 if TYPE_CHECKING:
     from ..provider import OpenIDAuthProvider
