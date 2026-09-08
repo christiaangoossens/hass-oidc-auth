@@ -1,9 +1,12 @@
 """Tests for the view templates"""
 
+from hashlib import md5
 import pytest
 from os import path
 
+import custom_components.auth_oidc.views.loader as loader
 from custom_components.auth_oidc.views.loader import AsyncTemplateRenderer
+from custom_components.auth_oidc.views.loader import computed_hashes
 
 FAKE_TEMPLATE_PATH = path.join(
     path.dirname(path.abspath(__file__)), "resources", "fake_templates"
@@ -52,3 +55,19 @@ async def test_random_render_error():
     await renderer.fetch_templates()
     with pytest.raises(ValueError):
         await renderer.render_template("non_existing.html")
+
+
+@pytest.mark.asyncio
+async def test_static_url_includes_hash(tmp_path, monkeypatch):
+    """Test that static URLs include the file hash query parameter."""
+
+    url = "/static/auth_oidc/test.css"
+    file_path = tmp_path / "test.css"
+    file_path.write_text("abc", encoding="utf-8")
+
+    monkeypatch.setitem(loader.STATIC_FILE_REGISTRATIONS, url, [str(file_path), True])
+    computed_hashes.clear()
+
+    result = await AsyncTemplateRenderer.get_static_file_url(url)
+
+    assert result == f"{url}?v={md5(b'abc').hexdigest()[:8]}"
