@@ -1,31 +1,29 @@
 """Tests for the UI config flow"""
 
 import pytest
-
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
-
 from custom_components.auth_oidc import DOMAIN
 from custom_components.auth_oidc.config.const import (
-    OIDC_PROVIDERS,
+    CLAIMS,
+    CLAIMS_DISPLAY_NAME,
+    CLAIMS_GROUPS,
+    CLAIMS_USERNAME,
     CLIENT_ID,
     CLIENT_SECRET,
     DISCOVERY_URL,
     DISPLAY_NAME,
     FEATURES,
-    FEATURES_AUTOMATIC_USER_LINKING,
-    FEATURES_REQUIRE_EXISTING_USER,
     FEATURES_AUTOMATIC_PERSON_CREATION,
+    FEATURES_AUTOMATIC_USER_LINKING,
     FEATURES_INCLUDE_GROUPS_SCOPE,
-    CLAIMS,
-    CLAIMS_DISPLAY_NAME,
-    CLAIMS_GROUPS,
-    CLAIMS_USERNAME,
-    ROLES,
+    FEATURES_REQUIRE_EXISTING_USER,
+    OIDC_PROVIDERS,
     ROLE_ADMINS,
     ROLE_USERS,
+    ROLES,
 )
 
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses

@@ -1,16 +1,18 @@
 """A simple mock OIDC server for testing purposes."""
 
-from contextlib import contextmanager
-import time
-import logging
 import hashlib
-import random
 import json
+import logging
 import os
+import random
+import time
+from contextlib import contextmanager
+from typing import ClassVar
 from unittest.mock import AsyncMock, patch
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
+
 from joserfc import jwt
-from joserfc.jwk import RSAKey, KeySet
+from joserfc.jwk import KeySet, RSAKey
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,8 +23,8 @@ SUBJECT = "testuser"
 class MockOIDCServer:
     """A simple mock OIDC server for testing purposes."""
 
-    _code_storage = {}
-    _scenario = {}
+    _code_storage: ClassVar[dict[str, str]] = {}
+    _scenario: ClassVar[dict[str, object]] = {}
 
     def __init__(self, scenario: str | None = None):
         """Initialize the mock OIDC server."""
@@ -161,7 +163,7 @@ class MockOIDCServer:
     @staticmethod
     def get_final_subject():
         """Return the subject that's returned to HA."""
-        return hashlib.sha256(f"{BASE_URL}.{SUBJECT}".encode("utf-8")).hexdigest()
+        return hashlib.sha256(f"{BASE_URL}.{SUBJECT}".encode()).hexdigest()
 
 
 @contextmanager

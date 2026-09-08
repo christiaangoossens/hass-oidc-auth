@@ -9,7 +9,7 @@ the catalogs available in the translations directory next to this module.
 import json
 import logging
 from os import path
-from typing import Any, Dict
+from typing import Any
 
 from aiofiles import open as async_open
 from aiofiles.os import scandir as async_scandir
@@ -20,13 +20,13 @@ DEFAULT_LOCALE = "en"
 
 TRANSLATIONS_DIR = path.join(path.dirname(path.abspath(__file__)), "translations")
 
-catalogs: Dict[str, dict] = {}
+catalogs: dict[str, dict] = {}
 
 
 async def fetch_catalogs(directory: str | None = None) -> None:
     """Fetches all JSON translation catalogs from the translations directory."""
     directory = directory or TRANSLATIONS_DIR
-    loaded: Dict[str, dict] = {}
+    loaded: dict[str, dict] = {}
 
     files = await async_scandir(directory)
 
@@ -42,7 +42,7 @@ async def fetch_catalogs(directory: str | None = None) -> None:
                 async with async_open(catalog_path, mode="r", encoding="utf-8") as f:
                     content = await f.read()
                     loaded[filename[: -len(".json")].lower()] = json.loads(content)
-            except (OSError, IOError, ValueError) as e:  # pragma: no cover
+            except (OSError, ValueError) as e:  # pragma: no cover
                 _LOGGER.warning("Error reading translation catalog %s: %s", filename, e)
 
     # Swap without an await in between so concurrent requests never observe

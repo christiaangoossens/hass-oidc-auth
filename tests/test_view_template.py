@@ -1,12 +1,15 @@
 """Tests for the view templates"""
 
 from hashlib import md5
-import pytest
 from os import path
 
-import custom_components.auth_oidc.views.loader as loader
-from custom_components.auth_oidc.views.loader import AsyncTemplateRenderer
-from custom_components.auth_oidc.views.loader import computed_hashes
+import pytest
+
+from custom_components.auth_oidc.views import loader
+from custom_components.auth_oidc.views.loader import (
+    AsyncTemplateRenderer,
+    computed_hashes,
+)
 
 FAKE_TEMPLATE_PATH = path.join(
     path.dirname(path.abspath(__file__)), "resources", "fake_templates"

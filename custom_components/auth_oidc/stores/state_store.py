@@ -2,11 +2,11 @@
 
 import secrets
 import string
+from datetime import UTC, datetime, timedelta
+from typing import cast
 
-from datetime import datetime, timedelta, timezone
-from typing import cast, Optional
-from homeassistant.helpers.storage import Store
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
 
 from ..tools.types import OIDCState, UserDetails
 
@@ -47,7 +47,7 @@ class StateStore:
 
     def _is_expired(self, state: OIDCState) -> bool:
         """Check if a state is expired."""
-        return datetime.fromisoformat(state["expiration"]) < datetime.now(timezone.utc)
+        return datetime.fromisoformat(state["expiration"]) < datetime.now(UTC)
 
     def _is_valid(self, state: OIDCState, ip: str | None) -> bool:
         """Check if a state is valid"""
@@ -64,7 +64,7 @@ class StateStore:
             raise RuntimeError("Data not loaded")
 
         state_id = self._generate_id()
-        expiration = datetime.now(timezone.utc) + timedelta(minutes=5)
+        expiration = datetime.now(UTC) + timedelta(minutes=5)
 
         self._data[state_id] = {
             "id": state_id,
@@ -79,7 +79,7 @@ class StateStore:
         await self._async_save()
         return state_id
 
-    async def async_generate_code_for_state(self, state_id: str) -> Optional[str]:
+    async def async_generate_code_for_state(self, state_id: str) -> str | None:
         """Generates a one time code for the state to link device clients."""
         if self._data is None:
             raise RuntimeError("Data not loaded")
@@ -108,7 +108,7 @@ class StateStore:
 
     async def async_get_redirect_uri_for_state(
         self, state_id: str, ip: str
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get the redirect_uri for a given state_id."""
         if self._data is None:
             raise RuntimeError("Data not loaded")
@@ -177,7 +177,7 @@ class StateStore:
 
     async def async_receive_userinfo_for_state(
         self, state_id: str, ip: str
-    ) -> Optional[OIDCState]:
+    ) -> OIDCState | None:
         """Retrieve user info based on the state_id."""
         if self._data is None:
             raise RuntimeError("Data not loaded")

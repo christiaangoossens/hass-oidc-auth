@@ -48,3 +48,6 @@ log_level = "DEBUG"
 
 [tool.ruff]
 target-version = "py313"
+
+[tool.ruff.lint]
+ignore = ["PLC0414"]

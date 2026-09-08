@@ -1,8 +1,10 @@
 """SSE handler for OIDC device authentication."""
 
 import asyncio
+
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
+
 from ..provider import OpenIDAuthProvider
 from ..tools.helpers import get_valid_state_id
 

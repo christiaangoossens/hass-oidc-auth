@@ -2,51 +2,50 @@
 
 import logging
 import re
-from typing import OrderedDict
+from collections import OrderedDict
 
+from homeassistant.components.http.server import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.components.http.server import StaticPathConfig
-
-# Import and re-export config schema explictly
-# pylint: disable=useless-import-alias
-from .config import CONFIG_SCHEMA as CONFIG_SCHEMA
 
 # Get all the constants for the config
 from .config import (
-    DOMAIN,
-    DEFAULT_TITLE,
+    ADDITIONAL_SCOPES,
+    CLAIMS,
     CLIENT_ID,
     CLIENT_SECRET,
+    DEFAULT_TITLE,
     DISCOVERY_URL,
     DISPLAY_NAME,
-    ID_TOKEN_SIGNING_ALGORITHM,
-    GROUPS_SCOPE,
-    ADDITIONAL_SCOPES,
+    DOMAIN,
     FEATURES,
-    CLAIMS,
-    ROLES,
-    NETWORK,
-    FEATURES_INCLUDE_GROUPS_SCOPE,
     FEATURES_DEFAULT_REDIRECT,
     FEATURES_FORCE_HTTPS,
+    FEATURES_INCLUDE_GROUPS_SCOPE,
+    GROUPS_SCOPE,
+    ID_TOKEN_SIGNING_ALGORITHM,
+    NETWORK,
     REQUIRED_SCOPES,
+    ROLES,
     STATIC_FILE_REGISTRATIONS,
+    convert_ui_config_entry_to_internal_format,
 )
 
-from .config import convert_ui_config_entry_to_internal_format
-
+# Import and re-export config schema explictly for HA
+from .config import (
+    CONFIG_SCHEMA as CONFIG_SCHEMA,
+)
 from .endpoints import (
-    OIDCWelcomeView,
-    OIDCRedirectView,
-    OIDCFinishView,
     OIDCCallbackView,
-    OIDCInjectedAuthPage,
     OIDCDeviceSSE,
+    OIDCFinishView,
+    OIDCInjectedAuthPage,
+    OIDCRedirectView,
+    OIDCWelcomeView,
 )
+from .provider import OpenIDAuthProvider
 from .tools.oidc_client import OIDCClient
 from .tools.types import OIDCWelcomeOptions
-from .provider import OpenIDAuthProvider
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -94,8 +93,8 @@ async def async_unload_entry(_hass: HomeAssistant, _entry: ConfigEntry):
 async def _register_oidc_provider(hass: HomeAssistant, my_config: dict):
     """Register the OIDC provider in Home Assistant's auth system."""
     # Use private APIs until there is a real auth platform
-
     # pylint: disable=protected-access
+
     providers = OrderedDict()
     provider = OpenIDAuthProvider(hass, hass.auth._store, my_config)
 
@@ -137,9 +136,9 @@ async def _register_oidc_provider(hass: HomeAssistant, my_config: dict):
     return provider, auth_provider_count, has_trusted_networks_provider_first
 
 
-# pylint: disable=too-many-locals
 async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_name: str):
     """Set up the OIDC provider with the given configuration."""
+    # pylint: disable=too-many-locals
     (
         provider,
         auth_provider_count,
@@ -189,13 +188,15 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
 
     # Register the static paths
     for url_path, (file_path, cache_headers) in STATIC_FILE_REGISTRATIONS.items():
-        await hass.http.async_register_static_paths([
-            StaticPathConfig(
-                url_path,
-                hass.config.path(file_path),
-                cache_headers,
-            )
-        ])
+        await hass.http.async_register_static_paths(
+            [
+                StaticPathConfig(
+                    url_path,
+                    hass.config.path(file_path),
+                    cache_headers,
+                )
+            ]
+        )
 
     has_only_trusted_networks = (
         auth_provider_count == 1 and has_trusted_networks_provider_first
