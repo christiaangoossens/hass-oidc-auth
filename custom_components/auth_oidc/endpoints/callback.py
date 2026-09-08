@@ -32,7 +32,7 @@ class OIDCCallbackView(HomeAssistantView):
         # Get cookie to get the state_id
         state_id = await get_valid_state_id(request, self.oidc_provider)
         if not state_id:
-            return await error_response("Missing state cookie, please restart login.")
+            return await error_response("missing_state_cookie")
 
         # Get the OIDC query parameters
         params = request.rel_url.query
@@ -40,13 +40,11 @@ class OIDCCallbackView(HomeAssistantView):
         state = params.get("state")
 
         if not (code and state):
-            return await error_response("Missing code or state parameter.")
+            return await error_response("missing_code_or_state")
 
         # Check if the states match
         if state != state_id:
-            return await error_response(
-                "State parameter does not match, possible CSRF attack."
-            )
+            return await error_response("state_mismatch")
 
         # Complete the OIDC flow to get user details
         redirect_uri = get_url("/auth/oidc/callback", self.force_https)
@@ -54,24 +52,14 @@ class OIDCCallbackView(HomeAssistantView):
             redirect_uri, code, state
         )
         if user_details is None:
-            return await error_response(
-                "Failed to get user details, see Home Assistant logs for more information.",
-                status=500,
-            )
+            return await error_response("user_details_failed", status=500)
 
         if user_details.get("role") == "invalid":
-            return await error_response(
-                "User is not in the correct group to access Home Assistant, "
-                + "contact your administrator!",
-                status=403,
-            )
+            return await error_response("user_not_in_group", status=403)
 
         # Finalize on the state
         success = await self.oidc_provider.async_save_user_info(state_id, user_details)
         if not success:
-            return await error_response(
-                "Failed to save user information, session probably expired. Please sign in again.",
-                status=500,
-            )
+            return await error_response("save_user_info_failed", status=500)
 
         raise web.HTTPFound(get_url("/auth/oidc/finish", self.force_https))

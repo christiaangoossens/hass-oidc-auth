@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full min-h-full max-h-full">
+<html lang="{{ lang }}" class="h-full min-h-full max-h-full">
 
 <head>
     {% block head %}
@@ -28,7 +28,7 @@
             <a href="{{ help_url }}" target="_blank"
                 rel="noreferrer noopener"
                 class="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground">
-                Help
+                {{ t('base.help') }}
                 <!-- mdi: open-in-new -->
                 <svg viewBox="0 0 24 24" aria-hidden="true" class="h-4 w-4 fill-current">
                     <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z" />
