@@ -6,12 +6,13 @@ from urllib.parse import quote, unquote
 from aiohttp import web
 from aiofiles import open as async_open
 
-from homeassistant.components.http import HomeAssistantView, StaticPathConfig
+from homeassistant.helpers.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
 from .welcome import PATH as WELCOME_PATH
 from ..provider import OpenIDAuthProvider
 from ..tools.helpers import get_url
+from ..views.loader import AsyncTemplateRenderer
 
 PATH = "/auth/authorize"
 
@@ -88,18 +89,9 @@ async def frontend_injection(
     frontend_code = await read_file(frontend_path)
 
     # Inject JS and register that route
-    injection_js = "<script src='/auth/oidc/static/injection.js?v=8'></script>"
+    static_url = await AsyncTemplateRenderer.get_static_file_url("/static/auth_oidc/injection.js")
+    injection_js = "<script src='" + static_url + "'></script>"
     frontend_code = frontend_code.replace("</body>", f"{injection_js}</body>")
-
-    await hass.http.async_register_static_paths(
-        [
-            StaticPathConfig(
-                "/auth/oidc/static/injection.js",
-                hass.config.path("custom_components/auth_oidc/static/injection.js"),
-                cache_headers=True,
-            )
-        ]
-    )
 
     # If everything is succesful, register a fake view that just returns the modified HTML
     hass.http.register_view(

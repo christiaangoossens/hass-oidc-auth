@@ -11,7 +11,7 @@
         href="/static/fonts/roboto/Roboto-Regular.woff2">
     <link rel="preload" as="font" type="font/woff2" crossorigin="anonymous"
         href="/static/fonts/roboto/Roboto-Medium.woff2">
-    <link rel="stylesheet" href="/auth/oidc/static/style.css?v=5">
+    <link rel="stylesheet" href="{{ "/static/auth_oidc/style.css" | static_url }}">
     {% endblock %}
 </head>
 
@@ -19,7 +19,7 @@
     {% block layout %}
     <div class="w-full max-w-sm">
         <div class="flex items-center justify-center mb-8">
-            <img src="/auth/oidc/static/icon.png?v=2" alt="" class="h-14 w-14">
+            <img src="{{ "/static/auth_oidc/icon.png" | static_url }}" alt="" class="h-14 w-14">
         </div>
         <div class="bg-card text-foreground border border-divider rounded-xl p-4">
             {% block content %}{% endblock %}

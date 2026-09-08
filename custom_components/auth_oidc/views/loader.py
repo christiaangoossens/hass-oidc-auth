@@ -1,15 +1,19 @@
 """Jinja2 Async Environment"""
 
 import logging
+from sys import modules
+from hashlib import md5
 from os import path
 from typing import Dict, Any
 from jinja2 import Environment, DictLoader
 from aiofiles.os import scandir as async_scandir
 from aiofiles import open as async_open
+from ..config import STATIC_FILE_REGISTRATIONS
 
 _LOGGER = logging.getLogger(__name__)
 
 templates: Dict[str, str] = {}
+computed_hashes: Dict[str, str] = {}
 
 
 class AsyncTemplateRenderer:
@@ -57,8 +61,44 @@ class AsyncTemplateRenderer:
         env = Environment(
             loader=DictLoader(templates), enable_async=True, autoescape=True
         )
+        env.filters['static_url'] = self.get_static_file_url
         template = env.get_template(template_name)
 
         # Render template
         rendered_output = await template.render_async(**kwargs)
         return rendered_output
+
+    @staticmethod
+    async def get_static_file_url(url: str) -> str:
+        """Return the URL for a static file in the integration."""
+        # Lookup the static file in the STATIC_FILE_REGISTRATIONS dictionary
+        if url not in STATIC_FILE_REGISTRATIONS:
+            raise ValueError(f"Static file '{url}' is not registered.")
+
+        file_path = STATIC_FILE_REGISTRATIONS[url][0]
+
+        # See if we have computed it before
+        if file_path in computed_hashes:
+            return f"{url}?v={computed_hashes[file_path]}"
+
+        # Otherwise, compute the hash and store it
+        try:
+            async with async_open(
+                file_path, mode="r", encoding="utf-8"
+            ) as f:
+                content = f.buffer.read()
+                file_hash = md5(content).hexdigest()[:8]
+                computed_hashes[file_path] = file_hash
+                return f"{url}?v={file_hash}"
+        except FileNotFoundError as exc:
+            # If within pytest, ignore error
+            if "pytest" in modules:
+                _LOGGER.warning(
+                    "Static file '%s' not found. This may be expected during testing.",
+                    file_path,
+                )
+                return f"{url}?v=missing"
+
+            raise ValueError(f"Static file '{file_path}' not found.") from exc
+
+        raise ValueError(f"Static file '{file_path}' could not be processed.")
