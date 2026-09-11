@@ -14,6 +14,9 @@ auth_oidc:
   discovery_url: ""
 ```
 
+> [!IMPORTANT]  
+> After initial configuration or any changes, HA requires to be restarted for the changes to take effect.
+
 The default settings assume that you configure Home Assistant as a **public client**, without a client secret. If so, you should only need to provide the `client_id` from your OIDC provider and its discovery URL (ending in `.well-known/openid-configuration`).
 You don't have to configure other settings in most cases, as they have secure defaults set. If your provider requires manually configuring the callback URL, use `<your HA URL>/auth/oidc/callback`.
 
