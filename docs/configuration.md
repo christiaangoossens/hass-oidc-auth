@@ -66,9 +66,14 @@ auth_oidc:
   roles:
     admin: <group name to use for admins>
     user: <group name to use for users>
+    read_only: <group name to use for read-only users>
 ```
 
 If you configure the user role, OIDC users that have neither configured group name will be rejected! If you configure the admin role, users with that role will receive administrator rights in Home Assistant automatically upon login.
+
+The optional `read_only` role maps a group to Home Assistant's built-in *Read Only* group (`system-read-only`), whose members can view states but cannot control anything. Roles are applied in order of increasing privilege: `user`, then `read_only`, then `admin`. That means an explicit read-only group also applies to users that match the (possibly unset, and therefore catch-all) user role, while members of the admin group always become administrators. Leaving `read_only` unset keeps the previous behaviour exactly.
+
+Note that, like the other roles, this is only applied when the Home Assistant user is first created. See the [FAQ](./faq.md) for the current limitations around permission lifecycle.
 
 ### Configuring a display name for your OIDC provider
 If you would like to change the default name on the OIDC welcome screen and Home Assistant login screens from `OpenID Connect (SSO)` to your own display name, you can set the `display_name` configuration property.
