@@ -134,9 +134,13 @@ class BackchannelLogoutValidator:
         if not isinstance(events, dict) or BACKCHANNEL_LOGOUT_EVENT not in events:
             raise LogoutTokenInvalid("logout token is missing the backchannel event")
 
-        # A subject identifier is required for the coarse revocation we perform.
-        if not claims.get("sub"):
-            raise LogoutTokenInvalid("logout token is missing a sub claim")
+        # OpenID Connect Back-Channel Logout 1.0, Section 2.4:
+        # the token MUST contain either a sub or a sid claim (at least one).
+        # A sub is required for the coarse user-level revocation we perform,
+        # while a sid-only token can be validated but cannot currently be
+        # mapped to a Home Assistant session (see the endpoint).
+        if not claims.get("sub") and not claims.get("sid"):
+            raise LogoutTokenInvalid("logout token is missing both sub and sid claims")
 
         # A jti is required to prevent token reuse.
         if not claims.get("jti"):

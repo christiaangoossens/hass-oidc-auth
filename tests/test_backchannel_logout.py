@@ -154,8 +154,20 @@ async def test_nonce_is_rejected(validator, signing_key):
 
 
 @pytest.mark.asyncio
-async def test_missing_sub_is_rejected(validator, signing_key):
-    """A token without a subject cannot be mapped to a user."""
+async def test_sid_only_token_is_accepted(validator, signing_key):
+    """A logout token with a sid but no sub is valid per the spec."""
+    key, _ = signing_key
+    token = make_logout_token(key, sub=None, sid="session-1")
+
+    claims = await validator.validate(token)
+
+    assert claims["sid"] == "session-1"
+    assert "sub" not in claims
+
+
+@pytest.mark.asyncio
+async def test_token_without_sub_or_sid_is_rejected(validator, signing_key):
+    """A token with neither sub nor sid cannot identify anything."""
     key, _ = signing_key
     token = make_logout_token(key, sub=None)
 
@@ -368,3 +380,145 @@ async def test_revocation_ignores_unknown_subject():
     await view._async_revoke_linked_sessions({"sub": "unknown"})
 
     assert remove.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_revocation_works_for_sub_only_token():
+    """A sub-bearing token must still revoke without a sid claim."""
+    hashed = hash_subject(ISSUER, SUBJECT)
+    linked_user = SimpleNamespace(
+        id="linked",
+        credentials=[
+            SimpleNamespace(
+                auth_provider_type="auth_oidc",
+                auth_provider_id="default",
+                data={"sub": hashed},
+            )
+        ],
+        refresh_tokens={"a": object()},
+    )
+    view, remove = make_view(ISSUER, [linked_user])
+
+    await view._async_revoke_linked_sessions({"sub": SUBJECT})
+
+    assert remove.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_revocation_is_skipped_for_sid_only_token(caplog):
+    """A sid-only token cannot be mapped, so nothing must be revoked."""
+    linked_user = SimpleNamespace(
+        id="linked",
+        credentials=[
+            SimpleNamespace(
+                auth_provider_type="auth_oidc",
+                auth_provider_id="default",
+                data={"sub": hash_subject(ISSUER, SUBJECT)},
+            )
+        ],
+        refresh_tokens={"a": object()},
+    )
+    view, remove = make_view(ISSUER, [linked_user])
+
+    await view._async_revoke_linked_sessions({"sid": "session-1"})
+
+    assert remove.call_count == 0
+    assert "no session could be mapped" in caplog.text
+
+
+def make_real_view(hass, signing_key, users: list | None = None) -> tuple:
+    """Build a view with the real validator and mocked discovery/JWKS."""
+    key, jwks = signing_key
+    client = make_client(hass)
+    discovery = {"issuer": ISSUER, "jwks_uri": JWKS_URI}
+
+    async def fake_discovery():
+        client.discovery_document = discovery
+        return discovery
+
+    client._fetch_discovery_document = AsyncMock(side_effect=fake_discovery)
+    client._fetch_jwks = AsyncMock(return_value=jwks)
+    remove_refresh_token = MagicMock()
+    auth = SimpleNamespace(
+        async_get_users=AsyncMock(return_value=users or []),
+        async_remove_refresh_token=remove_refresh_token,
+    )
+    provider = SimpleNamespace(
+        hass=SimpleNamespace(auth=auth), type="auth_oidc", id="default"
+    )
+    return OIDCBackchannelLogoutView(client, provider), key, remove_refresh_token
+
+
+def make_request(logout_token: str) -> SimpleNamespace:
+    """Build a minimal aiohttp-like request carrying a logout token."""
+    return SimpleNamespace(post=AsyncMock(return_value={"logout_token": logout_token}))
+
+
+@pytest.mark.asyncio
+async def test_endpoint_accepts_sid_only_token_without_revoking(hass, signing_key):
+    """A validated sid-only token returns 200 but revokes nothing."""
+    view, key, remove = make_real_view(hass, signing_key)
+    token = make_logout_token(key, sub=None, sid="session-1")
+
+    resp = await view.post(make_request(token))
+
+    assert resp.status == 200
+    assert remove.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_endpoint_revokes_for_sub_bearing_token(hass, signing_key):
+    """A validated sub-bearing token returns 200 and revokes its user."""
+    linked_user = SimpleNamespace(
+        id="linked",
+        credentials=[
+            SimpleNamespace(
+                auth_provider_type="auth_oidc",
+                auth_provider_id="default",
+                data={"sub": hash_subject(ISSUER, SUBJECT)},
+            )
+        ],
+        refresh_tokens={"a": object(), "b": object()},
+    )
+    view, key, remove = make_real_view(hass, signing_key, [linked_user])
+    token = make_logout_token(key)
+
+    resp = await view.post(make_request(token))
+
+    assert resp.status == 200
+    assert remove.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"iss": "https://evil.example.com"},
+        {"aud": "some-other-client"},
+        {"events": None},
+        {"nonce": "should-not-be-here"},
+    ],
+    ids=["wrong-iss", "wrong-aud", "missing-events", "nonce"],
+)
+async def test_endpoint_rejects_invalid_tokens(hass, signing_key, overrides):
+    """Invalid logout tokens must be rejected with 400 and revoke nothing."""
+    view, key, remove = make_real_view(hass, signing_key)
+    token = make_logout_token(key, **overrides)
+
+    resp = await view.post(make_request(token))
+
+    assert resp.status == 400
+    assert remove.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_endpoint_rejects_replayed_token(hass, signing_key):
+    """The same token must be accepted once and then rejected as a replay."""
+    view, key, _remove = make_real_view(hass, signing_key)
+    token = make_logout_token(key, jti="replayed-at-endpoint")
+
+    first = await view.post(make_request(token))
+    second = await view.post(make_request(token))
+
+    assert first.status == 200
+    assert second.status == 400

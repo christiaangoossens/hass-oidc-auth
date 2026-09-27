@@ -24,7 +24,7 @@ The integration is currently very suitable for homelab use, but not for enterpri
 
 - [OpenID Connect Session Management 1.0](https://openid.net/specs/openid-connect-session-1_0.html): users that are disabled at the IdP do not get logged out in Home Assistant until their refresh token expires/they logout manually
 - [OpenID Connect Front-Channel Logout 1.0](https://openid.net/specs/openid-connect-frontchannel-1_0.html): logout in Home Assistant does not automatically log the user out at the IdP
-- [OpenID Connect Back-Channel Logout 1.0 incorporating errata set 1](https://openid.net/specs/openid-connect-backchannel-1_0.html): a **coarse, proof-of-concept** implementation is available (see the dedicated question below). It revokes *all* sessions of the linked user rather than only the session identified by a `sid`, and access tokens stay valid until they expire.
+- [OpenID Connect Back-Channel Logout 1.0 incorporating errata set 1](https://openid.net/specs/openid-connect-backchannel-1_0.html): a **coarse, proof-of-concept** implementation is available (see the dedicated question below). It revokes *all* sessions of the linked user rather than only the session identified by a `sid`; revocation is based on the `sub` claim, so `sid`-only tokens are validated but cannot yet be mapped to a Home Assistant session.
 - *Open TODO*: Permissions are only set upon first login (https://github.com/christiaangoossens/hass-oidc-auth/discussions/187), as permission changes would necessitate revoking refresh tokens/implementing session management
 - Other RFC's and best practices with regards to token expiration and revocation in the app itself
 
@@ -74,13 +74,20 @@ Yes, as a **proof of concept**. When a user logs out at the IdP (or their sessio
 https://<your HA URL>/auth/oidc/backchannel_logout
 ```
 
-The integration validates the token (signature via the provider's JWKS, `iss`, `aud`, required `events` member, absence of `nonce`, and `exp`/`iat`) and then revokes the refresh tokens of the Home Assistant user whose OIDC credential matches the token's `sub`. A short-lived in-memory cache rejects replayed tokens (by `jti`).
+The integration validates the token (signature via the provider's JWKS, `iss`, `aud`, required `events` member, absence of `nonce`, `exp`/`iat`, and that at least one of `sub` or `sid` is present, as required by the specification) and, when a `sub` is present, revokes the refresh tokens of the Home Assistant user whose OIDC credential matches the token's `sub`. A short-lived in-memory cache rejects replayed tokens (by `jti`).
 
 > [!IMPORTANT]
 > This implementation is intentionally coarse and has the following limitations:
-> - It revokes **all** refresh tokens of the linked Home Assistant user, logging that user out on **every** device. It does not perform per-session (`sid`) revocation, as that requires Home Assistant core hooks that are not available to custom integrations.
-> - Already-issued access tokens remain valid until they expire (up to 30 minutes by default in Home Assistant). Only refresh tokens are revoked immediately.
+> - Revocation requires a `sub` claim. A valid `sid`-only token is accepted with `200 OK` (the IdP did end its session), but it cannot be mapped to a Home Assistant user or session today, so **nothing is revoked** and a warning is logged. Home Assistant does not record a provider session id on its refresh tokens and custom integrations have no public API to revoke a single session.
+> - It revokes **all** refresh tokens of the linked Home Assistant user, logging that user out on **every** device. It does not perform per-session (`sid`) revocation.
+> - Revoking the refresh tokens immediately invalidates their access tokens and closes live websockets: Home Assistant validates access tokens against the issuing refresh token, so removing it revokes the session at once (the 30-minute access-token lifetime is only an upper bound). Coarse mode also revokes long-lived access tokens (they are refresh tokens too), which will log out companion apps/integrations using them.
+> - Residual risk is limited to non-HA sessions (e.g. the IdP/browser session or a reverse-proxy cookie), which can still re-establish a login.
 > - The in-memory replay cache is not shared across Home Assistant replicas and is cleared on restart.
+
+A proper per-`sid` implementation needs one of:
+
+- **Near-term (integration side):** an integration-side `sid → refresh_token.id` map maintained at login time and consulted on logout, using Home Assistant's private `_store.async_get_refresh_tokens()` API (or a monkeypatch). This is fragile and stays within the integration's "minimal core patching" goal, but relies on private APIs.
+- **Proper fix (Home Assistant core):** persist a provider session id (e.g. the OIDC `sid`) on `RefreshToken` and/or expose a session-scoped revoke API, so the provider can revoke exactly the session it ended. Home Assistant currently only exposes `async_register_revoke_token_callback` plus `user_added`/`updated`/`removed` events, and mints refresh tokens in core *after* the auth provider returns, with no hook to attach a session id.
 
 To enable it, configure the Back-Channel Logout URL in your IdP. For Keycloak, set the **Backchannel logout URL** under the client's **Advanced** settings and enable **Backchannel logout session required**. See [the Keycloak guide](./provider-configurations/keycloak.md) for details.
 

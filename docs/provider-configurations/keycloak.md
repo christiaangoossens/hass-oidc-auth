@@ -86,4 +86,4 @@ The integration exposes a Back-Channel Logout endpoint. To let Keycloak notify H
 4. Enable **Backchannel logout session required** so Keycloak includes the required session information.
 5. Save.
 
-When Keycloak posts a valid `logout_token`, Home Assistant revokes the refresh tokens of the linked user. This is a coarse implementation: it logs the user out on **all** devices, and access tokens remain valid until they expire.
+When Keycloak posts a valid `logout_token` containing a `sub`, Home Assistant revokes the refresh tokens of the linked user. This is a coarse implementation: it logs the user out on **all** devices. Revoking the refresh tokens immediately invalidates their access tokens and closes live websockets (Home Assistant validates access tokens against the issuing refresh token, so the 30-minute access-token lifetime is only an upper bound). A `sid`-only token is accepted but cannot be mapped to a session, so nothing is revoked.

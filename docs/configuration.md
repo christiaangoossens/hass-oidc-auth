@@ -186,12 +186,12 @@ Configure the following URL as the Back-Channel Logout URL / backchannel logout 
 https://<your HA URL>/auth/oidc/backchannel_logout
 ```
 
-When the IdP posts a valid `logout_token`, the refresh tokens of the linked Home Assistant user are revoked (this logs the user out on all devices). Access tokens remain valid until they expire.
+When the IdP posts a valid `logout_token` that contains a `sub`, the refresh tokens of the linked Home Assistant user are revoked (this logs the user out on all devices). Revoking the refresh tokens immediately invalidates their access tokens and closes live websockets: Home Assistant validates access tokens against the issuing refresh token, so removing it revokes the session at once (the 30-minute access-token lifetime is only an upper bound). Coarse mode also revokes long-lived access tokens (they are refresh tokens too), which will log out companion apps/integrations using them. Residual risk is limited to non-HA sessions (e.g. the IdP/browser session or a reverse-proxy cookie), which can still re-establish a login.
 
 For Keycloak, open your client, go to the **Advanced** tab, set **Backchannel logout URL** to the URL above and enable **Backchannel logout session required**. See the [Keycloak guide](./provider-configurations/keycloak.md).
 
 > [!NOTE]
-> This is a coarse implementation: revocation is based on the `sub` claim only, so **all** sessions of the user are revoked, not just the one identified by a `sid`. Replayed tokens are rejected using an in-memory cache of recently seen `jti` values.
+> This is a coarse implementation: revocation is based on the `sub` claim only, so **all** sessions of the user are revoked, not just the one identified by a `sid`. A valid `sid`-only token is accepted with `200 OK` but cannot be mapped to a Home Assistant session today, so nothing is revoked and a warning is logged. Replayed tokens are rejected using an in-memory cache of recently seen `jti` values.
 
 ## All configuration Options
 

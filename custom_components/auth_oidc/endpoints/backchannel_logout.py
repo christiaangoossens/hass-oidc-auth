@@ -69,11 +69,30 @@ class OIDCBackchannelLogoutView(HomeAssistantView):
         device/session for the user, not just the single session identified by
         an optional ``sid`` claim (per-session revocation would require Home
         Assistant core hooks that are not available to custom integrations).
+
+        A valid ``sid``-only token (a subject-less logout per the spec) cannot
+        be mapped to a Home Assistant user or session today: Home Assistant
+        does not store a provider session id on its refresh tokens, and custom
+        integrations have no public API to enumerate or revoke a single
+        session. Such tokens are accepted (the OP did log the user out) but no
+        revocation is performed; this is logged explicitly rather than being
+        silently reported as a revoke.
         """
+        sub = claims.get("sub")
+        sid = claims.get("sid")
+
+        if not sub:
+            _LOGGER.warning(
+                "Back-channel logout token validated for sid '%s' but it has no "
+                "sub claim and Home Assistant stores no provider session id, so "
+                "no session could be mapped or revoked",
+                sid,
+            )
+            return
+
         # Set by the validator while fetching discovery during validation.
         discovery_document = self.oidc_client.discovery_document or {}
-        expected_sub = hash_subject(discovery_document["issuer"], claims["sub"])
-        sid = claims.get("sid")
+        expected_sub = hash_subject(discovery_document["issuer"], sub)
 
         for user in await self.oidc_provider.hass.auth.async_get_users():
             is_linked = any(
