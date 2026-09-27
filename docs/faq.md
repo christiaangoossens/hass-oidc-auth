@@ -24,7 +24,7 @@ The integration is currently very suitable for homelab use, but not for enterpri
 
 - [OpenID Connect Session Management 1.0](https://openid.net/specs/openid-connect-session-1_0.html): users that are disabled at the IdP do not get logged out in Home Assistant until their refresh token expires/they logout manually
 - [OpenID Connect Front-Channel Logout 1.0](https://openid.net/specs/openid-connect-frontchannel-1_0.html): logout in Home Assistant does not automatically log the user out at the IdP
-- [OpenID Connect Back-Channel Logout 1.0 incorporating errata set 1](https://openid.net/specs/openid-connect-backchannel-1_0.html)
+- [OpenID Connect Back-Channel Logout 1.0 incorporating errata set 1](https://openid.net/specs/openid-connect-backchannel-1_0.html): a **coarse, proof-of-concept** implementation is available (see the dedicated question below). It revokes *all* sessions of the linked user rather than only the session identified by a `sid`, and access tokens stay valid until they expire.
 - *Open TODO*: Permissions are only set upon first login (https://github.com/christiaangoossens/hass-oidc-auth/discussions/187), as permission changes would necessitate revoking refresh tokens/implementing session management
 - Other RFC's and best practices with regards to token expiration and revocation in the app itself
 
@@ -65,6 +65,24 @@ To be able to support all features required, the mobile apps will need to:
 Only when those changes are made, will PR's to implement this be accepted.
 
 See the "Proposal" section of https://github.com/orgs/home-assistant/discussions/48 for more details on what the HA team will need to change for this functionality to work.
+
+## Does the integration support OIDC back-channel logout?
+
+Yes, as a **proof of concept**. When a user logs out at the IdP (or their session is terminated), the IdP can POST a signed `logout_token` to Home Assistant at:
+
+```
+https://<your HA URL>/auth/oidc/backchannel_logout
+```
+
+The integration validates the token (signature via the provider's JWKS, `iss`, `aud`, required `events` member, absence of `nonce`, and `exp`/`iat`) and then revokes the refresh tokens of the Home Assistant user whose OIDC credential matches the token's `sub`. A short-lived in-memory cache rejects replayed tokens (by `jti`).
+
+> [!IMPORTANT]
+> This implementation is intentionally coarse and has the following limitations:
+> - It revokes **all** refresh tokens of the linked Home Assistant user, logging that user out on **every** device. It does not perform per-session (`sid`) revocation, as that requires Home Assistant core hooks that are not available to custom integrations.
+> - Already-issued access tokens remain valid until they expire (up to 30 minutes by default in Home Assistant). Only refresh tokens are revoked immediately.
+> - The in-memory replay cache is not shared across Home Assistant replicas and is cleared on restart.
+
+To enable it, configure the Back-Channel Logout URL in your IdP. For Keycloak, set the **Backchannel logout URL** under the client's **Advanced** settings and enable **Backchannel logout session required**. See [the Keycloak guide](./provider-configurations/keycloak.md) for details.
 
 ## I am using a proxy setup where my reverse proxy authenticates users
 This integration is intended to be public-facing (as most OIDC apps). If you are authenticating users at the reverse proxy level (such as if you are migrating from https://github.com/BeryJu/hass-auth-header), **you should remove this authentication layer after installing this integration.**.
