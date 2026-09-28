@@ -28,6 +28,7 @@ from .const import (
     NETWORK_TLS_CA_PATH,
     NETWORK_TLS_VERIFY,
     ROLE_ADMINS,
+    ROLE_READ_ONLY,
     ROLE_USERS,
     ROLES,
 )
@@ -110,6 +111,8 @@ CONFIG_SCHEMA = vol.Schema(
                     {
                         # Which group name should we use to assign the user role?
                         vol.Optional(ROLE_USERS): vol.Coerce(str),
+                        # Which group name should we use to assign the read-only role?
+                        vol.Optional(ROLE_READ_ONLY): vol.Coerce(str),
                         # What group name should we use to assign the admin role?
                         # Defaults to admins
                         vol.Optional(ROLE_ADMINS): vol.Coerce(str),
