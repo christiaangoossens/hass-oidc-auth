@@ -30,6 +30,15 @@ from .validation import validate_url
 _LOGGER = logging.getLogger(__name__)
 
 
+def hash_subject(issuer: str, subject: str) -> str:
+    """Hash an issuer-scoped subject into the stable identifier we store.
+
+    The subject identifier is only unique per issuer, so it is combined with
+    the issuer and hashed before it is stored on the Home Assistant credential.
+    """
+    return hashlib.sha256(f"{issuer}.{subject}".encode()).hexdigest()
+
+
 class OIDCClientException(Exception):
     "Raised when the OIDC Client encounters an error"
 
@@ -635,9 +644,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             # Issuer for the End-User, which is intended to be consumed by the Client
             # Only unique per issuer, so we combine it with the issuer and hash it.
             # This might allow multiple OIDC providers to be used with this integration.
-            "sub": hashlib.sha256(
-                f"{discovery_document['issuer']}.{id_token.get('sub')}".encode()
-            ).hexdigest(),
+            "sub": hash_subject(discovery_document["issuer"], id_token.get("sub")),
             # Display name, configurable
             "display_name": id_token.get(self.display_name_claim),
             # Username, configurable
