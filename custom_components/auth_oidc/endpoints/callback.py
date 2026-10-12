@@ -27,7 +27,7 @@ class OIDCCallbackView(HomeAssistantView):
         self.oidc_provider = oidc_provider
         self.force_https = force_https
 
-    async def get(self, request: web.Request) -> web.Response:
+    async def get(self, request: web.Request) -> web.Response:  # pylint: disable=too-many-return-statements
         """Receive response."""
 
         # Get cookie to get the state_id
@@ -39,6 +39,15 @@ class OIDCCallbackView(HomeAssistantView):
         params = request.rel_url.query
         code = params.get("code")
         state = params.get("state")
+
+        # If the provider returned an OAuth error (for example access_denied),
+        # surface the provider error instead of the misleading missing code or
+        # state message. The error view still offers the retry link.
+        if params.get("error"):
+            error_description = params.get("error_description", params.get("error"))
+            return await error_response(
+                "oidc_error", status=400, message=error_description
+            )
 
         if not (code and state):
             return await error_response("missing_code_or_state")
