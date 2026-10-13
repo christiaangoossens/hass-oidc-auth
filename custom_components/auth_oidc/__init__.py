@@ -36,6 +36,7 @@ from .config import (
     CONFIG_SCHEMA as CONFIG_SCHEMA,
 )
 from .endpoints import (
+    OIDCBackchannelLogoutView,
     OIDCCallbackView,
     OIDCDeviceSSE,
     OIDCFinishView,
@@ -217,6 +218,7 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
     hass.http.register_view(OIDCRedirectView(oidc_client, provider, force_https))
     hass.http.register_view(OIDCCallbackView(oidc_client, provider, force_https))
     hass.http.register_view(OIDCFinishView(provider))
+    hass.http.register_view(OIDCBackchannelLogoutView(oidc_client, provider))
 
     _LOGGER.info("Registered OIDC views")
 

@@ -75,3 +75,15 @@ auth_oidc:
     user: homeassistant
     admin: homeassistantadmin
 ```
+
+## Optional: Enable back-channel logout (proof of concept)
+
+The integration exposes a Back-Channel Logout endpoint. To let Keycloak notify Home Assistant when a session ends:
+
+1. In the Keycloak Admin Console, go to **Clients** and open your `homeassistant` client.
+2. Open the **Advanced** tab.
+3. Set **Backchannel logout URL** to `https://<your HA URL>/auth/oidc/backchannel_logout`.
+4. Enable **Backchannel logout session required** so Keycloak includes the required session information.
+5. Save.
+
+When Keycloak posts a valid `logout_token` containing a `sub`, Home Assistant revokes the refresh tokens of the linked user. This is a coarse implementation: it logs the user out on **all** devices. Revoking the refresh tokens immediately invalidates their access tokens and closes live websockets (Home Assistant validates access tokens against the issuing refresh token, so the 30-minute access-token lifetime is only an upper bound). A `sid`-only token is accepted but cannot be mapped to a session, so nothing is revoked.

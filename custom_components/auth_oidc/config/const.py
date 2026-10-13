@@ -41,6 +41,17 @@ NETWORK_TLS_VERIFY = "tls_verify"
 NETWORK_TLS_CA_PATH = "tls_ca_path"
 
 ## ===
+## Back-channel logout constants
+## ===
+
+# Endpoint that the OpenID Provider (IdP) POSTs logout tokens to
+BACKCHANNEL_LOGOUT_PATH = "/auth/oidc/backchannel_logout"
+# Required "events" claim member per OpenID Connect Back-Channel Logout 1.0
+BACKCHANNEL_LOGOUT_EVENT = "http://schemas.openid.net/event/backchannel-logout"
+# How long (seconds) a logout token's jti is remembered to reject replays
+BACKCHANNEL_LOGOUT_JTI_CACHE_TTL = 600
+
+## ===
 ## Default configurations for providers
 ## ===
 
