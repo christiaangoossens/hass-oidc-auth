@@ -22,6 +22,7 @@ from ..config.const import (
     NETWORK_TLS_CA_PATH,
     NETWORK_TLS_VERIFY,
     ROLE_ADMINS,
+    ROLE_READ_ONLY,
     ROLE_USERS,
 )
 from .types import UserDetails
@@ -338,6 +339,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         self.groups_claim = claims.get(CLAIMS_GROUPS, "groups")
         self.user_role = roles.get(ROLE_USERS, None)
         self.admin_role = roles.get(ROLE_ADMINS, "admins")
+        self.read_only_role = roles.get(ROLE_READ_ONLY, None)
         self.tls_verify = network.get(NETWORK_TLS_VERIFY, True)
         self.tls_ca_path = network.get(NETWORK_TLS_CA_PATH)
 
@@ -621,10 +623,17 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             _LOGGER.warning("Groups claim is not a list, using empty list instead.")
             groups = []
 
-        # Assign role if user has the required groups
+        # Assign role if user has the required groups.
+        # Precedence, from lowest to highest: user -> read-only -> admin.
+        # The read-only group is checked after the user group so that an
+        # explicit read-only group also applies to users that match the
+        # (possibly unset, thus catch-all) user role.
         role = "invalid"
         if self.user_role in groups or self.user_role is None:
             role = "system-users"
+
+        if self.read_only_role is not None and self.read_only_role in groups:
+            role = "system-read-only"
 
         if self.admin_role in groups:
             role = "system-admin"
