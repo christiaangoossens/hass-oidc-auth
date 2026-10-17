@@ -54,7 +54,7 @@
       },
       "reconfigure": {
         "title": "Reconfigure OIDC Authentication",
-        "description": "Update your OIDC client credentials for {provider_name}.\n\n**Discovery URL:** {discovery_url}\n\n**What you can change:**\n- **Client ID**: Update your application's client identifier\n- **Client Type**: Switch between Public and Confidential client types\n- **Client Secret**: Update or add a client secret (for confidential clients)\n\n**Note:** Changes will be validated against your OIDC provider before being saved. Your existing settings will be preserved if validation fails.\n\n**Security:** For confidential clients, leave the client secret field empty to keep your existing secret unchanged.",
+        "description": "Update your OIDC client credentials for {provider_name}.\n\n**Discovery URL:** {discovery_url}\n\n**What you can change:**\n- **Client ID**: Update your application's client identifier\n- **Client Type**: Switch between Public and Confidential client types\n- **Client Secret**: Update or add a client secret (for confidential clients)\n\n**Note:** The client ID format is checked before saving. Changes take effect after restarting Home Assistant. Your existing settings will be preserved if validation fails.\n\n**Security:** For confidential clients, leave the client secret field empty to keep your existing secret unchanged.",
         "data": {
           "client_id": "Client ID",
           "client_secret": "Client Secret (leave empty to keep current)"
