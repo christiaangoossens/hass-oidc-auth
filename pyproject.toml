@@ -12,7 +12,7 @@ dependencies = [
     "joserfc~=1.7.0",
 ]
 readme = "README.md"
-requires-python = "~=3.14.5"
+requires-python = "~=3.15.0"
 
 [dependency-groups]
 dev = [
