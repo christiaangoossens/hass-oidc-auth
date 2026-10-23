@@ -1,5 +1,8 @@
 """Imports manager"""
 
+from .backchannel_logout import (
+    OIDCBackchannelLogoutView as OIDCBackchannelLogoutView,
+)
 from .callback import OIDCCallbackView as OIDCCallbackView
 from .device_sse import OIDCDeviceSSE as OIDCDeviceSSE
 from .finish import OIDCFinishView as OIDCFinishView

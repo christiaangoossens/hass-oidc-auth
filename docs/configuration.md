@@ -177,6 +177,22 @@ auth_oidc:
 > [!CAUTION]
 > Do not disable `tls_verify` in a production setting or when your Home Assistant installation is exposed outside of your network. If disabled, man-in-the-middle attacks can be used to change the provider configuration to allow fake tokens to be used.
 
+### Back-channel logout
+This integration implements the Relying Party side of [OpenID Connect Back-Channel Logout 1.0](https://openid.net/specs/openid-connect-backchannel-1_0.html) as a proof of concept. No Home Assistant configuration is required: the endpoint is always registered.
+
+Configure the following URL as the Back-Channel Logout URL / backchannel logout endpoint in your identity provider:
+
+```
+https://<your HA URL>/auth/oidc/backchannel_logout
+```
+
+When the IdP posts a valid `logout_token` that contains a `sub`, the refresh tokens of the linked Home Assistant user are revoked (this logs the user out on all devices). Revoking the refresh tokens immediately invalidates their access tokens and closes live websockets: Home Assistant validates access tokens against the issuing refresh token, so removing it revokes the session at once (the 30-minute access-token lifetime is only an upper bound). Coarse mode also revokes long-lived access tokens (they are refresh tokens too), which will log out companion apps/integrations using them. Residual risk is limited to non-HA sessions (e.g. the IdP/browser session or a reverse-proxy cookie), which can still re-establish a login.
+
+For Keycloak, open your client, go to the **Advanced** tab, set **Backchannel logout URL** to the URL above and enable **Backchannel logout session required**. See the [Keycloak guide](./provider-configurations/keycloak.md).
+
+> [!NOTE]
+> This is a coarse implementation: revocation is based on the `sub` claim only, so **all** sessions of the user are revoked, not just the one identified by a `sid`. A valid `sid`-only token is accepted with `200 OK` but cannot be mapped to a Home Assistant session today, so nothing is revoked and a warning is logged. Replayed tokens are rejected using an in-memory cache of recently seen `jti` values.
+
 ## All configuration Options
 
 Here's a table of all options that you can set:
