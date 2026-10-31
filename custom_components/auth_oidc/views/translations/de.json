@@ -47,7 +47,8 @@
       "device_link_failed": "Der Status konnte nicht mit dem Geräte-Code verknüpft werden, bitte starte die Anmeldung neu.",
       "invalid_redirect_uri": "Ungültige redirect_uri, bitte starte die Anmeldung neu.",
       "device_code_failed": "Gerätecode konnte nicht erstellt werden, bitte starte die Anmeldung neu.",
-      "misconfigured": "Die Integration ist falsch konfiguriert, die Discovery-Konfiguration konnte nicht abgerufen werden."
+      "misconfigured": "Die Integration ist falsch konfiguriert, die Discovery-Konfiguration konnte nicht abgerufen werden.",
+      "oidc_error": "Der OIDC-Anbieter hat einen Fehler zurückgegeben. Bitte versuche es erneut."
     }
   }
 }

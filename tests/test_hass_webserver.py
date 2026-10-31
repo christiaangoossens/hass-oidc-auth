@@ -575,6 +575,35 @@ async def test_callback_rejects_missing_code(
 
 
 @pytest.mark.asyncio
+async def test_callback_surfaces_provider_error(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """An OAuth error from the provider shows the provider error,
+    not the misleading missing code or state message."""
+    await setup(hass)
+
+    client = await hass_client()
+    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
+    encoded = encode_redirect_uri(redirect_uri)
+    resp_welcome = await client.get(
+        f"/auth/oidc/welcome?redirect_uri={encoded}",
+        allow_redirects=False,
+    )
+    state = resp_welcome.cookies["auth_oidc_state"].value
+
+    resp_error = await client.get(
+        "/auth/oidc/callback?error=access_denied"
+        "&error_description=The+user+denied+access"
+        f"&state={state}",
+        allow_redirects=False,
+    )
+    text = await resp_error.text()
+    assert resp_error.status == 400
+    assert "The user denied access" in text
+    assert "Missing code or state parameter." not in text
+
+
+@pytest.mark.asyncio
 async def test_callback_rejects_state_mismatch(
     hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
