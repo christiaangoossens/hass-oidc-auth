@@ -47,7 +47,8 @@
       "device_link_failed": "Failed to link state to device code, please restart login.",
       "invalid_redirect_uri": "Invalid redirect_uri, please restart login.",
       "device_code_failed": "Failed to generate device code, please restart login.",
-      "misconfigured": "Integration is misconfigured, discovery could not be obtained."
+      "misconfigured": "Integration is misconfigured, discovery could not be obtained.",
+      "oidc_error": "The OIDC provider returned an error. Please try again."
     }
   }
 }
