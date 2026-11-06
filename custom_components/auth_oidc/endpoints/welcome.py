@@ -32,6 +32,7 @@ class OIDCWelcomeView(HomeAssistantView):
         self.force_https = options.get("force_https")
         self.has_other_auth_providers = options.get("has_other_auth_providers")
         self.prefers_skipping = options.get("prefers_skipping")
+        self.ios_direct_signin = options.get("ios_direct_signin", False)
 
     async def _process_url(self, redirect_uri: str) -> tuple[str, str, bool]:
         """Processes the redirect URI to determine if we need setTokens and if this is mobile.
@@ -72,6 +73,15 @@ class OIDCWelcomeView(HomeAssistantView):
         # Android = https://home-assistant.io/Android,
         # iOS = https://home-assistant.io/iOS
         is_mobile = client_id.startswith("https://home-assistant.io/")
+
+        # The iOS app keeps same-frame navigations inside its login webview
+        # and only intercepts its homeassistant:// callback, so the normal
+        # redirect sign-in works there. Opt-in, as that webview cannot use
+        # passkeys and does not share the browser's session.
+        if self.ios_direct_signin and client_id.startswith(
+            "https://home-assistant.io/iOS"
+        ):
+            is_mobile = False
 
         # Check if we appear to be signing in to the web version,
         # for which we want to store tokens.

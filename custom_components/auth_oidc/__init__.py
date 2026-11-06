@@ -22,6 +22,7 @@ from .config import (
     FEATURES_DEFAULT_REDIRECT,
     FEATURES_FORCE_HTTPS,
     FEATURES_INCLUDE_GROUPS_SCOPE,
+    FEATURES_IOS_DIRECT_SIGNIN,
     GROUPS_SCOPE,
     ID_TOKEN_SIGNING_ALGORITHM,
     NETWORK,
@@ -185,6 +186,7 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
 
     force_https = features_config.get(FEATURES_FORCE_HTTPS, False)
     default_redirect = features_config.get(FEATURES_DEFAULT_REDIRECT, False)
+    ios_direct_signin = features_config.get(FEATURES_IOS_DIRECT_SIGNIN, False)
 
     # Register the static paths
     for url_path, (file_path, cache_headers) in STATIC_FILE_REGISTRATIONS.items():
@@ -210,6 +212,7 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
                 force_https=force_https,
                 has_other_auth_providers=auth_provider_count > 0,
                 prefers_skipping=default_redirect or has_only_trusted_networks,
+                ios_direct_signin=ios_direct_signin,
             ),
         )
     )

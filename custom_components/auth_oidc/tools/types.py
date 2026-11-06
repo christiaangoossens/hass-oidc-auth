@@ -63,3 +63,6 @@ class OIDCWelcomeOptions(TypedDict):
 
     # Does the user prefer to skip the welcome screen?
     prefers_skipping: bool
+
+    # Should the iOS app sign in directly instead of using a device code?
+    ios_direct_signin: bool

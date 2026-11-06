@@ -100,6 +100,23 @@ auth_oidc:
 
 If you have this feature enabled and you would like to use the backup login, make sure to append `?skip_oidc_redirect=true` to your login URL. For example, if your HA is at `https://ha.example.com`, you can go to `https://ha.example.com/?skip_oidc_redirect=true` to see the HA username/password login screen.
 
+### Signing in directly on iOS
+By default, the Home Assistant companion apps show a 6-digit code on the welcome screen, which you approve from a browser where you are signed in. If you prefer to sign in directly in the iOS app, you can enable:
+
+```yaml
+auth_oidc:
+  features:
+    ios_direct_signin: true
+```
+
+The iOS app then gets the same "Login with ..." button as a browser and opens your provider inside its own login screen. This has trade-offs, which is why it is off by default:
+
+- The app's login screen is an embedded webview, so passkeys, WebAuthn and security keys do not work there.
+- It does not share your browser's session, so you have to enter your credentials in the app even when you are already signed in elsewhere.
+- It does not show an address bar.
+
+The Android app always uses the device code, because it opens external pages in the system browser, which cannot return to the app.
+
 ### Forcing HTTPS
 First check if you are setting the header `X-Forwarded-Proto` in your proxy and if the [proxy settings for Home Assistant](https://www.home-assistant.io/integrations/http/#use_x_forwarded_for) are configured correctly. You should also check if IP addresses in your logs actually match the origin IP (instead of proxy IP). If you cannot find any mistakes, you may use the following config option to force HTTPS regardless:
 
@@ -202,6 +219,7 @@ Here's a table of all options that you can set:
 | `features.include_groups_scope`  | `boolean` | No       | `true`           | Include the 'groups' scope in the OIDC request. Set to `false` to exclude it. |
 | `features.force_https`  | `boolean` | No       | `false`           | Set to `true` to force all URLs generated to use `https` instead of automatically determining based on the request scheme or `X-Forwarded-Proto`. |
 | `features.default_redirect`  | `boolean` | No       | `false`           | Set to `true` to always skip the welcome screen (on desktop), regardless of if there are any other auth providers registered. |
+| `features.ios_direct_signin`  | `boolean` | No       | `false`           | Set to `true` to let the iOS companion app sign in directly in its login screen instead of showing a device code. See [Signing in directly on iOS](#signing-in-directly-on-ios) for the trade-offs. |
 | `claims.display_name`      | `string` | No       | `name`                     | The claim to use to obtain the display name.
 | `claims.username`         | `string` | No       | `preferred_username`                     | The claim to use to obtain the username.
 | `claims.groups`            | `string` | No       | `groups`                     | The claim to use to obtain the user's group(s). |

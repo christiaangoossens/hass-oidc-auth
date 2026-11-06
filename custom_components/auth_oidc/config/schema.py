@@ -21,6 +21,7 @@ from .const import (
     FEATURES_DISABLE_PKCE,
     FEATURES_FORCE_HTTPS,
     FEATURES_INCLUDE_GROUPS_SCOPE,
+    FEATURES_IOS_DIRECT_SIGNIN,
     FEATURES_REQUIRE_EXISTING_USER,
     GROUPS_SCOPE,
     ID_TOKEN_SIGNING_ALGORITHM,
@@ -89,6 +90,13 @@ CONFIG_SCHEMA = vol.Schema(
                         # of other auth providers.
                         vol.Optional(
                             FEATURES_DEFAULT_REDIRECT, default=False
+                        ): vol.Coerce(bool),
+                        # Let the iOS companion app use the normal redirect
+                        # sign-in inside its own webview instead of the
+                        # device code. Off by default: that webview has no
+                        # passkey support and no shared browser session.
+                        vol.Optional(
+                            FEATURES_IOS_DIRECT_SIGNIN, default=False
                         ): vol.Coerce(bool),
                     }
                 ),

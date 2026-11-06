@@ -13,6 +13,7 @@ from auth_oidc.config.const import (
     DISCOVERY_URL,
     FEATURES,
     FEATURES_DEFAULT_REDIRECT,
+    FEATURES_IOS_DIRECT_SIGNIN,
 )
 from homeassistant.components.http import DOMAIN as HTTP_DOMAIN
 from homeassistant.components.http import StaticPathConfig
@@ -27,6 +28,7 @@ from custom_components.auth_oidc.endpoints.injected_auth_page import (
 )
 
 MOBILE_CLIENT_ID = "https://home-assistant.io/Android"
+IOS_CLIENT_ID = "https://home-assistant.io/iOS"
 WELCOME_PATH = "/auth/oidc/welcome"
 INJECTION_SCRIPT_MARKER = "<script src='/static/auth_oidc/injection.js"
 
@@ -401,6 +403,75 @@ async def test_welcome_mobile_device_code_generation_failure(
         assert (
             "Failed to generate device code, please restart login." in await resp.text()
         )
+
+
+async def setup_with_features(hass: HomeAssistant, features: dict) -> None:
+    """Set up the integration with the given features."""
+    mock_config = {
+        DOMAIN: {
+            CLIENT_ID: "dummy",
+            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
+            FEATURES: features,
+        }
+    }
+
+    result = await async_setup_component(hass, DOMAIN, mock_config)
+    assert result
+
+
+async def get_welcome_for_client(client, client_id: str):
+    """Request the welcome page as the given OAuth2 client."""
+    redirect_uri = create_redirect_uri(client_id, get_test_origin(client))
+    encoded = encode_redirect_uri(redirect_uri)
+    return await client.get(
+        f"/auth/oidc/welcome?redirect_uri={encoded}",
+        allow_redirects=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_welcome_ios_shows_device_code_by_default(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """Without ios_direct_signin, the iOS app gets a device code."""
+    await setup(hass)
+
+    client = await hass_client()
+    resp = await get_welcome_for_client(client, IOS_CLIENT_ID)
+    assert resp.status == 200
+    text = await resp.text()
+    assert 'id="device-code"' in text
+    assert 'id="login-button"' not in text
+
+
+@pytest.mark.asyncio
+async def test_welcome_ios_direct_signin_shows_login_button(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """With ios_direct_signin, the iOS app gets the normal login button."""
+    await setup_with_features(hass, {FEATURES_IOS_DIRECT_SIGNIN: True})
+
+    client = await hass_client()
+    resp = await get_welcome_for_client(client, IOS_CLIENT_ID)
+    assert resp.status == 200
+    text = await resp.text()
+    assert 'id="login-button"' in text
+    assert 'id="device-code"' not in text
+
+
+@pytest.mark.asyncio
+async def test_welcome_ios_direct_signin_keeps_android_device_code(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """ios_direct_signin does not change the Android app's device code."""
+    await setup_with_features(hass, {FEATURES_IOS_DIRECT_SIGNIN: True})
+
+    client = await hass_client()
+    resp = await get_welcome_for_client(client, MOBILE_CLIENT_ID)
+    assert resp.status == 200
+    text = await resp.text()
+    assert 'id="device-code"' in text
+    assert 'id="login-button"' not in text
 
 
 @pytest.mark.asyncio
