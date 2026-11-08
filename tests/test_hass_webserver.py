@@ -18,7 +18,7 @@ from homeassistant.components.http import DOMAIN as HTTP_DOMAIN
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
-from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
+from pytest_homeassistant.typing import ClientSessionGenerator
 
 from custom_components.auth_oidc import DOMAIN
 from custom_components.auth_oidc.endpoints.injected_auth_page import (
