@@ -17,6 +17,10 @@ _LOGGER = logging.getLogger(__name__)
 
 templates: dict[str, str] = {}
 computed_hashes: dict[str, str] = {}
+# Directories whose templates are in the cache. A non-empty dict is not the
+# same thing: the cache can be non-empty and incomplete, and a renderer pointed
+# at another directory still needs its own fetch.
+loaded_dirs: set[str] = set()
 
 
 class AsyncTemplateRenderer:
@@ -28,8 +32,16 @@ class AsyncTemplateRenderer:
         )
 
     async def fetch_templates(self) -> None:
-        """Fetches all HTML files from the template directory."""
-        templates.clear()
+        """Fetches all HTML files from the template directory.
+
+        The cache is built beside the live dict and swapped in whole. Clearing
+        ``templates`` first and refilling it file by file left it non-empty but
+        incomplete whenever the caller was cancelled between two awaits, and
+        because a non-empty dict read as "already loaded", the cache never
+        healed: every later request raised "Template '<name>' not found" until a
+        restart.
+        """
+        loaded: dict[str, str] = {}
 
         files = await async_scandir(self.template_dir)
 
@@ -45,10 +57,19 @@ class AsyncTemplateRenderer:
                     async with async_open(
                         template_path, mode="r", encoding="utf-8"
                     ) as f:
-                        content = await f.read()
-                        templates[filename] = content
+                        loaded[filename] = await f.read()
                 except OSError as e:  # pragma: no cover
                     _LOGGER.warning("Error reading template file %s: %s", filename, e)
+
+        # No await between these: a cancellation cannot observe a half-swapped
+        # cache, and another directory's templates are not merged in.
+        templates.clear()
+        templates.update(loaded)
+        if loaded:
+            # Only a fetch that produced entries counts as loaded. Marking an
+            # empty one would make the guard skip the retry and strand every
+            # template in a directory that was unreadable or empty at the time.
+            loaded_dirs.add(self.template_dir)
 
     async def render_template(
         self, template_name: str, accept_language: str | None = None, **kwargs: Any
@@ -60,7 +81,7 @@ class AsyncTemplateRenderer:
         function and the 'lang' variable.
         """
 
-        if not templates:
+        if self.template_dir not in loaded_dirs:
             await (
                 self.fetch_templates()
             )  # If the templates haven't been fetched, fetch them
