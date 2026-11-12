@@ -15,7 +15,7 @@ class UserDetails(dict):
     # or to link the account on first login
     username: str
     # Home Assistant role to assign to this user
-    role: Literal["system-admin", "system-users", "invalid"]
+    role: Literal["system-admin", "system-users", "system-read-only", "invalid"]
 
 
 class OIDCState(dict):
