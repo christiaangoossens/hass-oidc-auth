@@ -58,7 +58,9 @@ class StateStore:
             and state["ip_address"] == ip
         )
 
-    async def async_create_state_from_url(self, redirect_uri: str, ip: str) -> str:
+    async def async_create_state_from_url(
+        self, redirect_uri: str, ip: str | None
+    ) -> str:
         """Generates a the OIDC state adds it to the database for 5 minutes."""
         if self._data is None:
             raise RuntimeError("Data not loaded")
@@ -107,7 +109,7 @@ class StateStore:
             return False
 
     async def async_get_redirect_uri_for_state(
-        self, state_id: str, ip: str
+        self, state_id: str, ip: str | None
     ) -> str | None:
         """Get the redirect_uri for a given state_id."""
         if self._data is None:
@@ -119,7 +121,7 @@ class StateStore:
 
         return None
 
-    async def async_is_state_ready(self, state_id: str, ip: str) -> bool:
+    async def async_is_state_ready(self, state_id: str, ip: str | None) -> bool:
         """Check if the state has received the user info from the OIDC callback."""
         if self._data is None:
             raise RuntimeError("Data not loaded")
@@ -176,8 +178,8 @@ class StateStore:
         return False
 
     async def async_receive_userinfo_for_state(
-        self, state_id: str, ip: str
-    ) -> OIDCState | None:
+        self, state_id: str, ip: str | None
+    ) -> UserDetails | None:
         """Retrieve user info based on the state_id."""
         if self._data is None:
             raise RuntimeError("Data not loaded")

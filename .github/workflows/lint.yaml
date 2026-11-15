@@ -20,5 +20,5 @@ jobs:
           enable-cache: true
       - name: Sync dependencies
         run: scripts/sync
-      - name: Lint (pylint/ruff lint)
+      - name: Lint (pylint/ruff lint/pyright)
         run: scripts/check

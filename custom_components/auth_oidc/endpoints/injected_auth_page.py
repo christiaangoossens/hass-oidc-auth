@@ -56,7 +56,8 @@ async def frontend_injection(
                 )
                 break
 
-            if not hasattr(route.handler, "args"):
+            handler_args = getattr(route.handler, "args", None)
+            if handler_args is None:
                 _LOGGER.info(
                     "Route handler for /auth/authorize should have "
                     + "been called with arguments (StaticPathConfig)"
@@ -68,7 +69,7 @@ async def frontend_injection(
             frontend_path = next(
                 (
                     arg
-                    for arg in route.handler.args
+                    for arg in handler_args
                     if (isinstance(arg, str) and arg.endswith(".html"))
                 ),
                 None,

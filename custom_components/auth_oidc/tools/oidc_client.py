@@ -7,6 +7,7 @@ import os
 import ssl
 import urllib.parse
 from functools import partial
+from typing import Any
 
 import aiohttp
 from homeassistant.core import HomeAssistant
@@ -24,7 +25,7 @@ from ..config.const import (
     ROLE_ADMINS,
     ROLE_USERS,
 )
-from .types import UserDetails
+from .types import UserDetails, UserRole
 from .validation import validate_url
 
 _LOGGER = logging.getLogger(__name__)
@@ -297,10 +298,10 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
     """OIDC Client implementation for Python, including PKCE."""
 
     # HTTP session to be used
-    http_session: aiohttp.ClientSession = None
+    http_session: aiohttp.ClientSession | None = None
 
     # OIDC Discovery tool to be used
-    discovery_class: OIDCDiscoveryClient = None
+    discovery_class: OIDCDiscoveryClient | None = None
 
     def __init__(
         self,
@@ -308,7 +309,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         discovery_url: str,
         client_id: str,
         scope: str,
-        **kwargs: str,
+        **kwargs: Any,
     ):
         self.hass = hass
         self.discovery_url = discovery_url
@@ -323,14 +324,17 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         self.client_secret = kwargs.get("client_secret")
 
         # Default id_token_signing_alg to RS256 if not specified
-        self.id_token_signing_alg = kwargs.get("id_token_signing_alg")
-        if self.id_token_signing_alg is None:
-            self.id_token_signing_alg = DEFAULT_ID_TOKEN_SIGNING_ALGORITHM
+        requested_alg = kwargs.get("id_token_signing_alg")
+        self.id_token_signing_alg: str = (
+            DEFAULT_ID_TOKEN_SIGNING_ALGORITHM
+            if requested_alg is None
+            else requested_alg
+        )
 
-        features = kwargs.get("features")
-        claims = kwargs.get("claims")
-        roles = kwargs.get("roles")
-        network = kwargs.get("network")
+        features = kwargs.get("features") or {}
+        claims = kwargs.get("claims") or {}
+        roles = kwargs.get("roles") or {}
+        network = kwargs.get("network") or {}
 
         self.disable_pkce = features.get(FEATURES_DISABLE_PKCE, False)
         self.display_name_claim = claims.get(CLAIMS_DISPLAY_NAME, "name")
@@ -341,15 +345,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         self.tls_verify = network.get(NETWORK_TLS_VERIFY, True)
         self.tls_ca_path = network.get(NETWORK_TLS_CA_PATH)
 
-    def __del__(self):
-        """Cleanup the HTTP session."""
-
-        # HA never seems to run this, but it's good practice to close the session
-        if self.http_session:
-            _LOGGER.debug("Closing HTTP session")
-            self.http_session.close()
-
-    def _base64url_encode(self, value: str) -> str:
+    def _base64url_encode(self, value: bytes) -> str:
         """Uses base64url encoding on a given string"""
         return base64.urlsafe_b64encode(value).rstrip(b"=").decode("utf-8")
 
@@ -438,6 +434,10 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
 
     async def _fetch_jwks(self, jwks_uri: str):
         """Fetches JWKS."""
+        if self.discovery_class is None:
+            await self._fetch_discovery_document()
+
+        assert self.discovery_class is not None
         return await self.discovery_class.fetch_jwks(jwks_uri)
 
     async def _parse_id_token(self, id_token: str) -> dict | None:
@@ -458,7 +458,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
 
             # Obtain the signing algorithm from the header of the id_token
             alg = unverified_header.get("alg")
-            if alg != self.id_token_signing_alg:
+            if not isinstance(alg, str) or alg != self.id_token_signing_alg:
                 # Verify that it matches our requested algorithm
                 _LOGGER.warning(
                     "ID Token received signed with the wrong algorithm: %s, expected %s",
@@ -596,7 +596,9 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             _LOGGER.warning("Error generating authorization URL: %s", e)
             return None
 
-    async def parse_user_details(self, id_token: str, access_token: str) -> UserDetails:
+    async def parse_user_details(
+        self, id_token: dict, access_token: str
+    ) -> UserDetails:
         """Parses the ID token and/or userinfo into user details."""
 
         # Fetch userinfo if there is an userinfo_endpoint available
@@ -622,7 +624,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             groups = []
 
         # Assign role if user has the required groups
-        role = "invalid"
+        role: UserRole = "invalid"
         if self.user_role in groups or self.user_role is None:
             role = "system-users"
 

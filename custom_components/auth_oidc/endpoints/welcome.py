@@ -33,8 +33,11 @@ class OIDCWelcomeView(HomeAssistantView):
         self.has_other_auth_providers = options.get("has_other_auth_providers")
         self.prefers_skipping = options.get("prefers_skipping")
 
-    async def _process_url(self, redirect_uri: str) -> tuple[str, bool]:
-        """Processes the redirect URI to determine if we need setTokens and if this is mobile."""
+    async def _process_url(self, redirect_uri: str) -> tuple[str, str, bool]:
+        """Processes the redirect URI to determine if we need setTokens and if this is mobile.
+
+        Returns the decoded redirect URI, the URI to store in the state and the mobile flag.
+        """
         # decodeURIComponent(btoa(...)) -> unquote first, then base64 decode
         decoded_redirect_uri = base64.b64decode(
             unquote(redirect_uri), validate=True
@@ -61,8 +64,8 @@ class OIDCWelcomeView(HomeAssistantView):
             raise ValueError("redirect_uri is not an HA OAuth2 URL")
 
         oauth2_query = parse_qs(oauth2_url.query)
-        client_id = oauth2_query.get("client_id")[0]
-        original_redirect_uri = oauth2_query.get("redirect_uri")[0]
+        client_id = oauth2_query["client_id"][0]
+        original_redirect_uri = oauth2_query["redirect_uri"][0]
 
         # If the client_id starts with https://home-assistant.io/
         # we assume it's a mobile client
@@ -81,7 +84,7 @@ class OIDCWelcomeView(HomeAssistantView):
             original_redirect_uri = concat_url_query(
                 original_redirect_uri, "storeToken=true"
             )
-            oauth2_query.update({"redirect_uri": original_redirect_uri})
+            oauth2_query["redirect_uri"] = [original_redirect_uri]
 
             # Create new redirect_uri with the updated query parameters
             new_oauth2_url = oauth2_url._replace(
