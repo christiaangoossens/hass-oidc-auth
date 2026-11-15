@@ -319,6 +319,137 @@ async def test_parse_user_details_admin_role_overrides_user_role(
 
 
 @pytest.mark.asyncio
+async def test_parse_user_details_assigns_read_only_role(hass: HomeAssistant):
+    """Configured read-only role should map to system-read-only."""
+    client = make_client(
+        hass, roles={"user": "users", "admin": "admins", "read_only": "guests"}
+    )
+
+    with patch.object(
+        client,
+        "_fetch_discovery_document",
+        new=AsyncMock(return_value={"issuer": "https://issuer"}),
+    ):
+        details = await client.parse_user_details(
+            {
+                "sub": "subject",
+                "name": "Display Name",
+                "preferred_username": "username",
+                "groups": ["guests"],
+            },
+            "access-token",
+        )
+
+    assert details["role"] == "system-read-only"
+
+
+@pytest.mark.asyncio
+async def test_parse_user_details_read_only_role_overrides_user_role(
+    hass: HomeAssistant,
+):
+    """Read-only group should take precedence over the general user role."""
+    client = make_client(
+        hass, roles={"user": "users", "admin": "admins", "read_only": "guests"}
+    )
+
+    with patch.object(
+        client,
+        "_fetch_discovery_document",
+        new=AsyncMock(return_value={"issuer": "https://issuer"}),
+    ):
+        details = await client.parse_user_details(
+            {
+                "sub": "subject",
+                "name": "Display Name",
+                "preferred_username": "username",
+                "groups": ["users", "guests"],
+            },
+            "access-token",
+        )
+
+    assert details["role"] == "system-read-only"
+
+
+@pytest.mark.asyncio
+async def test_parse_user_details_admin_role_overrides_read_only_role(
+    hass: HomeAssistant,
+):
+    """Admin group should take precedence over the read-only group."""
+    client = make_client(
+        hass, roles={"user": "users", "admin": "admins", "read_only": "guests"}
+    )
+
+    with patch.object(
+        client,
+        "_fetch_discovery_document",
+        new=AsyncMock(return_value={"issuer": "https://issuer"}),
+    ):
+        details = await client.parse_user_details(
+            {
+                "sub": "subject",
+                "name": "Display Name",
+                "preferred_username": "username",
+                "groups": ["guests", "admins"],
+            },
+            "access-token",
+        )
+
+    assert details["role"] == "system-admin"
+
+
+@pytest.mark.asyncio
+async def test_parse_user_details_read_only_role_without_user_role(
+    hass: HomeAssistant,
+):
+    """Read-only members should be admitted even when they lack the user group."""
+    client = make_client(
+        hass, roles={"user": "users", "admin": "admins", "read_only": "guests"}
+    )
+
+    with patch.object(
+        client,
+        "_fetch_discovery_document",
+        new=AsyncMock(return_value={"issuer": "https://issuer"}),
+    ):
+        details = await client.parse_user_details(
+            {
+                "sub": "subject",
+                "name": "Display Name",
+                "preferred_username": "username",
+                "groups": ["guests"],
+            },
+            "access-token",
+        )
+
+    assert details["role"] == "system-read-only"
+
+
+@pytest.mark.asyncio
+async def test_parse_user_details_unset_read_only_role_keeps_previous_behaviour(
+    hass: HomeAssistant,
+):
+    """Without a read-only group configured, role assignment is unchanged."""
+    client = make_client(hass, roles={"user": "users", "admin": "admins"})
+
+    with patch.object(
+        client,
+        "_fetch_discovery_document",
+        new=AsyncMock(return_value={"issuer": "https://issuer"}),
+    ):
+        details = await client.parse_user_details(
+            {
+                "sub": "subject",
+                "name": "Display Name",
+                "preferred_username": "username",
+                "groups": ["users", "guests"],
+            },
+            "access-token",
+        )
+
+    assert details["role"] == "system-users"
+
+
+@pytest.mark.asyncio
 async def test_get_authorization_url_omits_pkce_when_disabled(
     hass: HomeAssistant,
 ):

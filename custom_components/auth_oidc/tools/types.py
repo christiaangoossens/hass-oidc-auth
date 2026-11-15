@@ -3,7 +3,7 @@
 # Dict types, to give a type to the stored and passed around data
 from typing import Literal, TypedDict
 
-type UserRole = Literal["system-admin", "system-users", "invalid"]
+type UserRole = Literal["system-admin", "system-users", "system-read-only", "invalid"]
 
 
 class UserDetails(TypedDict):
@@ -11,11 +11,14 @@ class UserDetails(TypedDict):
 
     # User subject, persistent identifier
     sub: str
+
     # Full name of the user for display purposes, None if the claim is missing
     display_name: str | None
+
     # Preferred username for the user, will be used when first generating the account
     # or to link the account on first login, None if the claim is missing
     username: str | None
+
     # Home Assistant role to assign to this user
     role: UserRole
 
