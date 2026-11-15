@@ -9,19 +9,20 @@ license = "MIT"
 dependencies = [
     "aiofiles~=25.1",
     "jinja2~=3.1",
-    "joserfc~=1.7.0",
+    "joserfc~=1.8.0",
 ]
 readme = "README.md"
 requires-python = "~=3.14.5"
 
 [dependency-groups]
 dev = [
-    "homeassistant~=2026.8",
+    "homeassistant~=2026.11",
     "pylint~=4.0",
+    "pyright[nodejs]~=1.1",
     "pytest~=9.0.3",
     "pytest-asyncio~=1.4.0",
     "pytest-cov~=7.1.0",
-    "pytest-homeassistant-custom-component~=0.13.355",
+    "pytest-homeassistant~=2026.11.0",
     "ruff~=0.12"
 ]
 
@@ -42,9 +43,15 @@ allow-direct-references = true
 packages = ["custom_components/auth_oidc"]
 
 [tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
-addopts = "--cov=custom_components --cov-fail-under=0"
+addopts = "-p no:respx --cov=custom_components --cov-fail-under=0"
 log_level = "DEBUG"
+
+[tool.pyright]
+include = ["custom_components"]
+venvPath = "."
+venv = ".venv"
 
 [tool.ruff]
 target-version = "py313"

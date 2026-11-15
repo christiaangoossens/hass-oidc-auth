@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
-import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
 
 from ..tools.oidc_client import (
     OIDCDiscoveryClient,
@@ -40,6 +40,13 @@ from .provider_catalog import (
     get_provider_docs_url,
     get_provider_name,
 )
+
+if TYPE_CHECKING:
+    # Home Assistant 2026.9+ aliases voluptuous to probatio at runtime and types its
+    # API with probatio. Older versions only have voluptuous, which is used at runtime.
+    import probatio as vol
+else:
+    import voluptuous as vol
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -166,7 +173,7 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle the initial step - provider selection."""
         # Check if OIDC is already configured (only one instance allowed)
         if self._async_current_entries():
@@ -211,7 +218,7 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_discovery_url(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle discovery URL input for providers requiring URL configuration."""
         errors = {}
 
@@ -255,7 +262,7 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def _handle_validation_actions(
         self, user_input: dict[str, Any]
-    ) -> FlowResult | None:
+    ) -> ConfigFlowResult | None:
         """Handle user actions from the validation form so they can fix errors."""
         action = user_input.get("action")
 
@@ -271,18 +278,18 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             "change_provider": self.async_step_user,
         }
 
-        handler = action_handlers.get(action)
+        handler = action_handlers.get(action) if action else None
         return await handler() if handler else None
 
     async def _perform_oidc_validation(self) -> tuple[dict, dict]:
         """Perform the actual OIDC validation and return discovery doc and errors."""
         errors = {}
         discovery_doc = {}
+        http_session = aiohttp.ClientSession()
 
         try:
-            http_session = aiohttp.ClientSession()
             discovery_client = OIDCDiscoveryClient(
-                discovery_url=self._flow_state.discovery_url,
+                discovery_url=self._flow_state.discovery_url or "",
                 http_session=http_session,
                 verification_context={
                     # Cannot be changed from the UI config currently
@@ -294,7 +301,7 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._cleanup_discovery_cache()
 
             # Check if discovery document is already cached and valid
-            cache_key = self._flow_state.discovery_url
+            cache_key = self._flow_state.discovery_url or ""
             if cache_key in self._discovery_cache and self._is_cache_valid(cache_key):
                 discovery_doc = self._discovery_cache[cache_key]
 
@@ -324,8 +331,9 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         except Exception:
             _LOGGER.exception("Unexpected error during validation")
             errors["base"] = "unknown"
+        finally:
+            await http_session.close()
 
-        await http_session.close()
         return discovery_doc, errors
 
     def _get_action_options(self, has_errors: bool) -> dict[str, str]:
@@ -374,7 +382,7 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def _build_validation_form(
         self, errors: dict[str, str], discovery_doc: dict | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Build the validation form with errors and action options."""
         action_options = self._get_action_options(bool(errors))
         data_schema = vol.Schema({vol.Required("action"): vol.In(action_options)})
@@ -406,7 +414,7 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_validate_connection(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Validate the OIDC configuration by testing discovery and JWKS."""
         # Handle user actions from validation form
         if user_input is not None:
@@ -424,7 +432,7 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # Step 4: Configure client details (client_id & client_secret)
     # =================
 
-    async def _proceed_to_next_step_after_client_config(self) -> FlowResult:
+    async def _proceed_to_next_step_after_client_config(self) -> ConfigFlowResult:
         """Proceed to next step after client config."""
         if self.current_provider_config.get("supports_groups", True):
             return await self.async_step_groups_config()
@@ -432,7 +440,7 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_client_config(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle client ID and client type selection."""
         errors = {}
 
@@ -480,7 +488,7 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders={
                 "provider_name": provider_name,
-                "discovery_url": self._flow_state.discovery_url,
+                "discovery_url": self._flow_state.discovery_url or "",
                 "documentation_url": get_provider_docs_url(self._flow_state.provider),
             },
         )
@@ -491,7 +499,7 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_groups_config(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Configure groups and roles."""
         errors = {}
 
@@ -511,7 +519,9 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             "default_admin_group", "admins"
         )
 
-        data_schema_dict = {vol.Optional(CONF_ENABLE_GROUPS, default=True): bool}
+        data_schema_dict: dict[Any, Any] = {
+            vol.Optional(CONF_ENABLE_GROUPS, default=True): bool
+        }
 
         # Add group configuration fields if groups are enabled
         if user_input is None or user_input.get(CONF_ENABLE_GROUPS, True):
@@ -537,7 +547,7 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user_linking(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Configure user linking options."""
         errors = {}
 
@@ -568,7 +578,7 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # Step 7: Finalize and create entry
     # =================
 
-    async def async_step_finalize(self) -> FlowResult:
+    async def async_step_finalize(self) -> ConfigFlowResult:
         """Finalize the configuration and create the config entry."""
         await self.async_set_unique_id(DOMAIN)
         self._abort_if_unique_id_configured()
@@ -643,10 +653,10 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return errors, data_updates
 
     def _build_reconfigure_schema(
-        self, current_data: dict[str, Any], _user_input: dict[str, Any] | None
+        self, current_data: Mapping[str, Any], _user_input: dict[str, Any] | None
     ) -> vol.Schema:
         """Build the reconfigure form schema."""
-        schema_dict = {
+        schema_dict: dict[Any, Any] = {
             vol.Required(
                 CONF_CLIENT_ID, default=current_data.get("client_id", vol.UNDEFINED)
             ): str,
@@ -659,7 +669,7 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle reconfiguration of OIDC client credentials."""
         errors = {}
         entry = self._get_reconfigure_entry()
@@ -678,7 +688,7 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self._abort_if_unique_id_mismatch()
 
                     return self.async_update_reload_and_abort(
-                        entry, data_updates=data_updates
+                        entry, data_updates=data_updates or {}
                     )
             # pylint: disable-next=broad-except
             except Exception:
@@ -699,7 +709,11 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
-    def _get_reconfigure_entry(self):
+    # Intentionally widens HA's return type: returns None instead of raising when the
+    # entry cannot be found, so the reconfigure step can abort gracefully.
+    def _get_reconfigure_entry(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self,
+    ) -> config_entries.ConfigEntry | None:
         """Return the config entry being reconfigured if available.
 
         Prefer the entry referenced by the flow context's entry_id. Fall back to the
@@ -777,7 +791,7 @@ class OIDCOptionsFlowHandler(config_entries.OptionsFlow):
         )
 
         # Build schema based on provider capabilities
-        schema_dict = {
+        schema_dict: dict[Any, Any] = {
             vol.Optional(
                 "enable_user_linking",
                 default=current_features.get("automatic_user_linking", False),

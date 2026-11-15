@@ -15,7 +15,6 @@
   "issue_tracker": "https://github.com/christiaangoossens/hass-oidc-auth/issues",
   "requirements": [
     "aiofiles",
-    "jinja2",
     "joserfc"
   ],
   "version": "1.2.1"

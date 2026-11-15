@@ -1,24 +1,29 @@
 """Generic data types"""
 
-# Dict class to give a type to the user details
-from typing import Literal
+# Dict types, to give a type to the stored and passed around data
+from typing import Literal, TypedDict
+
+type UserRole = Literal["system-admin", "system-users", "system-read-only", "invalid"]
 
 
-class UserDetails(dict):
+class UserDetails(TypedDict):
     """User details representation"""
 
     # User subject, persistent identifier
     sub: str
-    # Full name of the user for display purposes
-    display_name: str
+
+    # Full name of the user for display purposes, None if the claim is missing
+    display_name: str | None
+
     # Preferred username for the user, will be used when first generating the account
-    # or to link the account on first login
-    username: str
+    # or to link the account on first login, None if the claim is missing
+    username: str | None
+
     # Home Assistant role to assign to this user
-    role: Literal["system-admin", "system-users", "system-read-only", "invalid"]
+    role: UserRole
 
 
-class OIDCState(dict):
+class OIDCState(TypedDict):
     """OIDC State representation"""
 
     # ID of this state
@@ -26,6 +31,9 @@ class OIDCState(dict):
 
     # User friendly device code
     device_code: str | None
+
+    # Number of failed attempts to link a device code to this state
+    device_code_attempts: int
 
     # The redirect_uri associated with this state,
     # to be able to redirect the user back after authentication
@@ -41,7 +49,7 @@ class OIDCState(dict):
     ip_address: str | None
 
 
-class OIDCWelcomeOptions(dict):
+class OIDCWelcomeOptions(TypedDict):
     """Options for the welcome screen"""
 
     # User friendly SSO name to display
