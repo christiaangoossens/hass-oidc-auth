@@ -4,24 +4,25 @@ Allow access to users based on login with an external OpenID Connect Identity Pr
 
 import asyncio
 import logging
+from collections.abc import Mapping
 from ipaddress import (
     IPv4Address,
     IPv6Address,
     ip_address,
 )
+from typing import Any
 
 from homeassistant.auth import EVENT_USER_ADDED
 from homeassistant.auth import InvalidAuthError as HAInvalidAuthError
-from homeassistant.auth.providers import (
-    AUTH_PROVIDERS,
+from homeassistant.auth.auth_store import AuthStore
+from homeassistant.auth.models import (
+    AuthFlowContext,
     AuthFlowResult,
-    AuthProvider,
-    AuthStore,
     Credentials,
-    LoginFlow,
     User,
     UserMeta,
 )
+from homeassistant.auth.providers import AUTH_PROVIDERS, AuthProvider, LoginFlow
 from homeassistant.components import http, person
 from homeassistant.const import CONF_ID, CONF_NAME, CONF_TYPE
 from homeassistant.core import HomeAssistant, callback
@@ -53,16 +54,16 @@ class ExistingUserRequiredError(InvalidAuthError):
     """Raised when a new OIDC identity is not allowed to provision a user."""
 
 
-@AUTH_PROVIDERS.register("oidc")
-class OpenIDAuthProvider(AuthProvider):
+class OpenIDAuthProvider(AuthProvider):  # pylint: disable=abstract-method
     """Allow access to users based on login with an external
     OpenID Connect Identity Provider (IdP)."""
 
     @property
     def support_mfa(self) -> bool:
+        """Does this provider support MFA within HA? -> No we don't (the OIDC provider should)."""
         return False
 
-    def __init__(self, hass: HomeAssistant, store: AuthStore, config: dict[str, str]):
+    def __init__(self, hass: HomeAssistant, store: AuthStore, config: dict[str, Any]):
         """Initialize the OpenIDAuthProvider."""
         super().__init__(
             hass,
@@ -80,7 +81,7 @@ class OpenIDAuthProvider(AuthProvider):
             },
         )
 
-        self._user_meta: dict[UserDetails] = {}
+        self._user_meta: dict[str, UserDetails] = {}
         self._state_store: StateStore | None = None
         self._init_lock = asyncio.Lock()
 
@@ -140,7 +141,7 @@ class OpenIDAuthProvider(AuthProvider):
             return False
 
         # Check if trusted networks auth provider is present
-        trusted_network_provider = self.hass.auth.get_auth_provider(
+        trusted_network_provider: Any = self.hass.auth.get_auth_provider(
             "trusted_networks", None
         )
         if not trusted_network_provider:
@@ -186,9 +187,7 @@ class OpenIDAuthProvider(AuthProvider):
 
         return await self._state_store.async_generate_code_for_state(state_id)
 
-    async def async_save_user_info(
-        self, state_id: str, user_info: dict[str, dict | str]
-    ) -> bool:
+    async def async_save_user_info(self, state_id: str, user_info: UserDetails) -> bool:
         """Save user info to the given state."""
         if self._state_store is None:
             await self.async_initialize()
@@ -304,7 +303,7 @@ class OpenIDAuthProvider(AuthProvider):
         user = await self.store.async_get_user(user_id)
 
         # Get the first credential, if it's not ours, return
-        if not user.credentials or len(user.credentials) == 0:
+        if user is None or not user.credentials:
             return
 
         credential = user.credentials[0]
@@ -325,7 +324,7 @@ class OpenIDAuthProvider(AuthProvider):
         # If person creation is enabled, add a person for this user
         if self.create_persons:
             user_meta = await self.async_user_meta_for_credentials(credential)
-            await self._async_create_person(user, user_meta.name)
+            await self._async_create_person(user, user_meta.name or "")
 
     async def _async_create_person(self, user: User, name: str) -> None:
         """Create a person for the user."""
@@ -349,16 +348,18 @@ class OpenIDAuthProvider(AuthProvider):
     # Required functions for Home Assistant Auth Providers
     # ====
 
-    async def async_login_flow(self, context: dict | None) -> LoginFlow:
+    async def async_login_flow(self, context: AuthFlowContext | None) -> LoginFlow:
         """Return a flow to login."""
         return OpenIdLoginFlow(self)
 
     async def async_get_or_create_credentials(
-        self, flow_result: dict[str, str]
+        self, flow_result: Mapping[str, str]
     ) -> Credentials:
         """Get credentials based on the flow result."""
         sub = flow_result["sub"]
         meta = self._user_meta.get(sub)
+        if meta is None:
+            raise InvalidAuthError("No OIDC user info found for this sign in")
 
         # Audit logging for the login that is about to occur
         _LOGGER.info(
@@ -377,8 +378,9 @@ class OpenIDAuthProvider(AuthProvider):
         # Keeping this lookup behind the existing feature flag avoids silently
         # weakening the security semantics of automatic_user_linking=False.
         user = None
-        if self.user_linking:
-            user = await self._async_find_user_by_username(meta["username"])
+        username = meta["username"]
+        if self.user_linking and username:
+            user = await self._async_find_user_by_username(username)
 
         # A new, unlinked credential causes Home Assistant to create a user. Reject
         # before creating the credential when provisioning has been disabled.
@@ -431,7 +433,12 @@ class OpenIDAuthProvider(AuthProvider):
         )
 
 
-class OpenIdLoginFlow(LoginFlow):
+# Registered without the decorator form, as HA types that as returning the base class,
+# which hides all OpenIDAuthProvider methods from type checkers.
+AUTH_PROVIDERS.register("oidc")(OpenIDAuthProvider)
+
+
+class OpenIdLoginFlow(LoginFlow[OpenIDAuthProvider]):
     """Handler for the login flow."""
 
     async def _finalize_user(self, state_id: str) -> AuthFlowResult:

@@ -62,6 +62,10 @@ class OIDCFinishView(HomeAssistantView):
             redirect_uri = concat_url_query(redirect_uri, "skip_oidc_redirect=true")
             raise web.HTTPFound(location=redirect_uri)
 
+        # Only plain form values are valid device codes, not uploaded files
+        if not isinstance(device_code, str):
+            return await error_response("device_link_failed")
+
         # Check if we can link this device
         linked = await self.oidc_provider.async_link_state_to_code(
             state_id, device_code

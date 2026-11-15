@@ -168,8 +168,8 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
     # Create the OIDC client
     oidc_client = OIDCClient(
         hass=hass,
-        discovery_url=my_config.get(DISCOVERY_URL),
-        client_id=my_config.get(CLIENT_ID),
+        discovery_url=my_config[DISCOVERY_URL],
+        client_id=my_config[CLIENT_ID],
         scope=scope,
         client_secret=my_config.get(CLIENT_SECRET),
         id_token_signing_alg=my_config.get(ID_TOKEN_SIGNING_ALGORITHM),

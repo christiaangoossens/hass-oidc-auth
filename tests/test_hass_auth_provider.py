@@ -595,7 +595,7 @@ async def test_login_with_person_create(hass: HomeAssistant, hass_client):
         assert user.is_active
 
         # Find the person associated to this user using the PersonRegistry API
-        person_store = hass.data[PERSON_DOMAIN][1]
+        person_store = hass.data[PERSON_DOMAIN].storage_collection
         persons = person_store.async_items()
         assert len(persons) == 1
 
@@ -627,7 +627,7 @@ async def test_login_without_person_create_does_not_create_person(
         user = await login_user(hass, state_id)
         assert user.is_active
 
-        person_store = hass.data[PERSON_DOMAIN][1]
+        person_store = hass.data[PERSON_DOMAIN].storage_collection
         persons = person_store.async_items()
         assert len(persons) == 0
 

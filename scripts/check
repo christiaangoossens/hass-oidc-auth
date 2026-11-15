@@ -1,4 +1,7 @@
 #! /bin/bash
+set -e
+
 uv run ruff check
 uv run ruff format --check
 uv run pylint custom_components --allow-reexport-from-package true
+uv run pyright

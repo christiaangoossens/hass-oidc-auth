@@ -21,7 +21,7 @@ class OIDCDeviceSSE(HomeAssistantView):
     def __init__(self, oidc_provider: OpenIDAuthProvider) -> None:
         self.oidc_provider = oidc_provider
 
-    async def get(self, req: web.Request) -> web.Response:
+    async def get(self, req: web.Request) -> web.StreamResponse:
         """Check for mobile sign-in completion with short server-side polling."""
         state_id = await get_valid_state_id(req, self.oidc_provider)
         if not state_id:
