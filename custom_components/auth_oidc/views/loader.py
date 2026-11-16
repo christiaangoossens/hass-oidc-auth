@@ -28,8 +28,14 @@ class AsyncTemplateRenderer:
         )
 
     async def fetch_templates(self) -> None:
-        """Fetches all HTML files from the template directory."""
-        templates.clear()
+        """Fetches all HTML files from the template directory.
+
+        The files are read into a local dict first and only swapped into the
+        shared cache once all of them are loaded. If the load is interrupted
+        (for example because the request that triggered it was cancelled),
+        the cache is left untouched instead of half-filled.
+        """
+        loaded: dict[str, str] = {}
 
         files = await async_scandir(self.template_dir)
 
@@ -45,10 +51,14 @@ class AsyncTemplateRenderer:
                     async with async_open(
                         template_path, mode="r", encoding="utf-8"
                     ) as f:
-                        content = await f.read()
-                        templates[filename] = content
+                        loaded[filename] = await f.read()
                 except OSError as e:  # pragma: no cover
                     _LOGGER.warning("Error reading template file %s: %s", filename, e)
+
+        # No await between clear and update, so other requests never see a
+        # partially filled cache.
+        templates.clear()
+        templates.update(loaded)
 
     async def render_template(
         self, template_name: str, accept_language: str | None = None, **kwargs: Any
@@ -60,10 +70,9 @@ class AsyncTemplateRenderer:
         function and the 'lang' variable.
         """
 
-        if not templates:
-            await (
-                self.fetch_templates()
-            )  # If the templates haven't been fetched, fetch them
+        if template_name not in templates:
+            # Not fetched yet (or the cache is missing this one), fetch them
+            await self.fetch_templates()
 
         if template_name not in templates:
             raise ValueError(f"Template '{template_name}' not found.")

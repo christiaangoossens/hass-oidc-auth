@@ -1,5 +1,6 @@
 """Tests for the view templates"""
 
+import asyncio
 from hashlib import md5
 from os import path
 
@@ -9,6 +10,7 @@ from custom_components.auth_oidc.views import loader
 from custom_components.auth_oidc.views.loader import (
     AsyncTemplateRenderer,
     computed_hashes,
+    templates,
 )
 
 FAKE_TEMPLATE_PATH = path.join(
@@ -84,6 +86,45 @@ async def test_random_render_error():
     await renderer.fetch_templates()
     with pytest.raises(ValueError):
         await renderer.render_template("non_existing.html")
+
+
+@pytest.mark.asyncio
+async def test_render_reloads_incomplete_cache():
+    """Test that a template missing from a partially filled cache is reloaded."""
+
+    templates.clear()
+    templates["_alert.html"] = "<p>alert</p>"
+
+    renderer = AsyncTemplateRenderer()
+    rendered = await renderer.render_template("welcome.html", name="Example")
+    assert "<!DOCTYPE html>" in rendered
+
+
+@pytest.mark.asyncio
+async def test_cancelled_fetch_leaves_cache_untouched(monkeypatch):
+    """Test that a fetch cancelled halfway does not leave a partial cache."""
+
+    templates.clear()
+    real_open = loader.async_open
+    calls = 0
+
+    def cancel_on_second_file(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise asyncio.CancelledError
+        return real_open(*args, **kwargs)
+
+    monkeypatch.setattr(loader, "async_open", cancel_on_second_file)
+
+    renderer = AsyncTemplateRenderer()
+    with pytest.raises(asyncio.CancelledError):
+        await renderer.fetch_templates()
+    assert not templates
+
+    monkeypatch.setattr(loader, "async_open", real_open)
+    rendered = await renderer.render_template("welcome.html", name="Example")
+    assert "<!DOCTYPE html>" in rendered
 
 
 @pytest.mark.asyncio
