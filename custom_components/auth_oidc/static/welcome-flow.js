@@ -46,4 +46,8 @@ export function startDeviceSse() {
     return source;
 }
 
+// TODO: Once backend endpoints (POST /auth/oidc/device) and is_mobile template metadata
+// are implemented, use decideStrategy() and document.getElementById(...) to toggle
+// #device-flow-section / #redirect-flow-section and kick off the chosen flow.
+
 
