@@ -2,66 +2,37 @@
 {% block title %}{{ t('welcome.title') }}{% endblock %}
 {% block head %}
 {{ super() }}
+<script type="module" src="{{ '/static/auth_oidc/welcome-flow.js' | static_url }}"></script>
 {% endblock %}
 {% block content %}
 {% import "_alert.html" as ui %}
 <div class="text-center">
-    {% if code %}
-        <div>
-            <p id="device-instructions">{{ t('welcome.device_instructions') }}</p>
-            <div class="mt-4 text-3xl tracking-wide font-medium bg-input border border-divider rounded-lg py-4 px-6 inline-block" id="device-code">
-                {{ code }}
-            </div>
-            <div class="mt-4">
-                {% call ui.alert('info') %}{{ t('welcome.device_wait_hint') }}{% endcall %}
-            </div>
-            <!-- Temporarily not shown until https://github.com/christiaangoossens/hass-oidc-auth/issues/300 is picked up -->
-            <!-- Currently sends you to a weird error when clicked before ready -->
-            <!-- <p class="mt-4">
-                <a id="manual-finish-link" href="#" class="text-sm text-muted hover:text-foreground">
-                    Already approved the code, but nothing happened? Click here to continue.
-                </a>
-            </p> -->
+    <div id="device-flow-section" class="hidden">
+        <p id="device-instructions">{{ t('welcome.device_instructions') }}</p>
+        <div class="mt-4 text-3xl tracking-wide font-medium bg-input border border-divider rounded-lg py-4 px-6 inline-block" id="device-code">
+            {{ code or '' }}
         </div>
-        <script>
-            const source = new EventSource('/auth/oidc/device-sse');
+        <div class="mt-4">
+            {% call ui.alert('info') %}{{ t('welcome.device_wait_hint') }}{% endcall %}
+        </div>
+        <!-- Temporarily not shown until https://github.com/christiaangoossens/hass-oidc-auth/issues/300 is picked up -->
+        <!-- Currently sends you to a weird error when clicked before ready -->
+        <!-- <p class="mt-4">
+            <a id="manual-finish-link" href="#" class="text-sm text-muted hover:text-foreground">
+                Already approved the code, but nothing happened? Click here to continue.
+            </a>
+        </p> -->
+    </div>
 
-            function finishLogin() {
-                source.close();
-
-                // Perform a POST request to the finish endpoint to complete the login.
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/auth/oidc/finish';
-                document.body.appendChild(form);
-                form.submit();
-            }
-
-            source.addEventListener('ready', finishLogin);
-
-            // No 'error' handler that closes the source: EventSource
-            // reconnects automatically after a dropped connection, e.g.
-            // when the OS suspends this webview while the user enters the
-            // code in their browser (#363). On reconnect, the server
-            // immediately sends 'ready' if the code was approved in the
-            // meantime. Fatal responses (such as a 400 after state expiry)
-            // stop the automatic reconnection on their own.
-
-            // Manual fallback in case the connection cannot be resumed.
-            document.getElementById('manual-finish-link').addEventListener('click', function (event) {
-                event.preventDefault();
-                finishLogin();
-            });
-        </script>
-    {% else %}
+    <div id="redirect-flow-section" class="hidden">
         <a id="login-button" href="/auth/oidc/redirect" class="
             inline-flex items-center justify-center w-full h-10 px-4 bg-primary text-white font-medium leading-none rounded-full
             transition-colors duration-150 ease-out hover:bg-primary-hover
             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus
         ">
-                {{ t('welcome.login_with', name=name) }}
-            </a>
-    {% endif %}
+            {{ t('welcome.login_with', name=name) }}
+        </a>
+    </div>
 
     {% if other_link %}
         <div class="relative my-4">
