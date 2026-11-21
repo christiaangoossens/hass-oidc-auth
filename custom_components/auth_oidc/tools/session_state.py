@@ -1,8 +1,12 @@
 """OIDC Session state models"""
+
 from datetime import datetime
-from custom_components.auth_oidc.tools.types import UserDetails
+from typing import Annotated, Literal
+
 from pydantic import BaseModel, Field
-from typing import Literal, Annotated, Union
+
+from custom_components.auth_oidc.tools.types import UserDetails
+
 
 class OIDCState(BaseModel):
     id: str
@@ -20,7 +24,7 @@ class OIDCState(BaseModel):
 
 class OIDCDeviceWaiting(OIDCState):
     # pyrefly: ignore[bad-override-mutable-attribute]
-    flow_type: Literal["device_waiting"] = "device_waiting" 
+    flow_type: Literal["device_waiting"] = "device_waiting"  # pyright: ignore[reportIncompatibleVariableOverride]
 
     status: Literal["pending", "ready", "expired", "denied"] = "pending"
     user_code: str | None = None
@@ -33,7 +37,7 @@ class OIDCDeviceWaiting(OIDCState):
 
 class OIDCRedirectState(OIDCState):
     # pyrefly: ignore[bad-override-mutable-attribute]
-    flow_type: Literal["redirect", "device_approving"] = "redirect"
+    flow_type: Literal["redirect"] = "redirect"  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class OIDCPending(OIDCState):
@@ -42,18 +46,17 @@ class OIDCPending(OIDCState):
     """
 
     # pyrefly: ignore[bad-override-mutable-attribute]
-    flow_type: Literal["pending"] = "pending"
+    flow_type: Literal["pending"] = "pending"  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class OIDCDeviceApproving(OIDCRedirectState):
     # pyrefly: ignore[bad-override-mutable-attribute]
-    flow_type: Literal["device_approving"] = "device_approving"
+    flow_type: Literal["device_approving"] = "device_approving"  # pyright: ignore[reportIncompatibleVariableOverride]
     device_code: str | None = None
     current_device_code_attempt: int | None = 0
 
+
 OIDCStateTypes = Annotated[
-    Union[
-        OIDCPending, OIDCRedirectState, OIDCDeviceWaiting, OIDCDeviceApproving
-    ],
-    Field(discriminator="flow_type")
+    OIDCPending | OIDCRedirectState | OIDCDeviceWaiting | OIDCDeviceApproving,
+    Field(discriminator="flow_type"),
 ]
