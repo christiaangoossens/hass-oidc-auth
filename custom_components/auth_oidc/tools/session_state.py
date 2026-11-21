@@ -1,10 +1,8 @@
 """OIDC Session state models"""
-from warnings import deprecated
 from datetime import datetime
 from custom_components.auth_oidc.tools.types import UserDetails
-from dataclasses import dataclass
 from pydantic import BaseModel, Field
-from typing import Dict, Any, Literal, Annotated, Union
+from typing import Literal, Annotated, Union
 
 class OIDCState(BaseModel):
     id: str
@@ -18,20 +16,6 @@ class OIDCState(BaseModel):
         if self.expiration is None:
             return False
         return self.expiration < datetime.now()
-
-    @deprecated("use Pydantic.TypeAdapter instead") # TODO: Remove this function before submission
-    @classmethod
-    def init_from_dict(cls, data: Dict[str, Any]) -> OIDCState:
-        flow_type = data.get("flow_type", "pending")
-        flow_classes = {
-            "device_waiting": OIDCDeviceWaiting,
-            "redirect": OIDCRedirectState,
-            "pending": OIDCPending,
-            "device_approving": OIDCDeviceApproving,
-        }
-        target_class = flow_classes.get(flow_type, OIDCState)
-        return target_class(**data)
-    
 
 
 class OIDCDeviceWaiting(OIDCState):
