@@ -1,7 +1,9 @@
 """Tests for the view templates"""
 
+import asyncio
 from hashlib import md5
 from os import path
+from unittest.mock import patch
 
 import pytest
 
@@ -17,11 +19,11 @@ FAKE_TEMPLATE_PATH = path.join(
 
 
 @pytest.mark.asyncio
-async def test_real_template_render():
+async def test_real_template_render(monkeypatch):
     """Test that view template can render an real existing template."""
 
     renderer = AsyncTemplateRenderer()
-    await renderer.fetch_templates()
+    monkeypatch.setattr(loader, "templates", {"_alert.html": "stale"})
     rendered = await renderer.render_template(
         "welcome.html", name="<script>alert(1)</script>"
     )
@@ -100,3 +102,44 @@ async def test_static_url_includes_hash(tmp_path, monkeypatch):
     result = await AsyncTemplateRenderer.get_static_file_url(url)
 
     assert result == f"{url}?v={md5(b'abc').hexdigest()[:8]}"
+
+
+@pytest.mark.asyncio
+async def test_cancelled_template_load(monkeypatch):
+    """Cancellation after one file leaves the cold cache available for retry."""
+
+    renderer = AsyncTemplateRenderer()
+    monkeypatch.setattr(loader, "templates", {})
+    real_open = loader.async_open
+    opened_first = False
+
+    def cancel_on_second_open(*args, **kwargs):
+        nonlocal opened_first
+        if opened_first:
+            task.cancel()
+        opened_first = True
+        return real_open(*args, **kwargs)
+
+    with patch.object(loader, "async_open", side_effect=cancel_on_second_open):
+        task = asyncio.create_task(renderer.render_template("welcome.html"))
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    assert loader.templates == {}
+    assert "Login with A" in await renderer.render_template("welcome.html", name="A")
+
+
+@pytest.mark.asyncio
+async def test_concurrent_template_load(monkeypatch):
+    """Concurrent cold renders share a single directory scan."""
+
+    renderer = AsyncTemplateRenderer()
+    monkeypatch.setattr(loader, "templates", {})
+    with patch.object(loader, "async_scandir", wraps=loader.async_scandir) as scan:
+        first, second = await asyncio.gather(
+            renderer.render_template("welcome.html", name="A"),
+            renderer.render_template("welcome.html", name="B"),
+        )
+    scan.assert_awaited_once_with(renderer.template_dir)
+    assert "Login with A" in first
+    assert "Login with B" in second

@@ -1,5 +1,6 @@
 """Jinja2 Async Environment"""
 
+import asyncio
 import logging
 from hashlib import md5
 from os import path
@@ -15,6 +16,8 @@ from .i18n import async_get_translator
 
 _LOGGER = logging.getLogger(__name__)
 
+_FETCH_LOCK = asyncio.Lock()
+
 templates: dict[str, str] = {}
 computed_hashes: dict[str, str] = {}
 
@@ -29,7 +32,7 @@ class AsyncTemplateRenderer:
 
     async def fetch_templates(self) -> None:
         """Fetches all HTML files from the template directory."""
-        templates.clear()
+        loaded: dict[str, str] = {}
 
         files = await async_scandir(self.template_dir)
 
@@ -46,9 +49,12 @@ class AsyncTemplateRenderer:
                         template_path, mode="r", encoding="utf-8"
                     ) as f:
                         content = await f.read()
-                        templates[filename] = content
+                        loaded[filename] = content
                 except OSError as e:  # pragma: no cover
                     _LOGGER.warning("Error reading template file %s: %s", filename, e)
+
+        templates.clear()
+        templates.update(loaded)
 
     async def render_template(
         self, template_name: str, accept_language: str | None = None, **kwargs: Any
@@ -60,10 +66,10 @@ class AsyncTemplateRenderer:
         function and the 'lang' variable.
         """
 
-        if not templates:
-            await (
-                self.fetch_templates()
-            )  # If the templates haven't been fetched, fetch them
+        if template_name not in templates:
+            async with _FETCH_LOCK:
+                if template_name not in templates:
+                    await self.fetch_templates()
 
         if template_name not in templates:
             raise ValueError(f"Template '{template_name}' not found.")
