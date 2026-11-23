@@ -165,6 +165,7 @@ class OIDCWelcomeView(HomeAssistantView):
                 "name": self.name,
                 "other_link": other_link,
                 "code": code,
+                "is_mobile": is_mobile
             },
         )
         response.headers.update(cookie_header)

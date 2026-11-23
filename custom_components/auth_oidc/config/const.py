@@ -103,4 +103,12 @@ STATIC_FILE_REGISTRATIONS = {
         "custom_components/auth_oidc/static/injection.js",
         True,
     ],
+    "/static/auth_oidc/ux-router-eval.js": [
+        "custom_components/auth_oidc/static/ux-router-eval.js",
+        True,
+    ],
+    "/static/auth_oidc/welcome-flow.js": [
+        "custom_components/auth_oidc/static/welcome-flow.js",
+        True,
+    ],
 }
