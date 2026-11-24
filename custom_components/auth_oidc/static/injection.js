@@ -5,9 +5,33 @@
 
 const OIDC_PROVIDER_NAME = "OpenID Connect (SSO)"  // matches provider.py CONF_NAME
 const OIDC_WELCOME_PATH = "/auth/oidc/welcome"
+const SSO_RETURN_LINK_ID = "oidc-sso-return-link"
 
 let authFlowElement = null
 let pickerIntercepted = false
+
+// The picker row is hidden on purpose (see interceptPickerRow), which leaves a
+// parked `skip_oidc_redirect` authorize URL without any way back to SSO.
+// Render a link next to the picker instead: it starts a fresh handshake.
+function addSsoReturnLink(authProviderElement) {
+  if (document.getElementById(SSO_RETURN_LINK_ID)) return  // already injected
+
+  const link = document.createElement("a")
+  link.id = SSO_RETURN_LINK_ID
+  link.href = OIDC_WELCOME_PATH
+  link.innerText = "Sign in with SSO"
+  link.style.display = "block"
+  link.style.marginTop = "12px"
+  link.style.textAlign = "center"
+
+  const parent = authProviderElement && authProviderElement.parentNode
+  if (parent) {
+    // Sibling of the picker, so it stays visible when the picker itself is hidden
+    parent.insertBefore(link, authProviderElement.nextSibling)
+  } else {
+    document.querySelector(".content")?.appendChild(link)
+  }
+}
 
 function interceptPickerRow(authProviderElement) {
   if (pickerIntercepted) return
@@ -35,6 +59,10 @@ function interceptPickerRow(authProviderElement) {
   // hide the entire picker for better UX
   if (pickerIntercepted && items.length == 1) {
     authProviderElement.style.display = "none"
+  }
+
+  if (pickerIntercepted) {
+    addSsoReturnLink(authProviderElement)
   }
 }
 
