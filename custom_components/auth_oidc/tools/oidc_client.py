@@ -312,6 +312,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         discovery_url: str,
         client_id: str,
         scope: str,
+        map_groups_to_roles: bool = True,
         **kwargs: Any,
     ):
         self.hass = hass
@@ -319,6 +320,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         self.discovery_document = None
         self.client_id = client_id
         self.scope = scope
+        self.map_groups_to_roles = map_groups_to_roles
 
         # Optional parameters
         self.client_secret = kwargs.get("client_secret")
@@ -638,6 +640,31 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             _LOGGER.warning("Error generating authorization URL: %s", e)
             return None
 
+    def _get_role_from_groups(self, id_token: dict) -> UserRole:
+        """Return the role for the groups in the groups claim.
+
+        Precedence, from lowest to highest: user -> read-only -> admin.
+        The read-only group is checked after the user group so that an
+        explicit read-only group also applies to users that match the
+        (possibly unset, thus catch-all) user role.
+        """
+        groups = id_token.get(self.groups_claim, [])
+        if not isinstance(groups, list):
+            _LOGGER.warning("Groups claim is not a list, using empty list instead.")
+            groups = []
+
+        role: UserRole = "invalid"
+        if self.user_role in groups or self.user_role is None:
+            role = "system-users"
+
+        if self.read_only_role is not None and self.read_only_role in groups:
+            role = "system-read-only"
+
+        if self.admin_role in groups:
+            role = "system-admin"
+
+        return role
+
     async def parse_user_details(
         self, id_token: dict, access_token: str
     ) -> UserDetails:
@@ -659,26 +686,9 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                 if claim not in id_token and claim in userinfo:
                     id_token[claim] = userinfo[claim]
 
-        # Get and parse groups (to check if it's an array)
-        groups = id_token.get(self.groups_claim, [])
-        if not isinstance(groups, list):
-            _LOGGER.warning("Groups claim is not a list, using empty list instead.")
-            groups = []
-
-        # Assign role if user has the required groups.
-        # Precedence, from lowest to highest: user -> read-only -> admin.
-        # The read-only group is checked after the user group so that an
-        # explicit read-only group also applies to users that match the
-        # (possibly unset, thus catch-all) user role.
-        role: UserRole = "invalid"
-        if self.user_role in groups or self.user_role is None:
-            role = "system-users"
-
-        if self.read_only_role is not None and self.read_only_role in groups:
-            role = "system-read-only"
-
-        if self.admin_role in groups:
-            role = "system-admin"
+        role: UserRole = "system-users"
+        if self.map_groups_to_roles:
+            role = self._get_role_from_groups(id_token)
 
         # Create a user details dict based on the contents of the id_token & userinfo
         return {

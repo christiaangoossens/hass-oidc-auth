@@ -23,6 +23,7 @@ from .config import (
     FEATURES_INCLUDE_GROUPS_SCOPE,
     GROUPS_SCOPE,
     ID_TOKEN_SIGNING_ALGORITHM,
+    MAP_GROUPS_TO_ROLES,
     NETWORK,
     REQUIRED_SCOPES,
     ROLES,
@@ -184,6 +185,7 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict):
         claims=my_config.get(CLAIMS, {}),
         roles=my_config.get(ROLES, {}),
         network=my_config.get(NETWORK, {}),
+        map_groups_to_roles=my_config.get(MAP_GROUPS_TO_ROLES, True),
     )
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_CLOSE, oidc_client.async_close)
 

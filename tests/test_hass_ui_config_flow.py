@@ -33,6 +33,7 @@ from custom_components.auth_oidc.config.const import (
 )
 
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
+from .test_hass_auth_provider import get_login_state, login_user
 
 DEMO_CLIENT_ID = "testing_example_client_id"
 DEMO_CLIENT_SECRET = "faz"
@@ -40,33 +41,37 @@ DEMO_ADMIN_ROLE = "boo"
 DEMO_USER_ROLE = "far"
 
 
-async def async_add_entry(hass: HomeAssistant) -> config_entries.ConfigEntry:
-    """Add a config entry as the full config flow would create it."""
+async def async_add_entry(
+    hass: HomeAssistant, groups: bool = True
+) -> config_entries.ConfigEntry:
+    """Add a config entry as the full config flow would create it,
+    with or without the groups step."""
+    data = {
+        "provider": "authentik",
+        CLIENT_ID: DEMO_CLIENT_ID,
+        CLIENT_SECRET: DEMO_CLIENT_SECRET,
+        DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+        DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["name"],
+        FEATURES: {
+            FEATURES_AUTOMATIC_USER_LINKING: False,
+            FEATURES_AUTOMATIC_PERSON_CREATION: True,
+            FEATURES_INCLUDE_GROUPS_SCOPE: groups,
+        },
+        CLAIMS: {
+            CLAIMS_DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["claims"]["display_name"],
+            CLAIMS_USERNAME: OIDC_PROVIDERS["authentik"]["claims"]["username"],
+            CLAIMS_GROUPS: OIDC_PROVIDERS["authentik"]["claims"]["groups"],
+        },
+    }
+    if groups:
+        data[ROLES] = {ROLE_ADMINS: DEMO_ADMIN_ROLE, ROLE_USERS: DEMO_USER_ROLE}
+
     entry = config_entries.ConfigEntry(
         version=1,
         minor_version=0,
         domain=DOMAIN,
         title=OIDC_PROVIDERS["authentik"]["name"],
-        data={
-            "provider": "authentik",
-            CLIENT_ID: DEMO_CLIENT_ID,
-            CLIENT_SECRET: DEMO_CLIENT_SECRET,
-            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
-            DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["name"],
-            FEATURES: {
-                FEATURES_AUTOMATIC_USER_LINKING: False,
-                FEATURES_AUTOMATIC_PERSON_CREATION: True,
-                FEATURES_INCLUDE_GROUPS_SCOPE: True,
-            },
-            CLAIMS: {
-                CLAIMS_DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["claims"][
-                    "display_name"
-                ],
-                CLAIMS_USERNAME: OIDC_PROVIDERS["authentik"]["claims"]["username"],
-                CLAIMS_GROUPS: OIDC_PROVIDERS["authentik"]["claims"]["groups"],
-            },
-            ROLES: {ROLE_ADMINS: DEMO_ADMIN_ROLE, ROLE_USERS: DEMO_USER_ROLE},
-        },
+        data=data,
         source=config_entries.SOURCE_USER,
         entry_id="1",
         unique_id="test_unique_id",
@@ -463,6 +468,25 @@ async def test_entry_fails_setup_when_yaml_configured(hass: HomeAssistant):
 
     assert entry.state is config_entries.ConfigEntryState.SETUP_ERROR
     assert len(hass.auth.get_auth_providers(DOMAIN)) == 1
+
+
+@pytest.mark.parametrize(
+    ("groups", "is_admin"),
+    [(True, True), (False, False)],
+    ids=["groups-on", "groups-off"],
+)
+async def test_groups_toggle_decides_admin_role(
+    hass: HomeAssistant, hass_client, groups: bool, is_admin: bool
+):
+    """Only with groups turned on does a group grant the admin role. The identity
+    provider sends the configured admin group and the default "admins" group."""
+    await async_add_entry(hass, groups=groups)
+
+    with mock_oidc_responses("admin_groups"):
+        state_id = await get_login_state(hass, hass_client)
+        user = await login_user(hass, state_id)
+
+    assert user.is_admin is is_admin
 
 
 @pytest.mark.asyncio

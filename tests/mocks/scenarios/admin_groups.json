@@ -1,0 +1,8 @@
+{
+    "userinfo": {
+        "sub": "testuser",
+        "name": "Test Name",
+        "preferred_username": "testuser",
+        "groups": ["admins", "boo"]
+    }
+}

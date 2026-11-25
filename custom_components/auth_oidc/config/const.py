@@ -42,6 +42,9 @@ NETWORK = "network"
 NETWORK_TLS_VERIFY = "tls_verify"
 NETWORK_TLS_CA_PATH = "tls_ca_path"
 
+# Internal only, set from the UI groups toggle; YAML always maps groups to roles
+MAP_GROUPS_TO_ROLES = "map_groups_to_roles"
+
 ## ===
 ## Default configurations for providers
 ## ===
