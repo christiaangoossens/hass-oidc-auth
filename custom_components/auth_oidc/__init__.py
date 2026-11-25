@@ -190,13 +190,7 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
     # Register the static paths
     for url_path, (file_path, cache_headers) in STATIC_FILE_REGISTRATIONS.items():
         await hass.http.async_register_static_paths(
-            [
-                StaticPathConfig(
-                    url_path,
-                    hass.config.path(file_path),
-                    cache_headers,
-                )
-            ]
+            [StaticPathConfig(url_path, file_path, cache_headers)]
         )
 
     hass.http.register_view(

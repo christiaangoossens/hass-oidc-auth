@@ -1,5 +1,6 @@
 """Config constants."""
 
+from pathlib import Path
 from typing import Any
 
 ## ===
@@ -93,14 +94,11 @@ OIDC_PROVIDERS: dict[str, dict[str, Any]] = {
     },
 }
 
+# The integration's own folder, which holds the static files
+INTEGRATION_DIR = Path(__file__).parent.parent
+
 STATIC_FILE_REGISTRATIONS = {
-    "/static/auth_oidc/style.css": [
-        "custom_components/auth_oidc/static/style.css",
-        True,
-    ],
-    "/static/auth_oidc/icon.png": ["custom_components/auth_oidc/brand/icon.png", True],
-    "/static/auth_oidc/device.js": [
-        "custom_components/auth_oidc/static/device.js",
-        True,
-    ],
+    "/static/auth_oidc/style.css": [str(INTEGRATION_DIR / "static/style.css"), True],
+    "/static/auth_oidc/icon.png": [str(INTEGRATION_DIR / "brand/icon.png"), True],
+    "/static/auth_oidc/device.js": [str(INTEGRATION_DIR / "static/device.js"), True],
 }
