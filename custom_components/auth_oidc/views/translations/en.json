@@ -46,6 +46,7 @@
       "state_mismatch": "State parameter does not match, possible CSRF attack.",
       "user_details_failed": "Failed to get user details, see Home Assistant logs for more information.",
       "user_not_in_group": "User is not in the correct group to access Home Assistant, contact your administrator!",
+      "user_not_allowed": "This account is not allowed to log in to Home Assistant, contact your administrator!",
       "save_user_info_failed": "Failed to save user information, session probably expired. Please sign in again.",
       "invalid_state": "Invalid state, please restart login.",
       "device_link_failed": "Failed to link state to device code, please restart login.",

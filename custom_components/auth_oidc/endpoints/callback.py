@@ -72,6 +72,10 @@ class OIDCCallbackView(HomeAssistantView):
         if user_details.get("role") == "invalid":
             return await error_response("user_not_in_group", status=403)
 
+        # Reject here, as Home Assistant's login page can only say "Login aborted"
+        if not await self.oidc_provider.async_can_log_in(user_details):
+            return await error_response("user_not_allowed", status=403)
+
         # Finalize on the state
         success = await self.oidc_provider.async_save_user_info(state_id, user_details)
         if not success:

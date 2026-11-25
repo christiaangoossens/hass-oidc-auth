@@ -332,6 +332,51 @@ class OpenIDAuthProvider(AuthProvider):
         self._user_meta[sub] = user_data
         return sub
 
+    async def async_can_log_in(self, user_details: UserDetails) -> bool:
+        """Check if this OIDC identity may log in to Home Assistant.
+
+        With require_existing_user, it must already have a Home Assistant user,
+        or be linkable to one through automatic user linking.
+        """
+        if not self.require_existing_user:
+            return True
+
+        sub = user_details["sub"]
+        if await self._async_find_credential(sub) is not None:
+            return True
+
+        if await self._async_find_linkable_user(user_details["username"]) is not None:
+            return True
+
+        _LOGGER.warning(
+            "Denied OIDC login for subject '%s': creating new Home Assistant users "
+            "is disabled and no existing user could be linked.",
+            sub,
+        )
+        return False
+
+    async def _async_find_credential(self, sub: str) -> Credentials | None:
+        """Find the credential of an OIDC identity that logged in before.
+
+        OpenID Connect only guarantees that sub is stable, a username can change.
+        """
+        for credential in await self.async_credentials():
+            if credential.data.get("sub") == sub:
+                return credential
+
+        return None
+
+    async def _async_find_linkable_user(self, username: str | None) -> User | None:
+        """Find the Home Assistant user to link to, only with automatic user linking.
+
+        Keeping this lookup behind the feature flag avoids silently weakening
+        the security of automatic_user_linking=False.
+        """
+        if not self.user_linking or not username:
+            return None
+
+        return await self._async_find_user_by_username(username)
+
     async def _async_find_user_by_username(self, username: str) -> User | None:
         """Find a user by username."""
         users = await self.store.async_get_users()
@@ -435,24 +480,15 @@ class OpenIDAuthProvider(AuthProvider):
             "Logged in user through OIDC: %s, %s", meta["sub"], meta["display_name"]
         )
 
-        # Iterate over previously created credentials to find one with the same sub
-        for credential in await self.async_credentials():
-            # When logging in again, use the subject to check if the credential exist
-            # OpenID spec says that sub is the only claim we can rely on, as username
-            # might change over time.
-            if credential.data.get("sub") == sub:
-                return credential
+        credential = await self._async_find_credential(sub)
+        if credential is not None:
+            return credential
 
-        # Resolve a Home Assistant user only when automatic linking is enabled.
-        # Keeping this lookup behind the existing feature flag avoids silently
-        # weakening the security semantics of automatic_user_linking=False.
-        user = None
-        username = meta["username"]
-        if self.user_linking and username:
-            user = await self._async_find_user_by_username(username)
+        user = await self._async_find_linkable_user(meta["username"])
 
         # A new, unlinked credential causes Home Assistant to create a user. Reject
         # before creating the credential when provisioning has been disabled.
+        # The callback already rejects these, this guards against a user removed since.
         if self.require_existing_user and user is None:
             _LOGGER.warning(
                 "Denied first OIDC sign in for subject '%s': creating new Home "
