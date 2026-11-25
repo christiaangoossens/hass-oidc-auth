@@ -8,8 +8,11 @@ I (@christiaangoossens) will review security advisories regularly and send you a
 
 Please note that this repository is maintained on a volunteer basis, I will try to respond quickly, but no guarantees.
 
-If your bug has to do with a third party package, please have it fixed there first, such that we can include a fixed version in an update of hass-oidc-auth.
+If your bug has to do with a third-party package, please have it fixed there first, such that we can include a fixed version in an update of hass-oidc-auth.
 If you found a security vulnerability in Home Assistant itself, please report it at https://www.home-assistant.io/security/
 
-## Non qualifying vulnerabities
+## Non-qualifying vulnerabilities
 Some vulnerabilities do not qualify for fixing in a security patch. The Home Assistant team has made a list of them over at https://www.home-assistant.io/security/#non-qualifying-vulnerabilities.
+
+## Reports made with AI
+You may use AI tools to find vulnerabilities, but please verify every finding manually (for instance with a working proof of concept), write and submit the report yourself and be ready to answer questions without a bot. Reports created and submitted fully by AI agents are closed. Please read the [AI policy](./CONTRIBUTING.md#ai-use) before submitting.

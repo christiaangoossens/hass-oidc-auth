@@ -88,6 +88,9 @@ Many configuration options are available through this method, but some advanced 
 Alternatively, you can configure the integration using YAML. You can find a full configuration guide for YAML here: [YAML Configuration Guide](https://github.com/christiaangoossens/hass-oidc-auth/blob/main/docs/configuration.md).
 
 ## Contributions
+> [!NOTE]
+> If you use AI, read the [AI policy](https://github.com/christiaangoossens/hass-oidc-auth/blob/main/CONTRIBUTING.md#ai-use) before submitting your work.
+
 Contributions are very welcome! If you program in Python or have worked with Home Assistant integrations before, please try to contribute. You can find more information in the [Contribution Guide](https://github.com/christiaangoossens/hass-oidc-auth/blob/main/CONTRIBUTING.md).
 
 ### Security issue?
