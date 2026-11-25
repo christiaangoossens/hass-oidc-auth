@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import time
+from typing import Literal
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, urlparse
 
@@ -21,6 +22,16 @@ from custom_components.auth_oidc.tools.oidc_client import (
     OIDCUserinfoInvalid,
     http_raise_for_status,
 )
+from custom_components.auth_oidc.tools.types import OIDCFlow
+
+TEST_FLOW: OIDCFlow = {"code_verifier": "verifier", "nonce": "nonce"}
+
+EC_CURVES: dict[str, Literal["P-256", "P-384", "P-521", "secp256k1"]] = {
+    "ES256": "P-256",
+    "ES384": "P-384",
+    "ES512": "P-521",
+    "ES256K": "secp256k1",
+}
 
 # List from https://jose.authlib.org/en/guide/algorithms/#json-web-signature
 ALL_ID_TOKEN_SIGNING_ALGORITHMS = (
@@ -107,14 +118,12 @@ def build_real_signed_token(
             "RSA", 2048, {"alg": algorithm, "use": "sig"}, private=True, auto_kid=True
         )
     elif algorithm in ("ES256", "ES384", "ES512", "ES256K"):
-        curve = {
-            "ES256": "P-256",
-            "ES384": "P-384",
-            "ES512": "P-521",
-            "ES256K": "secp256k1",
-        }[algorithm]
         key = jwk.generate_key(
-            "EC", curve, {"alg": algorithm, "use": "sig"}, private=True, auto_kid=True
+            "EC",
+            EC_CURVES[algorithm],
+            {"alg": algorithm, "use": "sig"},
+            private=True,
+            auto_kid=True,
         )
     elif algorithm in ("Ed25519", "Ed448"):
         key = jwk.generate_key(
@@ -139,22 +148,9 @@ def build_real_signed_token(
 
 
 @pytest.mark.asyncio
-async def test_complete_token_flow_rejects_missing_state(hass: HomeAssistant):
-    """Flow state must exist; missing state should fail closed."""
-    client = make_client(hass)
-
-    result = await client.async_complete_token_flow(
-        "https://example.com/callback", "code", "missing-state"
-    )
-
-    assert result is None
-
-
-@pytest.mark.asyncio
 async def test_complete_token_flow_rejects_nonce_mismatch(hass: HomeAssistant):
     """Nonce mismatch should reject the token flow."""
     client = make_client(hass)
-    client.flows["state-1"] = {"code_verifier": "verifier", "nonce": "expected"}
 
     with (
         patch.object(
@@ -174,18 +170,18 @@ async def test_complete_token_flow_rejects_nonce_mismatch(hass: HomeAssistant):
         ),
     ):
         result = await client.async_complete_token_flow(
-            "https://example.com/callback", "code", "state-1"
+            "https://example.com/callback",
+            "code",
+            {"code_verifier": "verifier", "nonce": "expected"},
         )
 
     assert result is None
-    assert "state-1" not in client.flows
 
 
 @pytest.mark.asyncio
 async def test_complete_token_flow_handles_token_request_failure(hass: HomeAssistant):
     """Token endpoint failures should return None to caller."""
     client = make_client(hass)
-    client.flows["state-2"] = {"code_verifier": "verifier", "nonce": "nonce"}
 
     with (
         patch.object(
@@ -200,7 +196,7 @@ async def test_complete_token_flow_handles_token_request_failure(hass: HomeAssis
         ),
     ):
         result = await client.async_complete_token_flow(
-            "https://example.com/callback", "code", "state-2"
+            "https://example.com/callback", "code", TEST_FLOW
         )
 
     assert result is None
@@ -463,16 +459,16 @@ async def test_get_authorization_url_omits_pkce_when_disabled(
             return_value={"authorization_endpoint": "https://issuer/authorize"}
         ),
     ):
-        url = await client.async_get_authorization_url(
+        result = await client.async_get_authorization_url(
             "https://example.com/callback", "state-xyz"
         )
 
-    assert url is not None
-    parsed = urlparse(url)
-    query = parse_qs(parsed.query)
+    assert result is not None
+    url, flow = result
+    query = parse_qs(urlparse(url).query)
 
     assert query["state"] == ["state-xyz"]
-    assert "nonce" in query
+    assert query["nonce"] == [flow["nonce"]]
     assert "code_challenge" not in query
     assert "code_challenge_method" not in query
 
@@ -734,7 +730,6 @@ async def test_complete_token_flow_omits_code_verifier_when_pkce_disabled(
 ):
     """When PKCE is disabled, token request should omit code_verifier."""
     client = make_client(hass, features={"disable_rfc7636": True})
-    client.flows["state-3"] = {"code_verifier": "verifier", "nonce": "nonce"}
 
     with (
         patch.object(
@@ -766,11 +761,11 @@ async def test_complete_token_flow_omits_code_verifier_when_pkce_disabled(
         ),
     ):
         result = await client.async_complete_token_flow(
-            "https://example.com/callback", "code", "state-3"
+            "https://example.com/callback", "code", TEST_FLOW
         )
 
     assert result is not None
-    token_params = make_token_request.await_args.args[1]
+    _, token_params = make_token_request.await_args_list[0].args
     assert "code_verifier" not in token_params
 
 

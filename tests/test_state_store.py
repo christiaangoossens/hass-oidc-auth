@@ -12,14 +12,16 @@ from custom_components.auth_oidc.stores.state_store import (
     MAX_DEVICE_CODE_ATTEMPTS,
     MAX_STATES,
     StateStore,
+    client_network,
 )
-from custom_components.auth_oidc.tools.types import UserDetails
+from custom_components.auth_oidc.tools.types import OIDCFlow, UserDetails
 
 TEST_IP = "127.0.0.1"
+TEST_FLOW: OIDCFlow = {"code_verifier": "verifier", "nonce": "nonce"}
 
 
-@pytest.fixture
-def state_store(hass: HomeAssistant) -> StateStore:
+@pytest.fixture(name="state_store")
+def fixture_state_store(hass: HomeAssistant) -> StateStore:
     """Return an empty state store."""
     return StateStore(hass)
 
@@ -31,12 +33,12 @@ def expire(state_store: StateStore, state_id: str) -> None:
     ).isoformat()
 
 
-async def create_states(state_store: StateStore, count: int) -> list[str]:
+async def create_states(
+    state_store: StateStore, count: int, ip: str = TEST_IP
+) -> list[str]:
     """Create pending states, as visits to the welcome page do."""
     return [
-        await state_store.async_create_state_from_url(
-            "https://example.com/pending", TEST_IP
-        )
+        await state_store.async_create_state_from_url("https://example.com/pending", ip)
         for _ in range(count)
     ]
 
@@ -240,7 +242,9 @@ async def test_state_store_keeps_states_in_memory(
     await state_store.async_add_userinfo_to_state(state_id, make_user("user7"))
     await hass.async_block_till_done()
 
-    assert LEGACY_STORAGE_KEY not in hass_storage
+    assert not [
+        key for key in hass_storage if key.startswith("auth_provider.auth_oidc")
+    ]
 
 
 async def test_state_store_prunes_expired_states(state_store: StateStore):
@@ -290,11 +294,112 @@ async def test_state_store_evicts_oldest_ready_state_when_all_ready(
     assert new_state in state_store.get_data()
 
 
+async def test_state_store_flood_only_evicts_its_own_logins(state_store: StateStore):
+    """A flood from one IP address can't push out the pending login of another."""
+    [victim_state] = await create_states(state_store, 1, ip="192.168.1.10")
+    flood_states = await create_states(state_store, MAX_STATES * 3)
+
+    assert victim_state in state_store.get_data()
+    assert len(state_store.get_data()) == MAX_STATES
+    assert flood_states[-1] in state_store.get_data()
+
+
+async def test_state_store_evicts_from_the_ip_with_most_pending_logins(
+    state_store: StateStore,
+):
+    """A full store evicts from the busiest IP address, also for a request from another IP."""
+    [victim_state] = await create_states(state_store, 1, ip="192.168.1.10")
+    flood_states = await create_states(state_store, MAX_STATES - 1)
+
+    [new_state] = await create_states(state_store, 1, ip="192.168.1.10")
+
+    assert victim_state in state_store.get_data()
+    assert new_state in state_store.get_data()
+    assert flood_states[0] not in state_store.get_data()
+
+
+async def test_state_store_ipv6_flood_only_evicts_its_own_logins(
+    state_store: StateStore,
+):
+    """A flood that uses another address of its IPv6 /64 for every request is one client."""
+    [victim_state] = await create_states(state_store, 1, ip="2001:db8:1::10")
+    for i in range(MAX_STATES * 3):
+        await create_states(state_store, 1, ip=f"2001:db8:2::{i:x}")
+
+    assert victim_state in state_store.get_data()
+    assert len(state_store.get_data()) == MAX_STATES
+
+
+@pytest.mark.parametrize(
+    ("ip", "network"),
+    [
+        ("192.168.1.10", "192.168.1.10"),
+        ("2001:db8:1:2:3:4:5:6", "2001:db8:1:2::/64"),
+        ("2001:db8:1:2::1", "2001:db8:1:2::/64"),
+        ("fe80::1%eth0", "fe80::/64"),
+        ("::ffff:192.168.1.10", "192.168.1.10"),
+        ("not-an-ip", "not-an-ip"),
+        (None, None),
+    ],
+)
+def test_client_network(ip: str | None, network: str | None):
+    """IPv4 addresses count on their own, IPv6 addresses per /64."""
+    assert client_network(ip) == network
+
+
+async def test_state_store_never_links_expired_device(state_store: StateStore):
+    """An expired device state can't receive a user, and the attempt counts."""
+    donor_state = await create_ready_state(state_store, make_user("user9"))
+    device_state, code = await create_device_state(state_store)
+    expire(state_store, device_state)
+
+    assert (
+        await state_store.async_link_state_to_code(donor_state, code, TEST_IP) is False
+    )
+    assert state_store.get_data()[device_state]["user_details"] is None
+    assert state_store.get_data()[donor_state]["device_code_attempts"] == 1
+
+
 async def test_state_store_never_exceeds_max_states(state_store: StateStore):
     """A flood of new logins never grows the store past its cap."""
     await create_states(state_store, MAX_STATES * 3)
 
     assert len(state_store.get_data()) == MAX_STATES
+
+
+async def test_state_store_flow_can_be_used_once(state_store: StateStore):
+    """The PKCE verifier and nonce are handed out once."""
+    [state_id] = await create_states(state_store, 1)
+    assert await state_store.async_set_flow_for_state(state_id, TEST_FLOW, TEST_IP)
+
+    assert await state_store.async_pop_flow_for_state(state_id, TEST_IP) == TEST_FLOW
+    assert await state_store.async_pop_flow_for_state(state_id, TEST_IP) is None
+
+
+async def test_state_store_flow_requires_valid_state(state_store: StateStore):
+    """Flows are bound to an active state from the same IP."""
+    assert not await state_store.async_set_flow_for_state("missing", TEST_FLOW, TEST_IP)
+
+    [state_id] = await create_states(state_store, 1)
+    assert not await state_store.async_set_flow_for_state(
+        state_id, TEST_FLOW, "10.0.0.1"
+    )
+
+    assert await state_store.async_set_flow_for_state(state_id, TEST_FLOW, TEST_IP)
+    assert await state_store.async_pop_flow_for_state(state_id, "10.0.0.1") is None
+
+    expire(state_store, state_id)
+    assert await state_store.async_pop_flow_for_state(state_id, TEST_IP) is None
+
+
+async def test_state_store_flow_is_evicted_with_its_state(state_store: StateStore):
+    """An evicted state takes its flow with it, so flows are bounded too."""
+    [state_id] = await create_states(state_store, 1)
+    await state_store.async_set_flow_for_state(state_id, TEST_FLOW, TEST_IP)
+
+    await create_states(state_store, MAX_STATES)
+
+    assert await state_store.async_pop_flow_for_state(state_id, TEST_IP) is None
 
 
 async def test_state_store_missing_keys(state_store: StateStore):

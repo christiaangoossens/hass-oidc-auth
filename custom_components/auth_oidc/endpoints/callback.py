@@ -56,10 +56,15 @@ class OIDCCallbackView(HomeAssistantView):
         if state != state_id:
             return await error_response("state_mismatch")
 
+        # The flow is only there if this state was sent to the identity provider
+        flow = await self.oidc_provider.async_pop_flow(state_id)
+        if flow is None:
+            return await error_response("invalid_state")
+
         # Complete the OIDC flow to get user details
         redirect_uri = get_url("/auth/oidc/callback", self.force_https)
         user_details = await self.oidc_client.async_complete_token_flow(
-            redirect_uri, code, state
+            redirect_uri, code, flow
         )
         if user_details is None:
             return await error_response("user_details_failed", status=500)

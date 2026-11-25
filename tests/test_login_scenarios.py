@@ -11,7 +11,6 @@ from urllib.parse import urlencode, urlparse
 import pytest
 from homeassistant.auth.providers import auth_provider_from_config
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.setup import async_setup_component
 
 from custom_components.auth_oidc import DOMAIN
@@ -25,11 +24,10 @@ from custom_components.auth_oidc.config.const import (
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
 from .test_hass_oidc_client_integration import (
     WEB_CLIENT_ID,
-    complete_callback_and_finish,
     create_redirect_uri,
-    get_redirect_auth_url,
     get_test_origin,
     get_welcome_for_client,
+    login_with_oidc,
 )
 from .test_hass_webserver import setup_mock_authorize_route
 
@@ -165,18 +163,6 @@ async def start_first_login(client) -> str:
     assert resp.status == 200
 
     return describe(await resp.json())
-
-
-async def login_with_oidc(hass: HomeAssistant, client) -> None:
-    """Complete an OIDC login, which leaves a ready state cookie in the client."""
-    redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(client))
-    state, _, _ = await get_welcome_for_client(client, redirect_uri)
-
-    authorization_url = await get_redirect_auth_url(client)
-    async with async_get_clientsession(hass).get(authorization_url) as resp:
-        code = (await resp.json())["code"]
-
-    await complete_callback_and_finish(client, code, state)
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS)

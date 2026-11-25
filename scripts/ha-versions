@@ -7,7 +7,10 @@ import re
 from urllib.request import urlopen
 
 with open("hacs.json", encoding="utf-8") as file:
-    minimum = tuple(int(part) for part in json.load(file)["homeassistant"].split("."))
+    # Only the minor counts, also when hacs.json names a patch release
+    minimum = tuple(
+        int(part) for part in json.load(file)["homeassistant"].split(".")[:2]
+    )
 
 with urlopen("https://pypi.org/pypi/homeassistant/json", timeout=30) as response:
     releases = json.load(response)["releases"]
