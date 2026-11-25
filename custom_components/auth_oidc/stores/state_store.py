@@ -199,6 +199,14 @@ class StateStore:
             and self._is_valid(state, ip)
         )
 
+    def has_device_code_attempts_left(self, state_id: str, ip: str | None) -> bool:
+        """Return whether this state may still try to link a device code."""
+        state = self._data.get(state_id)
+        if state is None or not self._is_valid(state, ip):
+            return False
+
+        return state["device_code_attempts"] < MAX_DEVICE_CODE_ATTEMPTS
+
     def link_state_to_code(self, state_id: str, code: str, ip: str | None) -> bool:
         """Link a state to a device code, used for mobile sign-in."""
         state_data = self._data.get(state_id)

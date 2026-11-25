@@ -727,7 +727,8 @@ async def test_mistyped_device_code_keeps_the_login(hass: HomeAssistant, hass_cl
 async def test_device_code_attempts_stay_limited_with_kept_cookie(
     hass: HomeAssistant, hass_client
 ):
-    """Keeping the cookie after wrong codes doesn't allow more than the limit."""
+    """After the last wrong code, "Try again" starts a new login, and the right
+    code is refused even when the cookie is sent again."""
     await setup(hass)
 
     with mock_oidc_responses():
@@ -742,11 +743,21 @@ async def test_device_code_attempts_stay_limited_with_kept_cookie(
         wrong_code = "000000" if device_code != "000000" else "111111"
 
         browser = await hass_client()
-        await login_with_oidc(hass, browser)
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(browser))
+        state, _, _ = await get_welcome_for_client(browser, redirect_uri)
+        code = await get_code_from_provider(hass, await get_redirect_auth_url(browser))
+        await complete_callback_and_finish(browser, code, state)
 
-        for _ in range(MAX_DEVICE_CODE_ATTEMPTS):
+        for _ in range(MAX_DEVICE_CODE_ATTEMPTS - 1):
             await browser.post("/auth/oidc/finish", data={"device_code": wrong_code})
 
+        last = await browser.post("/auth/oidc/finish", data={"device_code": wrong_code})
+        assert "Too many wrong device codes" in await last.text()
+        assert clears_state_cookie(last)
+        assert get_try_again_url(await last.text()) == "/auth/oidc/redirect"
+
+        # Someone who ignores the cleared cookie still can't link
+        browser.session.cookie_jar.update_cookies({STATE_COOKIE_NAME: state})
         right = await browser.post(
             "/auth/oidc/finish",
             data={"device_code": device_code},
@@ -923,7 +934,10 @@ async def test_callback_replay_is_rejected(hass: HomeAssistant, hass_client):
         )
         assert replay.status == 400
         assert "Invalid state, please restart login." in await replay.text()
-        assert clears_state_cookie(replay)
+
+        # Going back to the callback doesn't throw away the finished login
+        assert not clears_state_cookie(replay)
+        await verify_back_redirect(client, redirect_uri)
 
 
 @pytest.mark.parametrize(

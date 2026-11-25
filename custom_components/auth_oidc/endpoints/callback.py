@@ -62,10 +62,11 @@ class OIDCCallbackView(HomeAssistantView):
         if state != state_id:
             return await error_response("state_mismatch", reset_cookie=False)
 
-        # The flow is only there if this state was sent to the identity provider
+        # The flow is only there if this state was sent to the identity provider.
+        # Going back to an earlier callback leaves the login itself intact.
         flow = self.state_store.pop_flow_for_state(state_id, request.remote)
         if flow is None:
-            return await error_response("invalid_state")
+            return await error_response("invalid_state", reset_cookie=False)
 
         # Complete the OIDC flow to get user details
         redirect_uri = get_url("/auth/oidc/callback", self.force_https)
