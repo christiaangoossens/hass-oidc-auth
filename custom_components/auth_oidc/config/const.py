@@ -97,8 +97,15 @@ OIDC_PROVIDERS: dict[str, dict[str, Any]] = {
 # The integration's own folder, which holds the static files
 INTEGRATION_DIR = Path(__file__).parent.parent
 
-STATIC_FILE_REGISTRATIONS = {
-    "/static/auth_oidc/style.css": [str(INTEGRATION_DIR / "static/style.css"), True],
+# Static files that are in the repository
+SOURCE_STATIC_FILES = {
     "/static/auth_oidc/icon.png": [str(INTEGRATION_DIR / "brand/icon.png"), True],
     "/static/auth_oidc/device.js": [str(INTEGRATION_DIR / "static/device.js"), True],
 }
+
+# Static files created by scripts/build, so missing from a copy of the source
+BUILT_STATIC_FILES = {
+    "/static/auth_oidc/style.css": [str(INTEGRATION_DIR / "static/style.css"), True],
+}
+
+STATIC_FILE_REGISTRATIONS = SOURCE_STATIC_FILES | BUILT_STATIC_FILES
