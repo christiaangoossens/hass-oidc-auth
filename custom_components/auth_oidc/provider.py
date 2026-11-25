@@ -251,11 +251,35 @@ class OpenIDAuthProvider(AuthProvider):
 
         Keeping this lookup behind the feature flag avoids silently weakening
         the security of automatic_user_linking=False.
+
+        A user that already has an OIDC login is never linked again. Otherwise
+        whoever gets the username next at the identity provider, after a rename
+        or a deletion, would get into the same account.
         """
         if not self.user_linking or not username:
             return None
 
-        return await self._async_find_user_by_username(username)
+        user = await self._async_find_user_by_username(username)
+        if user is None:
+            return None
+
+        if any(self._is_own_credential(cred) for cred in user.credentials):
+            _LOGGER.warning(
+                "Not linking OIDC username '%s' to Home Assistant user %s, "
+                "because that user is already linked to another OIDC login.",
+                username,
+                user.id,
+            )
+            return None
+
+        return user
+
+    def _is_own_credential(self, credential: Credentials) -> bool:
+        """Return whether the credential belongs to this OIDC provider."""
+        return (
+            credential.auth_provider_type == self.type
+            and credential.auth_provider_id == self.id
+        )
 
     async def _async_find_user_by_username(self, username: str) -> User | None:
         """Find a user by username."""
@@ -292,11 +316,7 @@ class OpenIDAuthProvider(AuthProvider):
             return
 
         credential = user.credentials[0]
-        if not (
-            credential.auth_provider_type == self.type
-            and credential.auth_provider_id == self.id
-        ):
-            # Not mine, return
+        if not self._is_own_credential(credential):
             return
 
         # Audit log the user creation

@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import pytest
 from homeassistant.auth import InvalidAuthError
-from homeassistant.auth.models import AuthFlowContext
+from homeassistant.auth.models import AuthFlowContext, User
 from homeassistant.components.person import DOMAIN as PERSON_DOMAIN
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -32,7 +32,7 @@ from custom_components.auth_oidc.stores.state_store import LEGACY_STORAGE_KEY
 from custom_components.auth_oidc.tools.helpers import STATE_COOKIE_NAME
 
 from .integration import get_oidc_provider, get_state_store
-from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
+from .mocks.oidc_server import SUBJECT, MockOIDCServer, mock_oidc_responses
 
 DEFAULT_CONFIG = {
     CLIENT_ID: "dummy",
@@ -255,13 +255,13 @@ async def test_provider_is_trusted_network_host_false_without_trusted_provider(
         assert provider.is_trusted_network_host() is False
 
 
-async def login_user(hass: HomeAssistant, state_id: str):
+async def login_user(hass: HomeAssistant, state_id: str, subject: str = SUBJECT):
     """Helper to login a user from the stored OIDC state."""
 
     provider = get_oidc_provider(hass)
     # This helper runs outside an HTTP request, so pass the known local test IP.
     sub = provider.get_subject(state_id, "127.0.0.1")
-    assert sub is not None and sub == MockOIDCServer.get_final_subject()
+    assert sub is not None and sub == MockOIDCServer.get_final_subject(subject)
 
     # Get credentials
     credentials = await provider.async_get_or_create_credentials({"sub": sub})
@@ -418,6 +418,74 @@ async def test_linking_does_not_ignore_case(hass: HomeAssistant, hass_client):
         other_user = await login_user(hass, state_id)
 
         assert other_user.id != user.id
+
+
+async def link_local_user_to_oidc(hass: HomeAssistant, hass_client) -> User:
+    """Create the local user 'foobar' and link it to the OIDC login 'foobar'."""
+    user = await hass.auth.async_create_user("Foo Bar")
+    hass_provider = hass.auth.get_auth_providers("homeassistant")[0]
+    credential = await hass_provider.async_get_or_create_credentials(
+        {"username": "foobar"}
+    )
+    await hass.auth.async_link_user(user, credential)
+
+    with mock_oidc_responses("username"):
+        state_id = await get_login_state(hass, hass_client)
+        assert (await login_user(hass, state_id)).id == user.id
+
+    return user
+
+
+@pytest.mark.asyncio
+async def test_linked_user_is_not_linked_to_a_second_identity(
+    hass: HomeAssistant, hass_client
+):
+    """Someone who gets the same username at the identity provider later
+    gets their own user, not the account that is already linked."""
+    await setup(
+        hass,
+        {
+            **DEFAULT_CONFIG,
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: False,
+                FEATURES_AUTOMATIC_USER_LINKING: True,
+            },
+        },
+        True,
+    )
+    user = await link_local_user_to_oidc(hass, hass_client)
+
+    with mock_oidc_responses("username_other_subject"):
+        state_id = await get_login_state(hass, hass_client)
+        other_user = await login_user(hass, state_id, subject="someone-else")
+
+    assert other_user.id != user.id
+
+
+@pytest.mark.asyncio
+async def test_require_existing_user_denies_a_second_identity(
+    hass: HomeAssistant, hass_client
+):
+    """With require_existing_user, a second identity with the username of an
+    already linked user is denied."""
+    await setup(
+        hass,
+        {
+            **DEFAULT_CONFIG,
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: False,
+                FEATURES_AUTOMATIC_USER_LINKING: True,
+                FEATURES_REQUIRE_EXISTING_USER: True,
+            },
+        },
+        True,
+    )
+    await link_local_user_to_oidc(hass, hass_client)
+
+    with mock_oidc_responses("username_other_subject"):
+        state_id, resp = await get_callback_response(hass, hass_client)
+
+    await assert_login_not_allowed(hass, state_id, resp)
 
 
 @pytest.mark.parametrize("automatic_user_linking", [False, True])

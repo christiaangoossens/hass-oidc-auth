@@ -30,7 +30,8 @@ class MockOIDCServer:
     """A simple mock OIDC server for testing purposes.
 
     A scenario file can override the discovery document ("discovery"),
-    the username ("username"), the userinfo response ("userinfo") and
+    the subject ("subject"), the username ("username"), the userinfo
+    response ("userinfo") and
     require a client secret at the token endpoint ("client_secret").
     """
 
@@ -94,6 +95,10 @@ class MockOIDCServer:
     def _get_username(self) -> str:
         """Return the username this server reports for the user."""
         return self._scenario.get("username", "testuser")
+
+    def _get_subject(self) -> str:
+        """Return the subject this server reports for the user."""
+        return self._scenario.get("subject", SUBJECT)
 
     def _get_discovery_document(self) -> tuple[dict, int]:
         """Return a mock discovery document."""
@@ -162,7 +167,7 @@ class MockOIDCServer:
         now = int(time.time())
         claims = {
             "iss": BASE_URL,
-            "sub": SUBJECT,
+            "sub": self._get_subject(),
             "aud": query_params.get("client_id", [""])[0],
             "nonce": query_params.get("nonce", [""])[0],
             "name": "Test Name",
@@ -184,15 +189,15 @@ class MockOIDCServer:
             return self._scenario["userinfo"], 200
 
         return {
-            "sub": SUBJECT,
+            "sub": self._get_subject(),
             "name": "Test Name",
             "preferred_username": self._get_username(),
         }, 200
 
     @staticmethod
-    def get_final_subject() -> str:
-        """Return the subject that's returned to HA."""
-        return hashlib.sha256(f"{BASE_URL}.{SUBJECT}".encode()).hexdigest()
+    def get_final_subject(subject: str = SUBJECT) -> str:
+        """Return the subject that's returned to HA for the given IdP subject."""
+        return hashlib.sha256(f"{BASE_URL}.{subject}".encode()).hexdigest()
 
 
 def make_mock_response(json_data: Any, status: int) -> AsyncMock:
