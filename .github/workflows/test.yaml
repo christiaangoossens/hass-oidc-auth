@@ -22,3 +22,16 @@ jobs:
         run: scripts/sync
       - name: Test
         run: scripts/test
+
+  minimum-ha:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: "Set up Python"
+        uses: actions/setup-python@v7
+        with:
+          python-version-file: ".python-version"
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v10.4.0
+      - name: Test on the minimum Home Assistant version from hacs.json
+        run: scripts/test-ha

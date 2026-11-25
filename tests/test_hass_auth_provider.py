@@ -63,6 +63,12 @@ async def get_auth_store_ids(hass: HomeAssistant) -> tuple[set[str], set[str]]:
     )
 
 
+async def async_get_person_states(hass: HomeAssistant) -> list:
+    """Return the person entity states, which carry the linked user_id."""
+    await hass.async_block_till_done()
+    return hass.states.async_all(PERSON_DOMAIN)
+
+
 @pytest.mark.asyncio
 async def test_setup_success_auth_provider_registration(hass: HomeAssistant):
     """Test successful setup"""
@@ -594,13 +600,9 @@ async def test_login_with_person_create(hass: HomeAssistant, hass_client):
         user = await login_user(hass, state_id)
         assert user.is_active
 
-        # Find the person associated to this user using the PersonRegistry API
-        person_store = hass.data[PERSON_DOMAIN].storage_collection
-        persons = person_store.async_items()
+        persons = await async_get_person_states(hass)
         assert len(persons) == 1
-
-        person = persons[0]
-        assert person["user_id"] == user.id
+        assert persons[0].attributes["user_id"] == user.id
 
 
 @pytest.mark.asyncio
@@ -627,9 +629,7 @@ async def test_login_without_person_create_does_not_create_person(
         user = await login_user(hass, state_id)
         assert user.is_active
 
-        person_store = hass.data[PERSON_DOMAIN].storage_collection
-        persons = person_store.async_items()
-        assert len(persons) == 0
+        assert await async_get_person_states(hass) == []
 
 
 @pytest.mark.asyncio

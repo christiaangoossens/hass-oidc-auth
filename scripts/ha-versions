@@ -1,0 +1,27 @@
+#! /usr/bin/env python3
+"""Print every Home Assistant minor version with a stable release, starting at the
+minimum version in hacs.json, as a JSON list for the CI test matrix."""
+
+import json
+import re
+from urllib.request import urlopen
+
+with open("hacs.json", encoding="utf-8") as file:
+    minimum = tuple(int(part) for part in json.load(file)["homeassistant"].split("."))
+
+with urlopen("https://pypi.org/pypi/homeassistant/json", timeout=30) as response:
+    releases = json.load(response)["releases"]
+
+minors: set[tuple[int, int]] = set()
+for version, files in releases.items():
+    # Only stable releases that were not withdrawn
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        continue
+    if not files or all(file["yanked"] for file in files):
+        continue
+
+    year, minor, _ = (int(part) for part in version.split("."))
+    if (year, minor) >= minimum:
+        minors.add((year, minor))
+
+print(json.dumps([f"{year}.{minor}" for year, minor in sorted(minors)]))
