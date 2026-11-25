@@ -30,7 +30,6 @@ class OIDCWelcomeView(HomeAssistantView):
         self.oidc_provider = oidc_provider
         self.name = options.get("name")
         self.force_https = options.get("force_https")
-        self.has_other_auth_providers = options.get("has_other_auth_providers")
         self.prefers_skipping = options.get("prefers_skipping")
 
     async def _process_url(self, redirect_uri: str) -> tuple[str, str, bool]:
@@ -134,11 +133,9 @@ class OIDCWelcomeView(HomeAssistantView):
             state_id, secure=self.force_https or req.url.scheme == "https"
         )
 
-        # If this is the only provider and we are on desktop,
-        # automatically go through the OIDC login
-        if not is_mobile and (
-            not self.has_other_auth_providers or self.prefers_skipping
-        ):
+        # On desktop, go straight to OIDC if the login page has nothing else to offer
+        can_offer_other_login = self.oidc_provider.can_offer_other_login(req)
+        if not is_mobile and (self.prefers_skipping or not can_offer_other_login):
             raise web.HTTPFound(
                 location=get_url("/auth/oidc/redirect", self.force_https),
                 headers=cookie_header,
@@ -153,9 +150,8 @@ class OIDCWelcomeView(HomeAssistantView):
             if not code:
                 return await error_response("device_code_failed", status=500)
 
-        # And add the other link if we have other auth providers
         other_link = None
-        if self.has_other_auth_providers:
+        if can_offer_other_login:
             other_link = concat_url_query(other_return_url, "skip_oidc_redirect=true")
 
         # And display

@@ -8,18 +8,12 @@ import json
 from typing import cast
 
 from aiohttp import web
-from homeassistant.auth.providers import AuthProvider
 from homeassistant.core import HomeAssistant
 
 from ..provider import OpenIDAuthProvider
 from ..tools.http_route_takeover import Handler, take_over_get_route
 
 PATH = "/auth/providers"
-
-
-def has_login_hook() -> bool:
-    """Check if Home Assistant asks providers whether their login can start (2026.11+)."""
-    return hasattr(AuthProvider, "async_can_start_login")
 
 
 def filter_providers(

@@ -71,8 +71,5 @@ class OIDCWelcomeOptions(TypedDict):
     # Does the user force HTTPS on all generated URLs?
     force_https: bool
 
-    # Has the user registered any other auth providers?
-    has_other_auth_providers: bool
-
     # Does the user prefer to skip the welcome screen?
     prefers_skipping: bool
