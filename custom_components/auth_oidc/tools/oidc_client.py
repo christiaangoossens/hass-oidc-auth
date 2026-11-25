@@ -582,9 +582,11 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                 # The Issuer Identifier for the OpenID Provider MUST exactly
                 # match the value of the iss (issuer) Claim.
                 iss={"essential": True, "value": discovery_document["issuer"]},
-                # OpenID Connect Core 1.0 Section 3.1.3.7.9
-                # OpenID Connect Core 1.0 Section 3.1.3.7.10
-                # No need to specify exp, nbf, iat, they are in here by default
+                # OpenID Connect Core 1.0 Section 3.1.3.7.9 and 3.1.3.7.10
+                # exp and iat are required in an ID token (Section 2), so they
+                # must be present. Their values, and nbf, are always checked.
+                exp={"essential": True},
+                iat={"essential": True},
                 sub={"essential": True},
             )
 
@@ -640,6 +642,24 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             _LOGGER.warning("Error generating authorization URL: %s", e)
             return None
 
+    def _check_userinfo_subject(self, userinfo: Any, id_token: dict) -> None:
+        """Check that the userinfo is about the user of the ID token.
+
+        OpenID Connect Core 1.0 Section 5.3.2: the sub Claim in the UserInfo
+        Response MUST be verified to exactly match the sub Claim in the ID Token.
+        """
+        if not isinstance(userinfo, dict):
+            _LOGGER.warning("Userinfo response is not a JSON object")
+            raise OIDCUserinfoInvalid()
+
+        if userinfo.get("sub") != id_token.get("sub"):
+            _LOGGER.warning(
+                "Userinfo subject %r does not match the ID token subject %r",
+                userinfo.get("sub"),
+                id_token.get("sub"),
+            )
+            raise OIDCUserinfoInvalid()
+
     def _get_role_from_groups(self, id_token: dict) -> UserRole:
         """Return the role for the groups in the groups claim.
 
@@ -676,6 +696,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         if "userinfo_endpoint" in discovery_document:
             userinfo_endpoint = discovery_document["userinfo_endpoint"]
             userinfo = await self._get_userinfo(userinfo_endpoint, access_token)
+            self._check_userinfo_subject(userinfo, id_token)
 
             # Replace missing claims in the id_token with their userinfo version
             for claim in (

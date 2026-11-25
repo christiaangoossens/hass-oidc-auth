@@ -974,6 +974,37 @@ async def test_callback_shows_error_when_identity_provider_fails(
         assert "Failed to get user details" in await resp.text()
 
 
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "userinfo_other_subject",
+        "userinfo_not_object",
+        "id_token_without_exp",
+        "id_token_without_iat",
+    ],
+)
+async def test_callback_rejects_invalid_identity_provider_data(
+    hass: HomeAssistant, hass_client, scenario: str
+):
+    """Userinfo about another user, or an ID token without exp or iat,
+    gives a login error instead of a login."""
+    await setup(hass)
+
+    with mock_oidc_responses(scenario):
+        client = await hass_client()
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(client))
+        state, _, _ = await get_welcome_for_client(client, redirect_uri)
+        code = await get_code_from_provider(hass, await get_redirect_auth_url(client))
+
+        resp = await client.get(
+            f"/auth/oidc/callback?code={code}&state={state}",
+            allow_redirects=False,
+        )
+
+        assert resp.status == 500
+        assert "Failed to get user details" in await resp.text()
+
+
 async def test_redirect_shows_error_when_discovery_times_out(
     hass: HomeAssistant, hass_client
 ):

@@ -31,7 +31,8 @@ class MockOIDCServer:
 
     A scenario file can override the discovery document ("discovery"),
     the subject ("subject"), the username ("username"), the userinfo
-    response ("userinfo") and
+    response ("userinfo"), leave claims out of the ID token
+    ("omit_id_token_claims") and
     require a client secret at the token endpoint ("client_secret").
     """
 
@@ -176,6 +177,9 @@ class MockOIDCServer:
             "iat": now,
             "exp": now + 3600,
         }
+
+        for claim in self._scenario.get("omit_id_token_claims", []):
+            claims.pop(claim)
 
         return jwt.encode(header, claims, self._jwk)
 
