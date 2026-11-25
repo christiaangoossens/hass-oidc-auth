@@ -158,6 +158,38 @@ async def test_provider_hides_login_when_the_check_fails(hass: HomeAssistant, ca
     assert "Could not check if the OIDC login is ready" in caplog.text
 
 
+@pytest.mark.parametrize("remote", ["127.0.0.1", None], ids=["provider-fails", "no-ip"])
+async def test_default_login_is_offered_when_the_check_fails(
+    hass: HomeAssistant, caplog, remote: str | None
+):
+    """If the other providers can't be checked, the welcome page still offers
+    the default login instead of failing with a 500."""
+    await setup(hass, DEFAULT_CONFIG, True)
+    provider = get_oidc_provider(hass)
+
+    class FailingProvider:
+        type = "failing"
+
+        def async_can_start_login(self, _context):
+            raise RuntimeError("boom")
+
+    set_auth_providers(
+        hass,
+        [
+            ((provider.type, provider.id), provider),
+            (("failing", None), FailingProvider()),
+        ],
+    )
+    request: Any = SimpleNamespace(remote=remote)
+
+    with patch(
+        "custom_components.auth_oidc.provider.has_login_hook", return_value=True
+    ):
+        assert provider.can_offer_other_login(request) is True
+
+    assert "Could not check the other login providers" in caplog.text
+
+
 @pytest.mark.asyncio
 async def test_provider_is_trusted_network_host_true_for_allowed_ip(
     hass: HomeAssistant,

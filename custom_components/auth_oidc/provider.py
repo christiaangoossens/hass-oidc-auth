@@ -156,20 +156,31 @@ class OpenIDAuthProvider(AuthProvider):
             return False
 
     def can_offer_other_login(self, req: web.Request) -> bool:
-        """Check if Home Assistant's login page offers another provider to this request."""
+        """Check if Home Assistant's login page offers another provider to this request.
+
+        If that can't be checked, for example without a client IP or when another
+        provider fails, the welcome page offers the default login anyway.
+        """
         others = [p for p in self.hass.auth.auth_providers if p is not self]
 
-        if has_login_hook():
-            # Same context as Home Assistant's /auth/providers (AuthProvidersView.get), see
-            # https://github.com/home-assistant/core/blob/master/homeassistant/components/auth/login_flow.py
-            context = AuthFlowContext(ip_address=ip_address(cast(str, req.remote)))
-            return any(provider.async_can_start_login(context) for provider in others)
+        try:
+            if has_login_hook():
+                # Same context as Home Assistant's /auth/providers (AuthProvidersView.get), see
+                # https://github.com/home-assistant/core/blob/master/homeassistant/components/auth/login_flow.py
+                context = AuthFlowContext(ip_address=ip_address(cast(str, req.remote)))
+                return any(
+                    provider.async_can_start_login(context) for provider in others
+                )
 
-        # Before 2026.11, trusted networks is the only provider that hides itself
-        return any(
-            provider.type != "trusted_networks" or self.is_trusted_network_host()
-            for provider in others
-        )
+            # Before 2026.11, trusted networks is the only provider that hides itself
+            return any(
+                provider.type != "trusted_networks" or self.is_trusted_network_host()
+                for provider in others
+            )
+        # pylint: disable-next=broad-except
+        except Exception:
+            _LOGGER.exception("Could not check the other login providers")
+            return True
 
     def is_login_ready(self) -> bool:
         """Check if the current request carries a state that finished the OIDC login.

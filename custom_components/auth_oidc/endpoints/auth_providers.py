@@ -5,6 +5,7 @@ OpenIDAuthProvider.async_can_start_login. Delete this file once hacs.json requir
 """
 
 import json
+import logging
 from typing import cast
 
 from aiohttp import web
@@ -14,6 +15,8 @@ from ..provider import OpenIDAuthProvider
 from ..tools.http_route_takeover import Handler, take_over_get_route
 
 PATH = "/auth/providers"
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def filter_providers(
@@ -45,4 +48,19 @@ def take_over_auth_providers(hass: HomeAssistant, provider: OpenIDAuthProvider) 
 
         return get
 
-    take_over_get_route(hass, PATH, wrap)
+    try:
+        if take_over_get_route(hass, PATH, wrap):
+            return
+
+        _LOGGER.error(
+            "Could not find %s, so the login page may offer OIDC before its "
+            "login can finish",
+            PATH,
+        )
+    # pylint: disable-next=broad-except
+    except Exception:
+        _LOGGER.exception(
+            "Failed to filter %s, so the login page may offer OIDC before its "
+            "login can finish",
+            PATH,
+        )

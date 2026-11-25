@@ -126,8 +126,10 @@ async def error_response(
 
 
 def concat_url_query(base: str, new_query: str) -> str:
-    """Concatenate a base URL with a new query string, handling existing queries."""
-    separator = "?"
-    if "?" in base:
-        separator = "&"
-    return f"{base}{separator}{new_query}"
+    """Concatenate a base URL with a new query string, handling existing queries.
+
+    The query goes before a #fragment, where the server can still see it.
+    """
+    url, hash_sign, fragment = base.partition("#")
+    separator = "&" if "?" in url else "?"
+    return f"{url}{separator}{new_query}{hash_sign}{fragment}"

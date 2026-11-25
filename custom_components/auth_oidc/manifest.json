@@ -1,6 +1,9 @@
 {
   "domain": "auth_oidc",
   "name": "OpenID Connect/SSO Authentication",
+  "after_dependencies": [
+    "frontend"
+  ],
   "codeowners": [
     "@christiaangoossens"
   ],

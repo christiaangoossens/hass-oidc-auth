@@ -244,12 +244,17 @@ class StateStore:
     def pop_userinfo_for_state(
         self, state_id: str, ip: str | None
     ) -> UserDetails | None:
-        """Retrieve user info based on the state_id, the state can only be used once."""
-        state = self._data.pop(state_id, None)
-        if state and self._is_valid(state, ip):
-            return state["user_details"]
+        """Retrieve user info based on the state_id, the state can only be used once.
 
-        return None
+        The state is only removed for its own IP and while it hasn't expired, so
+        a request from another IP can't throw away someone else's login.
+        """
+        state = self._data.get(state_id)
+        if state is None or not self._is_valid(state, ip):
+            return None
+
+        del self._data[state_id]
+        return state["user_details"]
 
     def get_data(self) -> dict[str, OIDCState]:
         """Get the internal data for testing purposes."""

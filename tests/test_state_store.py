@@ -227,6 +227,16 @@ async def test_state_store_state_is_only_valid_for_its_ip(state_store: StateStor
     assert not state_store.is_state_valid(state_id, TEST_IP)
 
 
+async def test_state_store_other_ip_cannot_use_up_a_login(state_store: StateStore):
+    """Someone with the state id but another IP can't throw away the login."""
+    user = make_user("ip-bound")
+    state_id = create_ready_state(state_store, user)
+
+    assert state_store.pop_userinfo_for_state(state_id, "10.0.0.1") is None
+
+    assert state_store.pop_userinfo_for_state(state_id, TEST_IP) == user
+
+
 async def test_state_store_keeps_states_in_memory(
     state_store: StateStore, hass: HomeAssistant, hass_storage: dict[str, Any]
 ):

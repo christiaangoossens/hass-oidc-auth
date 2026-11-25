@@ -10,6 +10,7 @@ from aiohttp.test_utils import make_mocked_request
 from custom_components.auth_oidc.config.const import REPO_ROOT_URL
 from custom_components.auth_oidc.tools.helpers import (
     STATE_COOKIE_NAME,
+    concat_url_query,
     error_response,
     get_state_id,
     get_url,
@@ -230,3 +231,17 @@ async def test_client_id():
     assert not validate_client_id(" ")
     assert validate_client_id("test4")
     assert validate_client_id("test4 ")
+
+
+@pytest.mark.parametrize(
+    ("base", "expected"),
+    [
+        ("https://a.example/", "https://a.example/?skip=true"),
+        ("https://a.example/?x=1", "https://a.example/?x=1&skip=true"),
+        ("https://a.example/#/page", "https://a.example/?skip=true#/page"),
+        ("https://a.example/?x=1#/p?y=2", "https://a.example/?x=1&skip=true#/p?y=2"),
+    ],
+)
+def test_concat_url_query_adds_before_the_fragment(base: str, expected: str):
+    """The query is added where the server sees it, before a #fragment."""
+    assert concat_url_query(base, "skip=true") == expected
