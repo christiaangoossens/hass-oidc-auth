@@ -46,6 +46,7 @@ from .endpoints import (
 from .endpoints.auth_providers import take_over_auth_providers
 from .endpoints.authorize import take_over_authorize_page
 from .provider import OpenIDAuthProvider, has_login_hook
+from .stores.state_store import StateStore
 from .tools.oidc_client import OIDCClient
 from .tools.types import OIDCWelcomeOptions
 
@@ -92,13 +93,16 @@ async def async_unload_entry(_hass: HomeAssistant, _entry: ConfigEntry):
     return False
 
 
-async def _register_oidc_provider(hass: HomeAssistant, my_config: dict):
+async def _register_oidc_provider(
+    hass: HomeAssistant, my_config: dict, state_store: StateStore
+):
     """Register the OIDC provider in Home Assistant's auth system."""
     # Use private APIs until there is a real auth platform
     # pylint: disable=protected-access
 
     providers = OrderedDict()
-    provider = OpenIDAuthProvider(hass, hass.auth._store, my_config)
+    provider = OpenIDAuthProvider(hass, hass.auth._store, my_config, state_store)
+    await provider.async_initialize()
 
     existing_auth_providers = hass.auth._providers.copy()
     _LOGGER.debug("Current auth providers: %s", list(existing_auth_providers.keys()))
@@ -141,8 +145,11 @@ async def _register_oidc_provider(hass: HomeAssistant, my_config: dict):
 async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_name: str):
     """Set up the OIDC provider with the given configuration."""
     # pylint: disable=too-many-locals
+    state_store = StateStore(hass)
+    await state_store.async_remove_legacy_storage()
+
     provider, has_trusted_networks_provider_first = await _register_oidc_provider(
-        hass, my_config
+        hass, my_config, state_store
     )
 
     # Set the correct scopes
@@ -196,6 +203,7 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
     hass.http.register_view(
         OIDCWelcomeView(
             provider,
+            state_store,
             OIDCWelcomeOptions(
                 name=name,
                 force_https=force_https,
@@ -203,10 +211,12 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
             ),
         )
     )
-    hass.http.register_view(OIDCDeviceSSE(provider))
-    hass.http.register_view(OIDCRedirectView(oidc_client, provider, force_https))
-    hass.http.register_view(OIDCCallbackView(oidc_client, provider, force_https))
-    hass.http.register_view(OIDCFinishView(provider))
+    hass.http.register_view(OIDCDeviceSSE(state_store))
+    hass.http.register_view(OIDCRedirectView(oidc_client, state_store, force_https))
+    hass.http.register_view(
+        OIDCCallbackView(oidc_client, provider, state_store, force_https)
+    )
+    hass.http.register_view(OIDCFinishView(state_store))
 
     _LOGGER.info("Registered OIDC views")
 

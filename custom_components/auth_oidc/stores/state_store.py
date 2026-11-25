@@ -119,9 +119,7 @@ class StateStore:
         busiest, _ = Counter(network for _, network in pending).most_common(1)[0]
         return next(state_id for state_id, network in pending if network == busiest)
 
-    async def async_create_state_from_url(
-        self, redirect_uri: str, ip: str | None
-    ) -> str:
+    def create_state(self, redirect_uri: str, ip: str | None) -> str:
         """Create a new state for the redirect_uri, valid for STATE_TTL."""
         self._make_room()
 
@@ -139,7 +137,7 @@ class StateStore:
 
         return state_id
 
-    async def async_generate_code_for_state(self, state_id: str) -> str | None:
+    def create_device_code(self, state_id: str) -> str | None:
         """Generates a one time code for the state to link device clients."""
         state = self._data.get(state_id)
         if state is None:
@@ -148,9 +146,7 @@ class StateStore:
         state["device_code"] = self._generate_unique_code()
         return state["device_code"]
 
-    async def async_set_flow_for_state(
-        self, state_id: str, flow: OIDCFlow, ip: str | None
-    ) -> bool:
+    def set_flow_for_state(self, state_id: str, flow: OIDCFlow, ip: str | None) -> bool:
         """Store the PKCE code verifier and nonce on the state."""
         state = self._data.get(state_id)
         if state is None or not self._is_valid(state, ip):
@@ -159,9 +155,7 @@ class StateStore:
         state["flow"] = flow
         return True
 
-    async def async_pop_flow_for_state(
-        self, state_id: str, ip: str | None
-    ) -> OIDCFlow | None:
+    def pop_flow_for_state(self, state_id: str, ip: str | None) -> OIDCFlow | None:
         """Retrieve the PKCE code verifier and nonce of the state, they can only be used once."""
         state = self._data.get(state_id)
         if state is None or not self._is_valid(state, ip):
@@ -170,9 +164,7 @@ class StateStore:
         flow, state["flow"] = state["flow"], None
         return flow
 
-    async def async_add_userinfo_to_state(
-        self, state_id: str, user_info: UserDetails
-    ) -> bool:
+    def set_userinfo_for_state(self, state_id: str, user_info: UserDetails) -> bool:
         """Add userinfo to existing state to complete login"""
         state = self._data.get(state_id)
         if state is None:
@@ -181,15 +173,18 @@ class StateStore:
         state["user_details"] = user_info
         return True
 
-    async def async_get_redirect_uri_for_state(
-        self, state_id: str, ip: str | None
-    ) -> str | None:
+    def get_redirect_uri_for_state(self, state_id: str, ip: str | None) -> str | None:
         """Get the redirect_uri for a given state_id."""
         state = self._data.get(state_id)
         if state and self._is_valid(state, ip):
             return state["redirect_uri"]
 
         return None
+
+    def is_state_valid(self, state_id: str, ip: str | None) -> bool:
+        """Check if a state exists, belongs to this IP, and is not expired."""
+        state = self._data.get(state_id)
+        return state is not None and self._is_valid(state, ip)
 
     def is_state_ready(self, state_id: str, ip: str | None) -> bool:
         """Check if the state has received the user info from the OIDC callback."""
@@ -200,9 +195,7 @@ class StateStore:
             and self._is_valid(state, ip)
         )
 
-    async def async_link_state_to_code(
-        self, state_id: str, code: str, ip: str | None
-    ) -> bool:
+    def link_state_to_code(self, state_id: str, code: str, ip: str | None) -> bool:
         """Link a state to a device code, used for mobile sign-in."""
         state_data = self._data.get(state_id)
         if (
@@ -236,7 +229,7 @@ class StateStore:
 
         return True
 
-    async def async_receive_userinfo_for_state(
+    def pop_userinfo_for_state(
         self, state_id: str, ip: str | None
     ) -> UserDetails | None:
         """Retrieve user info based on the state_id, the state can only be used once."""

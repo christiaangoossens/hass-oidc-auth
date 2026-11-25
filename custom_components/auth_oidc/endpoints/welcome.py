@@ -9,6 +9,7 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from ..provider import OpenIDAuthProvider
+from ..stores.state_store import StateStore
 from ..tools.helpers import concat_url_query, error_response, get_url, template_response
 from ..tools.types import OIDCWelcomeOptions
 
@@ -25,9 +26,13 @@ class OIDCWelcomeView(HomeAssistantView):
     name = "auth:oidc:welcome"
 
     def __init__(
-        self, oidc_provider: OpenIDAuthProvider, options: OIDCWelcomeOptions
+        self,
+        oidc_provider: OpenIDAuthProvider,
+        state_store: StateStore,
+        options: OIDCWelcomeOptions,
     ) -> None:
         self.oidc_provider = oidc_provider
+        self.state_store = state_store
         self.name = options.get("name")
         self.force_https = options.get("force_https")
         self.prefers_skipping = options.get("prefers_skipping")
@@ -128,7 +133,7 @@ class OIDCWelcomeView(HomeAssistantView):
             is_mobile = False
 
         # Create OIDC state with the redirect_uri so we can use it later in the flow
-        state_id = await self.oidc_provider.async_create_state(redirect_uri)
+        state_id = self.state_store.create_state(redirect_uri, req.remote)
         cookie_header = self.oidc_provider.get_cookie_header(
             state_id, secure=self.force_https or req.url.scheme == "https"
         )
@@ -146,7 +151,7 @@ class OIDCWelcomeView(HomeAssistantView):
         code = None
         if is_mobile:
             # Create a code to login
-            code = await self.oidc_provider.async_generate_device_code(state_id)
+            code = self.state_store.create_device_code(state_id)
             if not code:
                 return await error_response("device_code_failed", status=500)
 

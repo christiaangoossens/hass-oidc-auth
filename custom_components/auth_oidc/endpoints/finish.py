@@ -3,7 +3,7 @@
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from ..provider import OpenIDAuthProvider
+from ..stores.state_store import StateStore
 from ..tools.helpers import (
     concat_url_query,
     error_response,
@@ -21,16 +21,13 @@ class OIDCFinishView(HomeAssistantView):
     url = PATH
     name = "auth:oidc:finish"
 
-    def __init__(
-        self,
-        oidc_provider: OpenIDAuthProvider,
-    ) -> None:
-        self.oidc_provider = oidc_provider
+    def __init__(self, state_store: StateStore) -> None:
+        self.state_store = state_store
 
     async def get(self, request: web.Request) -> web.Response:
         """Show the finish screen to pick between login & device code."""
         # Get cookie to get the state_id
-        state_id = await get_valid_state_id(request, self.oidc_provider)
+        state_id = get_valid_state_id(request, self.state_store)
         if not state_id:
             return await error_response("missing_state_cookie")
 
@@ -40,13 +37,13 @@ class OIDCFinishView(HomeAssistantView):
         """Receive response."""
 
         # Get cookie to get the state_id
-        state_id = await get_valid_state_id(request, self.oidc_provider)
+        state_id = get_valid_state_id(request, self.state_store)
         if not state_id:
             return await error_response("missing_state_cookie")
 
         # Get redirect_uri from the state
-        redirect_uri = await self.oidc_provider.async_get_redirect_uri_for_state(
-            state_id
+        redirect_uri = self.state_store.get_redirect_uri_for_state(
+            state_id, request.remote
         )
 
         if not redirect_uri:
@@ -67,8 +64,8 @@ class OIDCFinishView(HomeAssistantView):
             return await error_response("device_link_failed")
 
         # Check if we can link this device
-        linked = await self.oidc_provider.async_link_state_to_code(
-            state_id, device_code
+        linked = self.state_store.link_state_to_code(
+            state_id, device_code, request.remote
         )
 
         if not linked:

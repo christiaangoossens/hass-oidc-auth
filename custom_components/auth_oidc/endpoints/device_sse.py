@@ -5,7 +5,7 @@ import asyncio
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from ..provider import OpenIDAuthProvider
+from ..stores.state_store import StateStore
 from ..tools.helpers import get_valid_state_id
 
 PATH = "/auth/oidc/device-sse"
@@ -32,19 +32,19 @@ class OIDCDeviceSSE(HomeAssistantView):
     url = PATH
     name = "auth:oidc:device-sse"
 
-    def __init__(self, oidc_provider: OpenIDAuthProvider) -> None:
-        self.oidc_provider = oidc_provider
+    def __init__(self, state_store: StateStore) -> None:
+        self.state_store = state_store
 
     async def get(self, req: web.Request) -> web.StreamResponse:
         """Stream the login state of this device until its code is approved."""
-        state_id = await get_valid_state_id(req, self.oidc_provider)
+        state_id = get_valid_state_id(req, self.state_store)
 
         response = web.StreamResponse(status=200, headers=HEADERS)
         await response.prepare(req)
 
         try:
             if state_id:
-                await self._wait_for_approval(response, state_id)
+                await self._wait_for_approval(response, state_id, req.remote)
             else:
                 # Also an answer, so the page can offer a new code instead of retrying
                 await response.write(EXPIRED_EVENT)
@@ -60,7 +60,7 @@ class OIDCDeviceSSE(HomeAssistantView):
         return response
 
     async def _wait_for_approval(
-        self, response: web.StreamResponse, state_id: str
+        self, response: web.StreamResponse, state_id: str, ip: str | None
     ) -> None:
         """Poll the state until it is ready or expired, with keepalives in between."""
         loop = asyncio.get_running_loop()
@@ -68,11 +68,11 @@ class OIDCDeviceSSE(HomeAssistantView):
         await response.write(b"event: waiting\ndata: false\n\n")
 
         while True:
-            if await self.oidc_provider.async_is_state_ready(state_id):
+            if self.state_store.is_state_ready(state_id, ip):
                 await response.write(b"event: ready\ndata: true\n\n")
                 return
 
-            if not await self.oidc_provider.async_is_state_valid(state_id):
+            if not self.state_store.is_state_valid(state_id, ip):
                 await response.write(EXPIRED_EVENT)
                 return
 

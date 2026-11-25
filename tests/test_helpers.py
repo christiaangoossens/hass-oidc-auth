@@ -89,37 +89,35 @@ async def test_get_state_id():
     assert get_state_id(request_without_cookie) is None
 
 
-@pytest.mark.asyncio
-async def test_get_valid_state_id():
+def test_get_valid_state_id():
     """Valid-state helper should return only existing and valid cookie states."""
-    provider = MagicMock()
-    provider.async_is_state_valid = AsyncMock(return_value=True)
+    state_store = MagicMock()
+    state_store.is_state_valid.return_value = True
 
     request = make_mocked_request(
         "GET", "/", headers={"Cookie": f"{STATE_COOKIE_NAME}=state-1"}
     )
-    state_id = await get_valid_state_id(request, provider)
+    state_id = get_valid_state_id(request, state_store)
 
     assert state_id == "state-1"
-    provider.async_is_state_valid.assert_awaited_once_with("state-1")
+    state_store.is_state_valid.assert_called_once_with("state-1", request.remote)
 
 
-@pytest.mark.asyncio
-async def test_get_valid_state_id_invalid_or_missing_cookie():
+def test_get_valid_state_id_invalid_or_missing_cookie():
     """Valid-state helper should reject missing and invalid states."""
-    provider = MagicMock()
-    provider.async_is_state_valid = AsyncMock(return_value=False)
+    state_store = MagicMock()
+    state_store.is_state_valid.return_value = False
 
     request = make_mocked_request(
         "GET", "/", headers={"Cookie": f"{STATE_COOKIE_NAME}=state-2"}
     )
-    assert await get_valid_state_id(request, provider) is None
-    provider.async_is_state_valid.assert_awaited_once_with("state-2")
+    assert get_valid_state_id(request, state_store) is None
+    state_store.is_state_valid.assert_called_once_with("state-2", request.remote)
 
     request_without_cookie = make_mocked_request("GET", "/")
-    provider.async_is_state_valid.reset_mock()
-    assert await get_valid_state_id(request_without_cookie, provider) is None
-    provider.async_is_state_valid.assert_not_called()
+    state_store.is_state_valid.reset_mock()
+    assert get_valid_state_id(request_without_cookie, state_store) is None
+    state_store.is_state_valid.assert_not_called()
 
 
 @pytest.mark.asyncio

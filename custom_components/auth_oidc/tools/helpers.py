@@ -1,16 +1,12 @@
 """Helper functions for the integration."""
 
-from typing import TYPE_CHECKING
-
 from aiohttp import web
 from homeassistant.components import http
 
 from ..config.const import REPO_ROOT_URL
+from ..stores.state_store import StateStore
 from ..views.i18n import async_get_translator
 from ..views.loader import AsyncTemplateRenderer
-
-if TYPE_CHECKING:
-    from ..provider import OpenIDAuthProvider
 
 STATE_COOKIE_NAME = "auth_oidc_state"
 
@@ -55,15 +51,13 @@ def reset_state_cookie() -> str:
     return f"{STATE_COOKIE_NAME}=; Path=/auth/; SameSite=Lax; HttpOnly; Max-Age=0"
 
 
-async def get_valid_state_id(
-    request: web.Request, oidc_provider: "OpenIDAuthProvider"
-) -> str | None:
+def get_valid_state_id(request: web.Request, state_store: StateStore) -> str | None:
     """Return state id only when cookie exists and state is still valid."""
     state_id = get_state_id(request)
     if not state_id:
         return None
 
-    if not await oidc_provider.async_is_state_valid(state_id):
+    if not state_store.is_state_valid(state_id, request.remote):
         return None
 
     return state_id
