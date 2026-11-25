@@ -1,6 +1,7 @@
 """Config schema"""
 
 import voluptuous as vol
+from homeassistant.helpers import config_validation as cv
 
 from .const import (
     ADDITIONAL_SCOPES,
@@ -55,7 +56,10 @@ CONFIG_SCHEMA = vol.Schema(
                 ),
                 # Additional scopes to request from the OIDC provider
                 # Optional, this field is unnecessary if you only use the openid and profile scopes.
-                vol.Optional(ADDITIONAL_SCOPES, default=[]): vol.Coerce(list[str]),
+                # A single scope may be given as a string instead of a list
+                vol.Optional(ADDITIONAL_SCOPES, default=[]): vol.All(
+                    cv.ensure_list, [cv.string]
+                ),
                 # Which features should be enabled/disabled?
                 # Optional, defaults to sane/secure defaults
                 vol.Optional(FEATURES): vol.Schema(

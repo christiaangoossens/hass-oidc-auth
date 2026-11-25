@@ -7,7 +7,7 @@ from homeassistant.const import EVENT_HOMEASSISTANT_CLOSE
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 
-from custom_components.auth_oidc import DOMAIN
+from custom_components.auth_oidc import CONFIG_SCHEMA, DOMAIN
 from custom_components.auth_oidc.config.const import ADDITIONAL_SCOPES
 from custom_components.auth_oidc.tools.oidc_client import OIDCClient
 
@@ -43,6 +43,32 @@ async def test_setup_success_yaml(hass: HomeAssistant, config: dict):
         config,
         True,
     )
+
+
+@pytest.mark.parametrize(
+    ("additional_scopes", "expected"),
+    [
+        ("email", ["email"]),
+        (["email", "phone"], ["email", "phone"]),
+        ([], []),
+    ],
+)
+def test_additional_scopes_accepts_a_single_string(
+    additional_scopes: str | list[str], expected: list[str]
+):
+    """A single scope given as a string is one scope, not a list of characters."""
+    config = CONFIG_SCHEMA(
+        {
+            DOMAIN: {
+                "client_id": "dummy",
+                "discovery_url": "https://example.com/.well-known/openid-configuration",
+                ADDITIONAL_SCOPES: additional_scopes,
+            }
+        }
+    )
+
+    assert isinstance(config, dict)
+    assert config[DOMAIN][ADDITIONAL_SCOPES] == expected
 
 
 async def test_http_session_closes_when_home_assistant_stops(hass: HomeAssistant):
