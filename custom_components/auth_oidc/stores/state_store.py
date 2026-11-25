@@ -2,12 +2,14 @@
 
 import secrets
 import string
+from collections import Counter
 from datetime import UTC, datetime, timedelta
+from ipaddress import IPv4Address, IPv6Network, ip_address
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from ..tools.types import OIDCState, UserDetails
+from ..tools.types import OIDCFlow, OIDCState, UserDetails
 
 # States used to be saved to disk, this file is removed on startup
 LEGACY_STORAGE_KEY = "auth_provider.auth_oidc.states"
@@ -15,6 +17,29 @@ LEGACY_STORAGE_KEY = "auth_provider.auth_oidc.states"
 STATE_TTL = timedelta(minutes=5)
 MAX_STATES = 100
 MAX_DEVICE_CODE_ATTEMPTS = 10
+
+
+def client_network(ip: str | None) -> str | None:
+    """Return the addresses one client controls: its IPv4 address, or its IPv6 /64.
+
+    Providers hand out a whole IPv6 /64 per customer, so a client can send every
+    request from another address in it.
+    """
+    if ip is None:
+        return None
+
+    try:
+        address = ip_address(ip)
+    except ValueError:
+        return ip
+
+    if isinstance(address, IPv4Address):
+        return str(address)
+
+    if address.ipv4_mapped:
+        return str(address.ipv4_mapped)
+
+    return str(IPv6Network((int(address), 64), strict=False))
 
 
 class StateStore:
@@ -64,11 +89,7 @@ class StateStore:
         )
 
     def _make_room(self) -> None:
-        """Remove expired states, then the oldest states until there is room for one more.
-
-        Pending logins are removed first. Only a real login at the identity provider
-        makes a state ready, so a flood of new logins can't push those out.
-        """
+        """Remove expired states, then evict states until there is room for one more."""
         for state_id in [
             state_id
             for state_id, state in self._data.items()
@@ -77,16 +98,26 @@ class StateStore:
             del self._data[state_id]
 
         while len(self._data) >= MAX_STATES:
-            # Dicts keep insertion order, so the first match is the oldest state
-            oldest_pending = next(
-                (
-                    state_id
-                    for state_id, state in self._data.items()
-                    if state["user_details"] is None
-                ),
-                None,
-            )
-            del self._data[oldest_pending or next(iter(self._data))]
+            del self._data[self._choose_eviction()]
+
+    def _choose_eviction(self) -> str:
+        """Return the state to remove from a full store.
+
+        The oldest pending login of the client with the most pending logins goes first,
+        so a flood from one client only pushes out its own logins. Ready logins need a
+        real login at the identity provider, so they only go when all are ready.
+        """
+        # Dicts keep insertion order, so the first match is the oldest state
+        pending = [
+            (state_id, client_network(state["ip_address"]))
+            for state_id, state in self._data.items()
+            if state["user_details"] is None
+        ]
+        if not pending:
+            return next(iter(self._data))
+
+        busiest, _ = Counter(network for _, network in pending).most_common(1)[0]
+        return next(state_id for state_id, network in pending if network == busiest)
 
     async def async_create_state_from_url(
         self, redirect_uri: str, ip: str | None
@@ -101,6 +132,7 @@ class StateStore:
             "device_code": None,
             "device_code_attempts": 0,
             "user_details": None,
+            "flow": None,
             "expiration": (datetime.now(UTC) + STATE_TTL).isoformat(),
             "ip_address": ip,
         }
@@ -115,6 +147,28 @@ class StateStore:
 
         state["device_code"] = self._generate_unique_code()
         return state["device_code"]
+
+    async def async_set_flow_for_state(
+        self, state_id: str, flow: OIDCFlow, ip: str | None
+    ) -> bool:
+        """Store the PKCE code verifier and nonce on the state."""
+        state = self._data.get(state_id)
+        if state is None or not self._is_valid(state, ip):
+            return False
+
+        state["flow"] = flow
+        return True
+
+    async def async_pop_flow_for_state(
+        self, state_id: str, ip: str | None
+    ) -> OIDCFlow | None:
+        """Retrieve the PKCE code verifier and nonce of the state, they can only be used once."""
+        state = self._data.get(state_id)
+        if state is None or not self._is_valid(state, ip):
+            return None
+
+        flow, state["flow"] = state["flow"], None
+        return flow
 
     async def async_add_userinfo_to_state(
         self, state_id: str, user_info: UserDetails

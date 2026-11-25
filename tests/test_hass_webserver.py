@@ -6,7 +6,7 @@ import base64
 import os
 from collections import OrderedDict
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse
 
 import pytest
@@ -27,6 +27,8 @@ from custom_components.auth_oidc.endpoints.injected_auth_page import (
     OIDCInjectedAuthPage,
     frontend_injection,
 )
+from custom_components.auth_oidc.provider import OpenIDAuthProvider
+from custom_components.auth_oidc.tools.types import OIDCFlow
 
 if TYPE_CHECKING:
     # Annotation only, so the tests also run with the older
@@ -34,6 +36,7 @@ if TYPE_CHECKING:
     from pytest_homeassistant.typing import ClientSessionGenerator
 
 MOBILE_CLIENT_ID = "https://home-assistant.io/Android"
+TEST_FLOW: OIDCFlow = {"code_verifier": "verifier", "nonce": "nonce"}
 WELCOME_PATH = "/auth/oidc/welcome"
 INJECTION_SCRIPT_MARKER = "<script src='/static/auth_oidc/injection.js"
 
@@ -67,6 +70,11 @@ def create_redirect_uri(client_id: str, origin: str) -> str:
 def get_test_origin(client) -> str:
     """Return the actual HTTP origin for the current test client session."""
     return str(client.make_url("/")).rstrip("/")
+
+
+def get_test_client_id(client) -> str:
+    """Return the test client's own URL, used as the OAuth client_id."""
+    return str(client.make_url("/"))
 
 
 def encode_redirect_uri(redirect_uri: str) -> str:
@@ -367,7 +375,9 @@ async def test_welcome_sets_secure_state_cookie_flags(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
+    redirect_uri = create_redirect_uri(
+        get_test_client_id(client), get_test_origin(client)
+    )
     encoded = encode_redirect_uri(redirect_uri)
 
     resp = await client.get(
@@ -418,7 +428,9 @@ async def test_welcome_shows_alternative_sign_in_link_when_other_providers_exist
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
+    redirect_uri = create_redirect_uri(
+        get_test_client_id(client), get_test_origin(client)
+    )
     encoded = encode_redirect_uri(redirect_uri)
     resp = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -442,7 +454,9 @@ async def test_welcome_desktop_auto_redirects_without_other_providers(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
+    redirect_uri = create_redirect_uri(
+        get_test_client_id(client), get_test_origin(client)
+    )
     encoded = encode_redirect_uri(redirect_uri)
     resp = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -473,7 +487,9 @@ async def test_redirect_shows_error_on_oidc_runtime_error(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
+    redirect_uri = create_redirect_uri(
+        get_test_client_id(client), get_test_origin(client)
+    )
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -501,7 +517,9 @@ async def test_redirect_shows_error_when_auth_url_empty(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
+    redirect_uri = create_redirect_uri(
+        get_test_client_id(client), get_test_origin(client)
+    )
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -519,6 +537,40 @@ async def test_redirect_shows_error_when_auth_url_empty(
             "Integration is misconfigured, discovery could not be obtained."
             in await resp.text()
         )
+
+
+@pytest.mark.asyncio
+async def test_redirect_rejects_state_removed_during_discovery(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """A state that is gone once the discovery document loaded can't store its flow."""
+    await setup(hass)
+    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    assert isinstance(provider, OpenIDAuthProvider)
+
+    client = await hass_client()
+    redirect_uri = create_redirect_uri(
+        get_test_client_id(client), get_test_origin(client)
+    )
+    resp_welcome = await client.get(
+        f"/auth/oidc/welcome?redirect_uri={encode_redirect_uri(redirect_uri)}",
+        allow_redirects=False,
+    )
+    state = resp_welcome.cookies["auth_oidc_state"].value
+
+    async def remove_state_during_discovery(*_args):
+        # Using a state removes it, like an expiry or eviction would
+        await provider.async_get_subject(state)
+        return "https://issuer/authorize", TEST_FLOW
+
+    with patch(
+        "custom_components.auth_oidc.tools.oidc_client.OIDCClient.async_get_authorization_url",
+        new=remove_state_during_discovery,
+    ):
+        resp = await client.get("/auth/oidc/redirect", allow_redirects=False)
+
+    assert resp.status == 400
+    assert "Invalid state, please restart login." in await resp.text()
 
 
 @pytest.mark.asyncio
@@ -542,7 +594,9 @@ async def test_callback_rejects_missing_state(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
+    redirect_uri = create_redirect_uri(
+        get_test_client_id(client), get_test_origin(client)
+    )
     encoded = encode_redirect_uri(redirect_uri)
     await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -565,7 +619,9 @@ async def test_callback_rejects_missing_code(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
+    redirect_uri = create_redirect_uri(
+        get_test_client_id(client), get_test_origin(client)
+    )
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -590,7 +646,9 @@ async def test_callback_surfaces_provider_error(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
+    redirect_uri = create_redirect_uri(
+        get_test_client_id(client), get_test_origin(client)
+    )
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -618,7 +676,9 @@ async def test_callback_rejects_state_mismatch(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
+    redirect_uri = create_redirect_uri(
+        get_test_client_id(client), get_test_origin(client)
+    )
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -634,6 +694,73 @@ async def test_callback_rejects_state_mismatch(
     assert "State parameter does not match, possible CSRF attack." in await resp.text()
 
 
+async def start_login_at_provider(client) -> str:
+    """Visit the welcome and redirect pages like a browser, and return the state."""
+    redirect_uri = create_redirect_uri(
+        get_test_client_id(client), get_test_origin(client)
+    )
+    resp_welcome = await client.get(
+        f"/auth/oidc/welcome?redirect_uri={encode_redirect_uri(redirect_uri)}",
+        allow_redirects=False,
+    )
+
+    with patch(
+        "custom_components.auth_oidc.tools.oidc_client.OIDCClient.async_get_authorization_url",
+        new=AsyncMock(return_value=("https://issuer/authorize", TEST_FLOW)),
+    ):
+        resp = await client.get("/auth/oidc/redirect", allow_redirects=False)
+        assert resp.status == 200
+
+    return resp_welcome.cookies["auth_oidc_state"].value
+
+
+@pytest.mark.asyncio
+async def test_redirect_hands_flow_to_callback(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """The PKCE verifier and nonce from the redirect reach the token request."""
+    await setup(hass)
+
+    client = await hass_client()
+    state = await start_login_at_provider(client)
+
+    with patch(
+        "custom_components.auth_oidc.tools.oidc_client.OIDCClient.async_complete_token_flow",
+        new=AsyncMock(return_value=None),
+    ) as complete_token_flow:
+        await client.get(
+            f"/auth/oidc/callback?code=testcode&state={state}",
+            allow_redirects=False,
+        )
+
+    complete_token_flow.assert_awaited_once_with(ANY, "testcode", TEST_FLOW)
+
+
+@pytest.mark.asyncio
+async def test_callback_rejects_state_that_was_not_redirected(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """A callback for a state that never went to the identity provider is rejected."""
+    await setup(hass)
+
+    client = await hass_client()
+    redirect_uri = create_redirect_uri(
+        get_test_client_id(client), get_test_origin(client)
+    )
+    resp_welcome = await client.get(
+        f"/auth/oidc/welcome?redirect_uri={encode_redirect_uri(redirect_uri)}",
+        allow_redirects=False,
+    )
+    state = resp_welcome.cookies["auth_oidc_state"].value
+
+    resp = await client.get(
+        f"/auth/oidc/callback?code=testcode&state={state}",
+        allow_redirects=False,
+    )
+    assert resp.status == 400
+    assert "Invalid state, please restart login." in await resp.text()
+
+
 @pytest.mark.asyncio
 async def test_callback_rejects_when_user_details_fetch_fails(
     hass: HomeAssistant, hass_client: ClientSessionGenerator
@@ -642,13 +769,7 @@ async def test_callback_rejects_when_user_details_fetch_fails(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
-    encoded = encode_redirect_uri(redirect_uri)
-    resp_welcome = await client.get(
-        f"/auth/oidc/welcome?redirect_uri={encoded}",
-        allow_redirects=False,
-    )
-    state = resp_welcome.cookies["auth_oidc_state"].value
+    state = await start_login_at_provider(client)
 
     with patch(
         "custom_components.auth_oidc.tools.oidc_client.OIDCClient.async_complete_token_flow",
@@ -673,13 +794,7 @@ async def test_callback_rejects_invalid_role(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
-    encoded = encode_redirect_uri(redirect_uri)
-    resp_welcome = await client.get(
-        f"/auth/oidc/welcome?redirect_uri={encoded}",
-        allow_redirects=False,
-    )
-    state = resp_welcome.cookies["auth_oidc_state"].value
+    state = await start_login_at_provider(client)
 
     with patch(
         "custom_components.auth_oidc.tools.oidc_client.OIDCClient.async_complete_token_flow",
@@ -733,7 +848,9 @@ async def test_finish_post_rejects_invalid_state(
     await setup(hass)
 
     client = await hass_client()
-    redirect_uri = create_redirect_uri(client.make_url("/"), get_test_origin(client))
+    redirect_uri = create_redirect_uri(
+        get_test_client_id(client), get_test_origin(client)
+    )
     encoded = encode_redirect_uri(redirect_uri)
     resp_welcome = await client.get(
         f"/auth/oidc/welcome?redirect_uri={encoded}",
@@ -1017,7 +1134,8 @@ async def test_injected_auth_page_redirects_to_welcome_when_not_skipped(
 
     client = await hass_client()
     encoded_redirect_uri = quote(
-        create_redirect_uri(client.make_url("/"), get_test_origin(client)), safe=""
+        create_redirect_uri(get_test_client_id(client), get_test_origin(client)),
+        safe="",
     )
 
     resp = await client.get(
@@ -1081,7 +1199,8 @@ async def test_injected_auth_page_trusted_networks_bypass_skips_oidc_redirect(
 
     client = await hass_client()
     encoded_redirect_uri = quote(
-        create_redirect_uri(client.make_url("/"), get_test_origin(client)), safe=""
+        create_redirect_uri(get_test_client_id(client), get_test_origin(client)),
+        safe="",
     )
 
     resp = await client.get(
@@ -1118,7 +1237,8 @@ async def test_injected_auth_page_ignores_trusted_networks_when_not_first(
 
     client = await hass_client()
     encoded_redirect_uri = quote(
-        create_redirect_uri(client.make_url("/"), get_test_origin(client)), safe=""
+        create_redirect_uri(get_test_client_id(client), get_test_origin(client)),
+        safe="",
     )
 
     resp = await client.get(

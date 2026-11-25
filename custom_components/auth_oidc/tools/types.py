@@ -23,6 +23,16 @@ class UserDetails(TypedDict):
     role: UserRole
 
 
+class OIDCFlow(TypedDict):
+    """Secrets of a pending authorization request, needed to complete the token flow"""
+
+    # PKCE (RFC 7636) code verifier
+    code_verifier: str
+
+    # Nonce sent in the authorization request
+    nonce: str
+
+
 class OIDCState(TypedDict):
     """OIDC State representation"""
 
@@ -41,6 +51,9 @@ class OIDCState(TypedDict):
 
     # User details, if available
     user_details: UserDetails | None
+
+    # Pending authorization request, set once the user is sent to the identity provider
+    flow: OIDCFlow | None
 
     # Expiration time of this state, in ISO format
     expiration: str

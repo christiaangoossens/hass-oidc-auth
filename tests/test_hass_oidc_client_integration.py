@@ -87,6 +87,32 @@ async def get_redirect_auth_url(client) -> str:
     return unquote(match.group(1))
 
 
+async def get_code_from_provider(hass: HomeAssistant, authorization_url: str) -> str:
+    """Visit the mocked identity provider, which answers with an authorization code."""
+    async with async_get_clientsession(hass).get(authorization_url) as resp:
+        assert resp.status == 200
+        return (await resp.json())["code"]
+
+
+def get_device_code(html: str) -> str:
+    """Return the device code shown on the welcome page of a mobile client."""
+    match = re.search(r'id=["\']device-code["\'][^>]*>\s*([^<\s]+)\s*<', html)
+    assert match is not None, "Device code should be generated for mobile client"
+
+    return match.group(1)
+
+
+async def login_with_oidc(hass: HomeAssistant, client) -> None:
+    """Complete an OIDC login, which leaves a ready state cookie in the client."""
+    redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(client))
+    state, _, _ = await get_welcome_for_client(client, redirect_uri)
+
+    authorization_url = await get_redirect_auth_url(client)
+    code = await get_code_from_provider(hass, authorization_url)
+
+    await complete_callback_and_finish(client, code, state)
+
+
 async def complete_callback_and_finish(client, code: str, state: str):
     """Complete the callback and finish flow.
 
@@ -240,17 +266,10 @@ async def test_full_oidc_flow(hass: HomeAssistant, hass_client):
         ) == ["S256"]
         assert query_params.get("code_challenge")
 
-        session = async_get_clientsession(hass)
-        resp = session.get(authorization_url, allow_redirects=False)
-        assert resp.status == 200
-
         # JSON response from mock server, normally would be interactive
-        json_parsed = await resp.json()
-        assert json_parsed.get("code")
+        code = await get_code_from_provider(hass, authorization_url)
 
         # Now go back to the callback with a sample code
-        code = json_parsed["code"]
-
         await complete_callback_and_finish(client, code, state)
 
         # POST to finish without any POST body should result in 302 back to the original redirect_uri
@@ -272,12 +291,10 @@ async def test_login_flow_init_completes_with_state_cookie(
         assert status == 200
 
         authorization_url = await get_redirect_auth_url(client)
-        session = async_get_clientsession(hass)
-        resp_auth = session.get(authorization_url, allow_redirects=False)
-        json_auth = await resp_auth.json()
+        code = await get_code_from_provider(hass, authorization_url)
 
         resp = await client.get(
-            f"/auth/oidc/callback?code={json_auth['code']}&state={state}",
+            f"/auth/oidc/callback?code={code}&state={state}",
             allow_redirects=False,
         )
         assert resp.status == 302
@@ -295,7 +312,7 @@ async def test_login_flow_init_completes_with_state_cookie(
             current_request.get.return_value = fake_request
             result = await flow.async_step_init({})
 
-        assert result["type"] == FlowResultType.CREATE_ENTRY
+        assert result.get("type") == FlowResultType.CREATE_ENTRY
 
 
 async def discovery_test_through_redirect(
@@ -525,17 +542,7 @@ async def test_device_login_flow_two_browsers(hass: HomeAssistant, hass_client):
         assert 'id="device-instructions"' in mobile_html
         assert 'id="device-code"' in mobile_html
 
-        # Extract device code from the welcome page.
-        # The code is rendered in a div with id="device-code".
-        device_code_match = re.search(
-            r'id=["\']device-code["\'][^>]*>\s*([^<\s]+)\s*<',
-            mobile_html,
-        )
-        assert device_code_match is not None, (
-            "Device code should be generated for mobile client"
-        )
-        mobile_device_code = device_code_match.group(1)
-        assert len(mobile_device_code) > 0
+        mobile_device_code = get_device_code(mobile_html)
 
         # ==================== DEVICE 2: Desktop ====================
         # Desktop client in a separate session
@@ -555,12 +562,7 @@ async def test_device_login_flow_two_browsers(hass: HomeAssistant, hass_client):
         assert authorization_url.startswith(MockOIDCServer.get_authorize_url())
 
         # Desktop gets the authorization code from OIDC provider
-        session = async_get_clientsession(hass)
-        resp_auth = session.get(authorization_url, allow_redirects=False)
-        assert resp_auth.status == 200
-        json_auth = await resp_auth.json()
-        assert "code" in json_auth
-        desktop_code = json_auth["code"]
+        desktop_code = await get_code_from_provider(hass, authorization_url)
 
         await complete_callback_and_finish(desktop_client, desktop_code, desktop_state)
 
@@ -612,12 +614,7 @@ async def test_finish_rejects_device_code_when_state_not_ready(
         )
         assert status == 200
 
-        device_code_match = re.search(
-            r'id=["\']device-code["\'][^>]*>\s*([^<\s]+)\s*<',
-            mobile_html,
-        )
-        assert device_code_match is not None
-        mobile_device_code = device_code_match.group(1)
+        mobile_device_code = get_device_code(mobile_html)
 
         # Separate browser starts but does not complete callback flow.
         desktop_client = await hass_client()
@@ -641,6 +638,38 @@ async def test_finish_rejects_device_code_when_state_not_ready(
 
 
 @pytest.mark.asyncio
+async def test_finish_rejects_device_code_that_is_already_linked(
+    hass: HomeAssistant, hass_client
+):
+    """A second browser can't link its user to a device that already received one."""
+    await setup(hass)
+
+    with mock_oidc_responses():
+        mobile_client = await hass_client()
+        mobile_redirect_uri = create_redirect_uri(
+            MOBILE_CLIENT_ID, get_test_origin(mobile_client)
+        )
+        _, mobile_html, _ = await get_welcome_for_client(
+            mobile_client, mobile_redirect_uri
+        )
+        device_code = get_device_code(mobile_html)
+
+        statuses = []
+        for _ in range(2):
+            browser = await hass_client()
+            await login_with_oidc(hass, browser)
+
+            resp = await browser.post(
+                "/auth/oidc/finish",
+                data={"device_code": device_code},
+                allow_redirects=False,
+            )
+            statuses.append(resp.status)
+
+    assert statuses == [200, 400]
+
+
+@pytest.mark.asyncio
 async def test_callback_shows_error_if_userinfo_save_fails(
     hass: HomeAssistant, hass_client
 ):
@@ -660,12 +689,10 @@ async def test_callback_shows_error_if_userinfo_save_fails(
         assert status == 200
 
         authorization_url = await get_redirect_auth_url(client)
-        session = async_get_clientsession(hass)
-        resp_auth = session.get(authorization_url, allow_redirects=False)
-        json_auth = await resp_auth.json()
+        code = await get_code_from_provider(hass, authorization_url)
 
         resp = await client.get(
-            f"/auth/oidc/callback?code={json_auth['code']}&state={state}",
+            f"/auth/oidc/callback?code={code}&state={state}",
             allow_redirects=False,
         )
         assert resp.status == 500
@@ -700,12 +727,10 @@ async def test_callback_rejects_nonce_mismatch(hass: HomeAssistant, hass_client)
         assert status == 200
 
         authorization_url = await get_redirect_auth_url(client)
-        session = async_get_clientsession(hass)
-        resp_auth = session.get(authorization_url, allow_redirects=False)
-        json_auth = await resp_auth.json()
+        code = await get_code_from_provider(hass, authorization_url)
 
         resp = await client.get(
-            f"/auth/oidc/callback?code={json_auth['code']}&state={state}",
+            f"/auth/oidc/callback?code={code}&state={state}",
             allow_redirects=False,
         )
         assert resp.status == 500
@@ -726,10 +751,7 @@ async def test_callback_replay_is_rejected(hass: HomeAssistant, hass_client):
         assert status == 200
 
         authorization_url = await get_redirect_auth_url(client)
-        session = async_get_clientsession(hass)
-        resp_auth = session.get(authorization_url, allow_redirects=False)
-        json_auth = await resp_auth.json()
-        code = json_auth["code"]
+        code = await get_code_from_provider(hass, authorization_url)
 
         # First callback should succeed.
         first = await client.get(
@@ -743,6 +765,5 @@ async def test_callback_replay_is_rejected(hass: HomeAssistant, hass_client):
             f"/auth/oidc/callback?code={code}&state={state}",
             allow_redirects=False,
         )
-        assert replay.status == 500
-        replay_text = await replay.text()
-        assert "Failed to get user details" in replay_text
+        assert replay.status == 400
+        assert "Invalid state, please restart login." in await replay.text()

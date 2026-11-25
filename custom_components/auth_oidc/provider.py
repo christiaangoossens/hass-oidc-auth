@@ -35,7 +35,7 @@ from .config.const import (
     FEATURES_REQUIRE_EXISTING_USER,
 )
 from .stores.state_store import STATE_TTL, StateStore
-from .tools.types import UserDetails
+from .tools.types import OIDCFlow, UserDetails
 
 type IPAddress = IPv4Address | IPv6Address
 
@@ -191,6 +191,30 @@ class OpenIDAuthProvider(AuthProvider):  # pylint: disable=abstract-method
             assert self._state_store is not None
 
         return await self._state_store.async_add_userinfo_to_state(state_id, user_info)
+
+    async def async_save_flow(
+        self, state_id: str, flow: OIDCFlow, ip: str | None = None
+    ) -> bool:
+        """Save the PKCE code verifier and nonce to the given state."""
+        if self._state_store is None:
+            await self.async_initialize()
+            assert self._state_store is not None
+
+        return await self._state_store.async_set_flow_for_state(
+            state_id, flow, self._resolve_ip(ip)
+        )
+
+    async def async_pop_flow(
+        self, state_id: str, ip: str | None = None
+    ) -> OIDCFlow | None:
+        """Retrieve the PKCE code verifier and nonce of the given state, once."""
+        if self._state_store is None:
+            await self.async_initialize()
+            assert self._state_store is not None
+
+        return await self._state_store.async_pop_flow_for_state(
+            state_id, self._resolve_ip(ip)
+        )
 
     async def async_get_redirect_uri_for_state(
         self, state_id: str, ip: str | None = None

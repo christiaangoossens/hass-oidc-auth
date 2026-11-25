@@ -26,7 +26,7 @@ from ..config.const import (
     ROLE_READ_ONLY,
     ROLE_USERS,
 )
-from .types import UserDetails, UserRole
+from .types import OIDCFlow, UserDetails, UserRole
 from .validation import validate_url
 
 _LOGGER = logging.getLogger(__name__)
@@ -68,10 +68,6 @@ class OIDCTokenResponseInvalid(OIDCClientException):
 
 class OIDCJWKSInvalid(OIDCClientException):
     "Raised when the JWKS is invalid or cannot be obtained."
-
-
-class OIDCStateInvalid(OIDCClientException):
-    "Raised when the state for your request cannot be matched against a stored state."
 
 
 class OIDCUserinfoInvalid(OIDCClientException):
@@ -318,9 +314,6 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         self.client_id = client_id
         self.scope = scope
 
-        # Stores code_verifier and nonce for active authorization flows.
-        self.flows: dict[str, dict[str, str]] = {}
-
         # Optional parameters
         self.client_secret = kwargs.get("client_secret")
 
@@ -555,8 +548,11 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
 
     async def async_get_authorization_url(
         self, redirect_uri: str, state: str
-    ) -> str | None:
-        """Generates the authorization URL for the OIDC flow."""
+    ) -> tuple[str, OIDCFlow] | None:
+        """Generates the authorization URL for the OIDC flow.
+
+        The returned flow has to be passed to async_complete_token_flow.
+        """
         try:
             discovery_document = await self._fetch_discovery_document()
             auth_endpoint = discovery_document["authorization_endpoint"]
@@ -569,9 +565,6 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             code_challenge = self._base64url_encode(
                 hashlib.sha256(code_verifier.encode("utf-8")).digest()
             )
-
-            # Save all of them for later verification
-            self.flows[state] = {"code_verifier": code_verifier, "nonce": nonce}
 
             # Construct the params
             query_params = {
@@ -593,7 +586,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                 query_params["code_challenge_method"] = "S256"
 
             url = f"{auth_endpoint}?{urllib.parse.urlencode(query_params)}"
-            return url
+            return url, {"code_verifier": code_verifier, "nonce": nonce}
         except OIDCClientException as e:
             _LOGGER.warning("Error generating authorization URL: %s", e)
             return None
@@ -658,15 +651,11 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         }
 
     async def async_complete_token_flow(
-        self, redirect_uri: str, code: str, state: str
+        self, redirect_uri: str, code: str, flow: OIDCFlow
     ) -> UserDetails | None:
         """Completes the OIDC token flow to obtain a user's details."""
 
         try:
-            flow = self.flows.pop(state, None)
-            if flow is None:
-                raise OIDCStateInvalid
-
             discovery_document = await self._fetch_discovery_document()
             token_endpoint = discovery_document["token_endpoint"]
 
