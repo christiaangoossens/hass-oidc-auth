@@ -126,3 +126,33 @@ async def test_static_url_includes_hash(tmp_path, monkeypatch):
     result = await AsyncTemplateRenderer.get_static_file_url(url)
 
     assert result == f"{url}?v={md5(b'abc').hexdigest()[:8]}"
+
+
+@pytest.mark.asyncio
+async def test_static_url_works_from_any_working_directory(tmp_path, monkeypatch):
+    """Home Assistant can be started from any directory, the hash still works."""
+    url = "/static/auth_oidc/device.js"
+    computed_hashes.clear()
+    from_repository = await AsyncTemplateRenderer.get_static_file_url(url)
+
+    monkeypatch.chdir(tmp_path)
+    computed_hashes.clear()
+
+    assert await AsyncTemplateRenderer.get_static_file_url(url) == from_repository
+
+
+@pytest.mark.asyncio
+async def test_pages_render_when_a_static_file_is_missing(
+    tmp_path, monkeypatch, caplog
+):
+    """A broken install without e.g. style.css still renders the login pages."""
+    url = "/static/auth_oidc/style.css"
+    monkeypatch.setitem(
+        loader.STATIC_FILE_REGISTRATIONS, url, [str(tmp_path / "style.css"), True]
+    )
+    computed_hashes.clear()
+
+    rendered = await AsyncTemplateRenderer().render_template("welcome.html", name="X")
+
+    assert f'href="{url}"' in rendered
+    assert "is missing" in caplog.text

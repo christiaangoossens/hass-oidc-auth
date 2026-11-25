@@ -15,6 +15,7 @@ from auth_oidc.config.const import (
     FEATURES,
     FEATURES_DEFAULT_REDIRECT,
     FEATURES_FORCE_HTTPS,
+    STATIC_FILE_REGISTRATIONS,
 )
 from homeassistant.components.http import DOMAIN as HTTP_DOMAIN
 from homeassistant.components.http import StaticPathConfig
@@ -117,6 +118,19 @@ async def test_welcome_page_registration(
 
     client = await hass_client()
     resp = await client.get("/auth/oidc/welcome", allow_redirects=False)
+    assert resp.status == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("url", list(STATIC_FILE_REGISTRATIONS))
+async def test_static_files_are_served(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator, url: str
+):
+    """The styles, icon and scripts the pages link to can be loaded."""
+    await setup(hass)
+
+    client = await hass_client()
+    resp = await client.get(url)
     assert resp.status == 200
 
 

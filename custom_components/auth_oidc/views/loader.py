@@ -3,7 +3,6 @@
 import logging
 from hashlib import md5
 from os import path
-from sys import modules
 from typing import Any
 
 from aiofiles import open as async_open
@@ -92,26 +91,16 @@ class AsyncTemplateRenderer:
 
         file_path = STATIC_FILE_REGISTRATIONS[url][0]
 
-        # See if we have computed it before
-        if file_path in computed_hashes:
-            return f"{url}?v={computed_hashes[file_path]}"
-
-        # Otherwise, compute the hash and store it
-        try:
-            async with async_open(file_path, mode="r", encoding="utf-8") as f:
-                content = f.buffer.read()
-                file_hash = md5(content).hexdigest()[:8]
-                computed_hashes[file_path] = file_hash
-                return f"{url}?v={file_hash}"
-        except FileNotFoundError as exc:
-            # If within pytest, ignore error
-            if "pytest" in modules:
+        if file_path not in computed_hashes:
+            try:
+                async with async_open(file_path, mode="rb") as f:
+                    computed_hashes[file_path] = md5(await f.read()).hexdigest()[:8]
+            except FileNotFoundError:
+                # A broken install shouldn't break login, the page renders without it
                 _LOGGER.warning(
-                    "Static file '%s' not found. This may be expected during testing.",
+                    "Static file '%s' is missing, reinstall the integration properly!",
                     file_path,
                 )
-                return f"{url}?v=missing"
+                return url
 
-            raise ValueError(f"Static file '{file_path}' not found.") from exc
-
-        raise ValueError(f"Static file '{file_path}' could not be processed.")
+        return f"{url}?v={computed_hashes[file_path]}"
