@@ -1,5 +1,6 @@
 """Tests for the helpers and validation tools"""
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -24,21 +25,48 @@ from custom_components.auth_oidc.tools.validation import (
     validate_url,
 )
 
+# Config values can be anything, the validators must reject what isn't a string
+NOT_STRINGS: list[Any] = [42, []]
+
 
 @pytest.mark.asyncio
 async def test_get_url():
     """Test the get_url helper."""
 
     with pytest.raises(RuntimeError) as excinfo:
-        get_url("https://example.com", "/test")
+        get_url("/test", False)
     assert str(excinfo.value) == "No current request in context"
 
-    # Mock homeassistant.components.http.current_request.get() to test the force HTTP flag
-    with patch("homeassistant.components.http.current_request") as mock_current_request:
-        fake_request = make_mocked_request("GET", "http://example.com")
-        mock_current_request.get.return_value = fake_request
-        result = get_url("/test", True)
-        assert result == "https://example.com/test"
+
+@pytest.mark.parametrize(
+    ("host", "path", "force_https", "expected"),
+    [
+        ("example.com", "/auth/oidc/welcome", False, "http://example.com/test"),
+        ("example.com", "/auth/oidc/welcome", True, "https://example.com/test"),
+        (
+            "auth.example.com",
+            "/auth/oidc/welcome",
+            False,
+            "http://auth.example.com/test",
+        ),
+        (
+            "authentik-ha.lan:8123",
+            "/auth/oidc/callback?code=/auth",
+            False,
+            "http://authentik-ha.lan:8123/test",
+        ),
+    ],
+)
+def test_get_url_uses_request_origin(
+    host: str, path: str, force_https: bool, expected: str
+):
+    """URLs are built from the origin, also for hosts that start with "auth"."""
+    with patch("homeassistant.components.http.current_request") as current_request:
+        current_request.get.return_value = make_mocked_request(
+            "GET", path, headers={"Host": host}
+        )
+
+        assert get_url("/test", force_https) == expected
 
 
 @pytest.mark.asyncio
@@ -145,8 +173,7 @@ async def test_validate_url():
     assert validate_url("http://example.com")
     assert validate_url("https://example.com")
     assert not validate_url("example.com")
-    assert not validate_url(42)
-    assert not validate_url([])
+    assert not any(validate_url(value) for value in NOT_STRINGS)
 
 
 @pytest.mark.asyncio
@@ -163,8 +190,7 @@ async def test_validate_discovery_url():
     assert validate_discovery_url(
         "https://example.com/.well-known/openid-configuration"
     )
-    assert not validate_discovery_url(2)
-    assert not validate_discovery_url([])
+    assert not any(validate_discovery_url(value) for value in NOT_STRINGS)
 
 
 @pytest.mark.asyncio

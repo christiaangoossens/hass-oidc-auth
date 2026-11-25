@@ -280,6 +280,24 @@ async def test_welcome_rejects_weird_origin_redirect_uri(
 
 
 @pytest.mark.asyncio
+async def test_welcome_accepts_host_starting_with_auth(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """A Home Assistant on a host like auth.example.com passes the same-origin check."""
+    await setup(hass)
+
+    client = await hass_client()
+    origin = "http://auth.example.com:8123"
+    redirect_uri = create_redirect_uri(f"{origin}/", origin)
+    resp = await client.get(
+        f"/auth/oidc/welcome?redirect_uri={encode_redirect_uri(redirect_uri)}",
+        headers={"Host": "auth.example.com:8123"},
+        allow_redirects=False,
+    )
+    assert resp.status in (200, 302)
+
+
+@pytest.mark.asyncio
 async def test_welcome_rejects_non_ha_oauth2_path_redirect_uri(
     hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
