@@ -1,17 +1,19 @@
-"""State Store, store authentication states (redirect_uri)."""
+"""State Store, keeps the authentication states (redirect_uri) in memory."""
 
 import secrets
 import string
 from datetime import UTC, datetime, timedelta
-from typing import cast
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from ..tools.types import OIDCState, UserDetails
 
-STORAGE_VERSION = 1
-STORAGE_KEY = "auth_provider.auth_oidc.states"
+# States used to be saved to disk, this file is removed on startup
+LEGACY_STORAGE_KEY = "auth_provider.auth_oidc.states"
+
+STATE_TTL = timedelta(minutes=5)
+MAX_STATES = 100
 MAX_DEVICE_CODE_ATTEMPTS = 10
 
 
@@ -19,23 +21,13 @@ class StateStore:
     """Holds the authentication states and associated data"""
 
     def __init__(self, hass: HomeAssistant) -> None:
-        """Initialize the user data store."""
+        """Initialize the state store."""
         self.hass = hass
-        self._store = Store[dict[str, OIDCState]](
-            hass, STORAGE_VERSION, STORAGE_KEY, private=True, atomic_writes=True
-        )
-        self._data: dict[str, OIDCState] | None = None
+        self._data: dict[str, OIDCState] = {}
 
-    async def async_load(self) -> None:
-        """Load stored data."""
-        if (data := await self._store.async_load()) is None:
-            data = cast(dict[str, OIDCState], {})
-        self._data = data
-
-    async def _async_save(self) -> None:
-        """Save data."""
-        if self._data is not None:
-            await self._store.async_save(self._data)
+    async def async_remove_legacy_storage(self) -> None:
+        """Remove the states file that older versions saved to disk."""
+        await Store(self.hass, 1, LEGACY_STORAGE_KEY, private=True).async_remove()
 
     def _generate_id(self) -> str:
         """Generate a random identifier."""
@@ -45,11 +37,11 @@ class StateStore:
         """Generate a random six-digit code."""
         return "".join(secrets.choice(string.digits) for _ in range(6))
 
-    def _generate_unique_code(self, data: dict[str, OIDCState]) -> str:
+    def _generate_unique_code(self) -> str:
         """Generate a six-digit code that no active state uses."""
         in_use = {
             state["device_code"]
-            for state in data.values()
+            for state in self._data.values()
             if not self._is_expired(state)
         }
 
@@ -71,63 +63,74 @@ class StateStore:
             and state["ip_address"] == ip
         )
 
+    def _make_room(self) -> None:
+        """Remove expired states, then the oldest states until there is room for one more.
+
+        Pending logins are removed first. Only a real login at the identity provider
+        makes a state ready, so a flood of new logins can't push those out.
+        """
+        for state_id in [
+            state_id
+            for state_id, state in self._data.items()
+            if self._is_expired(state)
+        ]:
+            del self._data[state_id]
+
+        while len(self._data) >= MAX_STATES:
+            # Dicts keep insertion order, so the first match is the oldest state
+            oldest_pending = next(
+                (
+                    state_id
+                    for state_id, state in self._data.items()
+                    if state["user_details"] is None
+                ),
+                None,
+            )
+            del self._data[oldest_pending or next(iter(self._data))]
+
     async def async_create_state_from_url(
         self, redirect_uri: str, ip: str | None
     ) -> str:
-        """Generates a the OIDC state adds it to the database for 5 minutes."""
-        if self._data is None:
-            raise RuntimeError("Data not loaded")
+        """Create a new state for the redirect_uri, valid for STATE_TTL."""
+        self._make_room()
 
         state_id = self._generate_id()
-        expiration = datetime.now(UTC) + timedelta(minutes=5)
-
         self._data[state_id] = {
             "id": state_id,
             "redirect_uri": redirect_uri,
             "device_code": None,
             "device_code_attempts": 0,
             "user_details": None,
-            "expiration": expiration.isoformat(),
+            "expiration": (datetime.now(UTC) + STATE_TTL).isoformat(),
             "ip_address": ip,
         }
 
-        await self._async_save()
         return state_id
 
     async def async_generate_code_for_state(self, state_id: str) -> str | None:
         """Generates a one time code for the state to link device clients."""
-        if self._data is None:
-            raise RuntimeError("Data not loaded")
-
-        try:
-            code = self._generate_unique_code(self._data)
-            self._data[state_id]["device_code"] = code
-            await self._async_save()
-            return code
-        except KeyError:
+        state = self._data.get(state_id)
+        if state is None:
             return None
+
+        state["device_code"] = self._generate_unique_code()
+        return state["device_code"]
 
     async def async_add_userinfo_to_state(
         self, state_id: str, user_info: UserDetails
     ) -> bool:
         """Add userinfo to existing state to complete login"""
-        if self._data is None:
-            raise RuntimeError("Data not loaded")
-
-        try:
-            self._data[state_id]["user_details"] = user_info
-            await self._async_save()
-            return True
-        except KeyError:
+        state = self._data.get(state_id)
+        if state is None:
             return False
+
+        state["user_details"] = user_info
+        return True
 
     async def async_get_redirect_uri_for_state(
         self, state_id: str, ip: str | None
     ) -> str | None:
         """Get the redirect_uri for a given state_id."""
-        if self._data is None:
-            raise RuntimeError("Data not loaded")
-
         state = self._data.get(state_id)
         if state and self._is_valid(state, ip):
             return state["redirect_uri"]
@@ -136,9 +139,6 @@ class StateStore:
 
     async def async_is_state_ready(self, state_id: str, ip: str | None) -> bool:
         """Check if the state has received the user info from the OIDC callback."""
-        if self._data is None:
-            raise RuntimeError("Data not loaded")
-
         state = self._data.get(state_id)
         return (
             state is not None
@@ -150,9 +150,6 @@ class StateStore:
         self, state_id: str, code: str, ip: str | None
     ) -> bool:
         """Link a state to a device code, used for mobile sign-in."""
-        if self._data is None:
-            raise RuntimeError("Data not loaded")
-
         state_data = self._data.get(state_id)
         if (
             not state_data
@@ -161,7 +158,7 @@ class StateStore:
         ):
             return False
 
-        attempts = state_data.get("device_code_attempts", 0)
+        attempts = state_data["device_code_attempts"]
         if attempts >= MAX_DEVICE_CODE_ATTEMPTS:
             return False
 
@@ -177,35 +174,24 @@ class StateStore:
         # Codes are unique, so anything but exactly one match is a wrong code
         if len(matching_states) != 1:
             state_data["device_code_attempts"] = attempts + 1
-            await self._async_save()
             return False
 
         # Give the device state the user details, and delete the one time use donor state
         matching_states[0]["user_details"] = state_data["user_details"]
-        self._data.pop(state_id)
+        del self._data[state_id]
 
-        await self._async_save()
         return True
 
     async def async_receive_userinfo_for_state(
         self, state_id: str, ip: str | None
     ) -> UserDetails | None:
-        """Retrieve user info based on the state_id."""
-        if self._data is None:
-            raise RuntimeError("Data not loaded")
-
-        user_data = self._data.get(state_id)
-
-        if user_data:
-            # We should now wipe it from the database, as it's one time use
-            self._data.pop(state_id)
-            await self._async_save()
-
-        if user_data and self._is_valid(user_data, ip):
-            return user_data["user_details"]
+        """Retrieve user info based on the state_id, the state can only be used once."""
+        state = self._data.pop(state_id, None)
+        if state and self._is_valid(state, ip):
+            return state["user_details"]
 
         return None
 
-    def get_data(self):
+    def get_data(self) -> dict[str, OIDCState]:
         """Get the internal data for testing purposes."""
         return self._data

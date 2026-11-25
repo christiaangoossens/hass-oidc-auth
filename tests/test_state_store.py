@@ -1,35 +1,44 @@
 """Tests for the state store."""
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from unittest.mock import patch
 
 import pytest
 from homeassistant.core import HomeAssistant
 
 from custom_components.auth_oidc.stores.state_store import (
+    LEGACY_STORAGE_KEY,
     MAX_DEVICE_CODE_ATTEMPTS,
+    MAX_STATES,
     StateStore,
 )
-from custom_components.auth_oidc.tools.types import OIDCState, UserDetails
+from custom_components.auth_oidc.tools.types import UserDetails
 
 TEST_IP = "127.0.0.1"
 
 
 @pytest.fixture
-async def state_store(hass: HomeAssistant) -> StateStore:
-    """Return a loaded, empty state store."""
-    store = StateStore(hass)
-    await store.async_load()
-
-    return store
+def state_store(hass: HomeAssistant) -> StateStore:
+    """Return an empty state store."""
+    return StateStore(hass)
 
 
-def get_states(state_store: StateStore) -> dict[str, OIDCState]:
-    """Return the states of a loaded store."""
-    data = state_store.get_data()
-    assert data is not None
+def expire(state_store: StateStore, state_id: str) -> None:
+    """Let a state expire."""
+    state_store.get_data()[state_id]["expiration"] = (
+        datetime.now(UTC) - timedelta(minutes=10)
+    ).isoformat()
 
-    return data
+
+async def create_states(state_store: StateStore, count: int) -> list[str]:
+    """Create pending states, as visits to the welcome page do."""
+    return [
+        await state_store.async_create_state_from_url(
+            "https://example.com/pending", TEST_IP
+        )
+        for _ in range(count)
+    ]
 
 
 def make_user(sub: str) -> UserDetails:
@@ -65,11 +74,11 @@ async def create_ready_state(state_store: StateStore, user: UserDetails) -> str:
 
 async def test_state_store_generate_and_receive_state(state_store: StateStore):
     """Test creating a state, storing user info, and receiving it once."""
-    assert get_states(state_store) == {}
+    assert state_store.get_data() == {}
 
     redirect_uri = "https://example.com/callback"
     state_id = await state_store.async_create_state_from_url(redirect_uri, TEST_IP)
-    assert state_id in get_states(state_store)
+    assert state_id in state_store.get_data()
     assert (
         await state_store.async_get_redirect_uri_for_state(state_id, TEST_IP)
         == redirect_uri
@@ -78,11 +87,11 @@ async def test_state_store_generate_and_receive_state(state_store: StateStore):
     user = make_user("user1")
     assert await state_store.async_add_userinfo_to_state(state_id, user) is True
     assert await state_store.async_is_state_ready(state_id, TEST_IP) is True
-    assert state_id in get_states(state_store)
+    assert state_id in state_store.get_data()
 
     result = await state_store.async_receive_userinfo_for_state(state_id, TEST_IP)
     assert result == user
-    assert state_id not in get_states(state_store)
+    assert state_id not in state_store.get_data()
 
 
 async def test_state_store_generate_code_and_link_state(state_store: StateStore):
@@ -97,13 +106,13 @@ async def test_state_store_generate_code_and_link_state(state_store: StateStore)
     assert (
         await state_store.async_link_state_to_code(donor_state, code, TEST_IP) is True
     )
-    assert donor_state not in get_states(state_store)
+    assert donor_state not in state_store.get_data()
     assert await state_store.async_is_state_ready(target_state, TEST_IP) is True
     assert (
         await state_store.async_receive_userinfo_for_state(target_state, TEST_IP)
         == user
     )
-    assert target_state not in get_states(state_store)
+    assert target_state not in state_store.get_data()
 
 
 async def test_state_store_link_state_returns_false_for_wrong_code(
@@ -118,7 +127,7 @@ async def test_state_store_link_state_returns_false_for_wrong_code(
         await state_store.async_link_state_to_code(donor_state, wrong_code, TEST_IP)
         is False
     )
-    assert donor_state in get_states(state_store)
+    assert donor_state in state_store.get_data()
     assert await state_store.async_is_state_ready(target_state, TEST_IP) is False
 
 
@@ -157,9 +166,7 @@ async def test_state_store_reuses_codes_of_expired_states(state_store: StateStor
     """Codes of expired states may be handed out again."""
     with patch.object(state_store, "_generate_code", return_value="111111"):
         expired_state, _ = await create_device_state(state_store)
-        get_states(state_store)[expired_state]["expiration"] = (
-            datetime.now(UTC) - timedelta(minutes=10)
-        ).isoformat()
+        expire(state_store, expired_state)
 
         _, code = await create_device_state(state_store)
 
@@ -171,14 +178,14 @@ async def test_state_store_duplicate_codes_link_nothing(state_store: StateStore)
     donor_state = await create_ready_state(state_store, make_user("user6"))
     first_state, code = await create_device_state(state_store)
     second_state, _ = await create_device_state(state_store)
-    get_states(state_store)[second_state]["device_code"] = code
+    state_store.get_data()[second_state]["device_code"] = code
 
     assert (
         await state_store.async_link_state_to_code(donor_state, code, TEST_IP) is False
     )
     assert await state_store.async_is_state_ready(first_state, TEST_IP) is False
     assert await state_store.async_is_state_ready(second_state, TEST_IP) is False
-    assert get_states(state_store)[donor_state]["device_code_attempts"] == 1
+    assert state_store.get_data()[donor_state]["device_code_attempts"] == 1
 
 
 async def test_state_store_never_relinks_a_linked_device(state_store: StateStore):
@@ -205,33 +212,89 @@ async def test_state_store_expired_state(state_store: StateStore):
     state_id = await state_store.async_create_state_from_url(
         "https://example.com/expired", TEST_IP
     )
-    get_states(state_store)[state_id]["expiration"] = (
-        datetime.now(UTC) - timedelta(minutes=10)
-    ).isoformat()
+    expire(state_store, state_id)
 
     assert await state_store.async_get_redirect_uri_for_state(state_id, TEST_IP) is None
     assert await state_store.async_is_state_ready(state_id, TEST_IP) is False
     assert await state_store.async_receive_userinfo_for_state(state_id, TEST_IP) is None
 
 
-async def test_state_store_data_not_loaded(hass: HomeAssistant):
-    """Test that using the store before loading raises RuntimeError."""
-    state_store = StateStore(hass)
+async def test_state_store_removes_legacy_storage(
+    state_store: StateStore, hass_storage: dict[str, Any]
+):
+    """The states file of older versions is removed."""
+    hass_storage[LEGACY_STORAGE_KEY] = {"version": 1, "key": LEGACY_STORAGE_KEY}
 
-    with pytest.raises(RuntimeError):
-        await state_store.async_create_state_from_url("https://example.com", TEST_IP)
-    with pytest.raises(RuntimeError):
-        await state_store.async_generate_code_for_state("state")
-    with pytest.raises(RuntimeError):
-        await state_store.async_add_userinfo_to_state("state", make_user("user4"))
-    with pytest.raises(RuntimeError):
-        await state_store.async_get_redirect_uri_for_state("state", TEST_IP)
-    with pytest.raises(RuntimeError):
-        await state_store.async_is_state_ready("state", TEST_IP)
-    with pytest.raises(RuntimeError):
-        await state_store.async_link_state_to_code("state", "123456", TEST_IP)
-    with pytest.raises(RuntimeError):
-        await state_store.async_receive_userinfo_for_state("state", TEST_IP)
+    await state_store.async_remove_legacy_storage()
+
+    assert LEGACY_STORAGE_KEY not in hass_storage
+
+
+async def test_state_store_keeps_states_in_memory(
+    state_store: StateStore, hass: HomeAssistant, hass_storage: dict[str, Any]
+):
+    """Logins never write to disk."""
+    state_id = await state_store.async_create_state_from_url(
+        "https://example.com/memory", TEST_IP
+    )
+    await state_store.async_add_userinfo_to_state(state_id, make_user("user7"))
+    await hass.async_block_till_done()
+
+    assert LEGACY_STORAGE_KEY not in hass_storage
+
+
+async def test_state_store_prunes_expired_states(state_store: StateStore):
+    """Expired states are removed when a new state is created."""
+    expired_state, kept_state = await create_states(state_store, 2)
+    expire(state_store, expired_state)
+
+    new_state = await state_store.async_create_state_from_url(
+        "https://example.com/new", TEST_IP
+    )
+
+    assert list(state_store.get_data()) == [kept_state, new_state]
+
+
+async def test_state_store_evicts_oldest_pending_state_when_full(
+    state_store: StateStore,
+):
+    """A full store makes room by removing the oldest pending login."""
+    ready_state = await create_ready_state(state_store, make_user("user8"))
+    pending_states = await create_states(state_store, MAX_STATES - 1)
+
+    new_state = await state_store.async_create_state_from_url(
+        "https://example.com/new", TEST_IP
+    )
+
+    assert len(state_store.get_data()) == MAX_STATES
+    assert pending_states[0] not in state_store.get_data()
+    assert ready_state in state_store.get_data()
+    assert new_state in state_store.get_data()
+
+
+async def test_state_store_evicts_oldest_ready_state_when_all_ready(
+    state_store: StateStore,
+):
+    """Only when every login is ready, the oldest ready login is removed."""
+    ready_states = [
+        await create_ready_state(state_store, make_user(f"user{i}"))
+        for i in range(MAX_STATES)
+    ]
+
+    new_state = await state_store.async_create_state_from_url(
+        "https://example.com/new", TEST_IP
+    )
+
+    assert len(state_store.get_data()) == MAX_STATES
+    assert ready_states[0] not in state_store.get_data()
+    assert new_state in state_store.get_data()
+
+
+async def test_state_store_never_exceeds_max_states(state_store: StateStore):
+    """A flood of new logins never grows the store past its cap."""
+    await create_states(state_store, MAX_STATES * 3)
+
+    assert len(state_store.get_data()) == MAX_STATES
 
 
 async def test_state_store_missing_keys(state_store: StateStore):
