@@ -16,6 +16,7 @@ from custom_components.auth_oidc.tools.helpers import (
     get_valid_state_id,
     get_view,
     html_response,
+    state_cookie_header,
     template_response,
 )
 from custom_components.auth_oidc.tools.validation import (
@@ -118,6 +119,15 @@ def test_get_valid_state_id_invalid_or_missing_cookie():
     state_store.is_state_valid.reset_mock()
     assert get_valid_state_id(request_without_cookie, state_store) is None
     state_store.is_state_valid.assert_not_called()
+
+
+@pytest.mark.parametrize("secure", [True, False])
+def test_state_cookie_header_is_secure_only_when_requested(secure: bool):
+    """The state cookie is only marked Secure when HTTPS is in use."""
+    header = state_cookie_header("state-id", secure)["set-cookie"]
+
+    assert header.startswith(f"{STATE_COOKIE_NAME}=state-id;")
+    assert ("; Secure" in header) is secure
 
 
 @pytest.mark.asyncio

@@ -10,7 +10,13 @@ from homeassistant.components.http import HomeAssistantView
 
 from ..provider import OpenIDAuthProvider
 from ..stores.state_store import StateStore
-from ..tools.helpers import concat_url_query, error_response, get_url, template_response
+from ..tools.helpers import (
+    concat_url_query,
+    error_response,
+    get_url,
+    state_cookie_header,
+    template_response,
+)
 from ..tools.types import OIDCWelcomeOptions
 
 PATH = "/auth/oidc/welcome"
@@ -33,7 +39,6 @@ class OIDCWelcomeView(HomeAssistantView):
     ) -> None:
         self.oidc_provider = oidc_provider
         self.state_store = state_store
-        self.name = options.get("name")
         self.force_https = options.get("force_https")
         self.prefers_skipping = options.get("prefers_skipping")
 
@@ -134,7 +139,7 @@ class OIDCWelcomeView(HomeAssistantView):
 
         # Create OIDC state with the redirect_uri so we can use it later in the flow
         state_id = self.state_store.create_state(redirect_uri, req.remote)
-        cookie_header = self.oidc_provider.get_cookie_header(
+        cookie_header = state_cookie_header(
             state_id, secure=self.force_https or req.url.scheme == "https"
         )
 
@@ -163,7 +168,7 @@ class OIDCWelcomeView(HomeAssistantView):
         response = await template_response(
             "welcome",
             {
-                "name": self.name,
+                "name": self.oidc_provider.name,
                 "other_link": other_link,
                 "code": code,
             },

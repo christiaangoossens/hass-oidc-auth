@@ -65,9 +65,6 @@ class OIDCState(TypedDict):
 class OIDCWelcomeOptions(TypedDict):
     """Options for the welcome screen"""
 
-    # User friendly SSO name to display
-    name: str
-
     # Does the user force HTTPS on all generated URLs?
     force_https: bool
 
