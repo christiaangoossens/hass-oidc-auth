@@ -31,6 +31,12 @@ from .validation import validate_url
 
 _LOGGER = logging.getLogger(__name__)
 
+# Seconds before any request to the identity provider is given up
+HTTP_TIMEOUT = 15
+
+# Connection, DNS and timeout errors, and responses that aren't valid JSON
+TRANSPORT_ERRORS = (aiohttp.ClientError, TimeoutError, ValueError)
+
 
 class OIDCClientException(Exception):
     "Raised when the OIDC Client encounters an error"
@@ -375,7 +381,9 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             )
 
         self.http_session = aiohttp.ClientSession(
-            trust_env=True, connector=aiohttp.TCPConnector(ssl=ssl_option)
+            trust_env=True,
+            connector=aiohttp.TCPConnector(ssl=ssl_option),
+            timeout=aiohttp.ClientTimeout(total=HTTP_TIMEOUT),
         )
         return self.http_session
 
@@ -408,8 +416,8 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                 _LOGGER.warning("Unexpected error exchanging token: %s", e)
 
             raise OIDCTokenResponseInvalid from e
-        except (aiohttp.ContentTypeError, ValueError) as e:
-            _LOGGER.warning("Token response is not valid JSON: %s", e)
+        except TRANSPORT_ERRORS as e:
+            _LOGGER.warning("Token request failed: %r", e)
             raise OIDCTokenResponseInvalid from e
 
         # OpenID Connect Core 1.0 Section 3.1.3.3
@@ -437,6 +445,9 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         except HTTPClientError as e:
             _LOGGER.warning("Error fetching userinfo: %s", e)
             raise OIDCUserinfoInvalid from e
+        except TRANSPORT_ERRORS as e:
+            _LOGGER.warning("Userinfo request failed: %r", e)
+            raise OIDCUserinfoInvalid from e
 
     async def _fetch_discovery_document(self):
         """Fetches discovery document."""
@@ -453,7 +464,13 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                 },
             )
 
-        self.discovery_document = await self.discovery_class.fetch_discovery_document()
+        try:
+            document = await self.discovery_class.fetch_discovery_document()
+        except TRANSPORT_ERRORS as e:
+            _LOGGER.warning("Discovery request failed: %r", e)
+            raise OIDCDiscoveryInvalid(type="fetch_error") from e
+
+        self.discovery_document = document
         return self.discovery_document
 
     async def _fetch_jwks(self, jwks_uri: str):
@@ -462,7 +479,11 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             await self._fetch_discovery_document()
 
         assert self.discovery_class is not None
-        return await self.discovery_class.fetch_jwks(jwks_uri)
+        try:
+            return await self.discovery_class.fetch_jwks(jwks_uri)
+        except TRANSPORT_ERRORS as e:
+            _LOGGER.warning("JWKS request failed: %r", e)
+            raise OIDCJWKSInvalid from e
 
     async def _parse_id_token(self, id_token: str) -> dict | None:
         """Parses the ID token into a dict containing token contents."""

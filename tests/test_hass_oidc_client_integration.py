@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
+import aiohttp
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -770,3 +771,55 @@ async def test_callback_replay_is_rejected(hass: HomeAssistant, hass_client):
         )
         assert replay.status == 400
         assert "Invalid state, please restart login." in await replay.text()
+
+
+@pytest.mark.parametrize(
+    ("path", "error"),
+    [
+        ("/token", aiohttp.ClientConnectionError("Connection refused")),
+        ("/jwks", TimeoutError()),
+        ("/userinfo", aiohttp.ContentTypeError(MagicMock(), ())),
+        ("/userinfo", ValueError("Expecting value")),
+    ],
+    ids=["token-connection", "jwks-timeout", "userinfo-not-json", "userinfo-bad-json"],
+)
+async def test_callback_shows_error_when_identity_provider_fails(
+    hass: HomeAssistant, hass_client, path: str, error: Exception
+):
+    """Network errors and bad responses from the identity provider give a login error."""
+    await setup(hass)
+
+    with mock_oidc_responses() as server:
+        client = await hass_client()
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(client))
+        state, _, _ = await get_welcome_for_client(client, redirect_uri)
+
+        authorization_url = await get_redirect_auth_url(client)
+        code = await get_code_from_provider(hass, authorization_url)
+
+        server.failing_paths[path] = error
+        resp = await client.get(
+            f"/auth/oidc/callback?code={code}&state={state}",
+            allow_redirects=False,
+        )
+
+        assert resp.status == 500
+        assert "Failed to get user details" in await resp.text()
+
+
+async def test_redirect_shows_error_when_discovery_times_out(
+    hass: HomeAssistant, hass_client
+):
+    """A discovery timeout gives the misconfigured page instead of a bare 500."""
+    await setup(hass)
+
+    with mock_oidc_responses() as server:
+        client = await hass_client()
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(client))
+        await get_welcome_for_client(client, redirect_uri)
+
+        server.failing_paths["/.well-known/openid-configuration"] = TimeoutError()
+        resp = await client.get("/auth/oidc/redirect", allow_redirects=False)
+
+        assert resp.status == 500
+        assert "Integration is misconfigured" in await resp.text()

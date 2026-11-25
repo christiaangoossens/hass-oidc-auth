@@ -43,6 +43,9 @@ class MockOIDCServer:
         self._code_storage: dict[str, AuthorizeParams] = {}
         self.last_token_request: dict[str, str] | None = None
 
+        # Path -> error raised when that endpoint is requested
+        self.failing_paths: dict[str, Exception] = {}
+
         if scenario:
             scenario_path = os.path.join(
                 os.path.dirname(__file__), "scenarios", f"{scenario}.json"
@@ -212,6 +215,12 @@ def mock_oidc_responses(scenario: str | None = None) -> Iterator[MockOIDCServer]
 
     def handle(method: str, url: str, **kwargs: Any) -> AsyncMock:
         _LOGGER.debug("Mocked %s request to %s", method, url)
+
+        if (
+            error := mock_oidc_server.failing_paths.get(urlparse(url).path)
+        ) is not None:
+            raise error
+
         body = kwargs.get("data") or kwargs.get("json")
         json_data, status = mock_oidc_server.process_request(url, method, body)
         return make_mock_response(json_data, status)
