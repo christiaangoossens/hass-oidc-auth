@@ -7,6 +7,7 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_CLOSE
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryError
 
 # Get all the constants for the config
 from .config import (
@@ -68,6 +69,13 @@ async def async_setup(hass: HomeAssistant, config):
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up OIDC Authentication from a config entry (UI config)."""
+    # A second setup would register the routes and listeners again
+    if hass.data.get(DOMAIN, {}).get("yaml_config"):
+        raise ConfigEntryError(
+            "OIDC is already configured in YAML. "
+            + "Remove either the YAML configuration or this entry."
+        )
+
     # Convert config entry data to the format expected by the existing setup
     config_data = entry.data.copy()
 

@@ -9,6 +9,7 @@ import pytest
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.setup import async_setup_component
 
 from custom_components.auth_oidc import DOMAIN
 from custom_components.auth_oidc.config.const import (
@@ -451,6 +452,17 @@ async def test_user_flow_aborts_when_yaml_configured(hass: HomeAssistant):
 
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "yaml_configured"
+
+
+async def test_entry_fails_setup_when_yaml_configured(hass: HomeAssistant):
+    """An existing UI entry next to YAML config fails instead of setting up twice."""
+    yaml_config = {CLIENT_ID: "yaml", DISCOVERY_URL: MockOIDCServer.get_discovery_url()}
+    assert await async_setup_component(hass, DOMAIN, {DOMAIN: yaml_config})
+
+    entry = await async_add_entry(hass)
+
+    assert entry.state is config_entries.ConfigEntryState.SETUP_ERROR
+    assert len(hass.auth.get_auth_providers(DOMAIN)) == 1
 
 
 @pytest.mark.asyncio
