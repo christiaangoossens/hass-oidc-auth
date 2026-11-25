@@ -4,18 +4,17 @@ from __future__ import annotations
 
 import base64
 import os
-from collections import OrderedDict
 from typing import TYPE_CHECKING
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, patch
 from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse
 
 import pytest
-from aiohttp import web
 from auth_oidc.config.const import (
     CLIENT_ID,
     DISCOVERY_URL,
     FEATURES,
     FEATURES_DEFAULT_REDIRECT,
+    FEATURES_FORCE_HTTPS,
 )
 from homeassistant.components.http import DOMAIN as HTTP_DOMAIN
 from homeassistant.components.http import StaticPathConfig
@@ -24,10 +23,6 @@ from homeassistant.setup import async_setup_component
 
 from custom_components.auth_oidc import DOMAIN
 from custom_components.auth_oidc.endpoints import device_sse
-from custom_components.auth_oidc.endpoints.injected_auth_page import (
-    OIDCInjectedAuthPage,
-    frontend_injection,
-)
 from custom_components.auth_oidc.provider import OpenIDAuthProvider
 from custom_components.auth_oidc.tools.types import OIDCFlow
 
@@ -39,7 +34,6 @@ if TYPE_CHECKING:
 MOBILE_CLIENT_ID = "https://home-assistant.io/Android"
 TEST_FLOW: OIDCFlow = {"code_verifier": "verifier", "nonce": "nonce"}
 WELCOME_PATH = "/auth/oidc/welcome"
-INJECTION_SCRIPT_MARKER = "<script src='/static/auth_oidc/injection.js"
 
 
 def assert_redirects_to_welcome(resp) -> None:
@@ -50,10 +44,10 @@ def assert_redirects_to_welcome(resp) -> None:
     assert parsed_location.path == WELCOME_PATH
 
 
-async def assert_normal_login_screen(resp) -> None:
-    """Assert we stayed on the auth page and render the injected normal login HTML."""
+async def assert_home_assistant_login_page(resp) -> None:
+    """Assert Home Assistant's own login page was served, unchanged."""
     assert resp.status == 200
-    assert INJECTION_SCRIPT_MARKER in await resp.text()
+    assert "Test page" in await resp.text()
 
 
 def create_redirect_uri(client_id: str, origin: str) -> str:
@@ -98,7 +92,7 @@ async def setup(
 
 
 async def setup_mock_authorize_route(hass: HomeAssistant) -> None:
-    """Register a mock /auth/authorize page so frontend injection can hook into it."""
+    """Register a mock /auth/authorize page, like Home Assistant's frontend does."""
     await async_setup_component(hass, HTTP_DOMAIN, {})
 
     mock_html_path = os.path.join(os.path.dirname(__file__), "mocks", "auth_page.html")
@@ -1052,129 +1046,72 @@ async def test_device_sse_ignores_write_eof_connection_reset(
         assert resp.status == 200
 
 
-# Test the frontend injection
+# Test the login page at /auth/authorize
 @pytest.mark.asyncio
-async def test_frontend_injection(
+async def test_authorize_page_serves_home_assistant_page_without_redirect_uri(
     hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
-    """Test that frontend injection works."""
+    """A login page not started by a client is Home Assistant's own page."""
 
     # Because there is no frontend in the test setup,
-    # we'll have to fake /auth/authorize for the changes to register.
+    # we'll have to fake /auth/authorize for the takeover to find it.
     await setup_mock_authorize_route(hass)
 
     await setup(hass)
 
     client = await hass_client()
     resp = await client.get("/auth/authorize", allow_redirects=False)
-    await assert_normal_login_screen(resp)
+    await assert_home_assistant_login_page(resp)
 
 
 @pytest.mark.asyncio
-async def test_frontend_injection_logs_and_returns_when_route_handler_is_unexpected(
+async def test_authorize_page_logs_error_when_route_is_missing(
     hass: HomeAssistant, caplog
 ):
-    """frontend_injection should log and return if the GET handler shape is unexpected."""
-
+    """Without the login page there is nothing to redirect, the log says what to open."""
     await async_setup_component(hass, HTTP_DOMAIN, {})
 
-    class FakeRoute:
-        method = "GET"
-        handler = object()
+    await setup(hass)
 
-    class FakeResource:
-        canonical = "/auth/authorize"
-
-        def __init__(self):
-            self.prefix = None
-
-        def add_prefix(self, prefix):
-            self.prefix = prefix
-
-        def __iter__(self):
-            return iter([FakeRoute()])
-
-    provider = MagicMock()
-
-    with patch.object(hass.http.app.router, "resources", return_value=[FakeResource()]):
-        await frontend_injection(
-            hass, provider, force_https=False, has_trusted_networks_provider_first=False
-        )
-
-    assert "Unexpected route handler type" in caplog.text
-    assert (
-        "Failed to find GET route for /auth/authorize, cannot inject OIDC frontend code"
-        in caplog.text
+    assert any(
+        record.levelname == "ERROR"
+        and "Could not find /auth/authorize" in record.message
+        and WELCOME_PATH in record.message
+        for record in caplog.records
     )
 
 
 @pytest.mark.asyncio
-async def test_frontend_injection_logs_when_route_handler_lacks_args(
-    hass: HomeAssistant, caplog
+async def test_authorize_page_takeover_failure_keeps_home_assistant_page(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator, caplog
 ):
-    """frontend_injection should log and stop when handler is callable but lacks StaticPathConfig args."""
-
-    await async_setup_component(hass, HTTP_DOMAIN, {})
-
-    def fake_handler(*args, **kwargs):
-        return None
-
-    class FakeRoute:
-        method = "GET"
-        handler = staticmethod(fake_handler)
-
-    class FakeResource:
-        canonical = "/auth/authorize"
-
-        def __init__(self):
-            self.prefix = None
-
-        def add_prefix(self, prefix):
-            self.prefix = prefix
-
-        def __iter__(self):
-            return iter([FakeRoute()])
-
-    provider = MagicMock()
-
-    with patch.object(hass.http.app.router, "resources", return_value=[FakeResource()]):
-        await frontend_injection(
-            hass, provider, force_https=False, has_trusted_networks_provider_first=False
-        )
-
-    assert (
-        "Route handler for /auth/authorize should have been called with arguments"
-        in caplog.text
-    )
-    assert (
-        "Failed to find GET route for /auth/authorize, cannot inject OIDC frontend code"
-        in caplog.text
-    )
-
-
-@pytest.mark.asyncio
-async def test_injected_auth_page_inject_logs_errors(hass: HomeAssistant, caplog):
-    """OIDCInjectedAuthPage.inject should swallow unexpected injection errors."""
-
-    await async_setup_component(hass, HTTP_DOMAIN, {})
+    """A failing takeover leaves Home Assistant's login page untouched."""
+    await setup_mock_authorize_route(hass)
 
     with patch(
-        "custom_components.auth_oidc.endpoints.injected_auth_page.frontend_injection",
+        "custom_components.auth_oidc.endpoints.authorize.take_over_get_route",
         side_effect=RuntimeError("boom"),
     ):
-        provider = MagicMock()
-        await OIDCInjectedAuthPage.inject(
-            hass, provider, force_https=False, has_trusted_networks_provider_first=False
-        )
+        await setup(hass)
 
-    assert "Failed to inject OIDC auth page: boom" in caplog.text
+    assert "Failed to redirect /auth/authorize to OIDC" in caplog.text
+
+    client = await hass_client()
+    encoded_redirect_uri = quote(
+        create_redirect_uri(get_test_client_id(client), get_test_origin(client)),
+        safe="",
+    )
+    resp = await client.get(
+        f"/auth/authorize?redirect_uri={encoded_redirect_uri}", allow_redirects=False
+    )
+    await assert_home_assistant_login_page(resp)
 
 
 @pytest.mark.asyncio
-async def test_injected_auth_page_redirects_to_welcome_when_not_skipped(
+async def test_authorize_page_redirects_to_welcome_when_not_skipped(
     hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
-    """Injected auth page should redirect into OIDC when skip flags are absent."""
+    """The login page redirects into OIDC when skip flags are absent."""
 
     await setup_mock_authorize_route(hass)
     await setup(hass)
@@ -1211,12 +1148,12 @@ async def test_injected_auth_page_redirects_to_welcome_when_not_skipped(
         "/auth/authorize?redirect_uri=http%3A%2F%2Fexample.com%2Fauth%2Fauthorize%3Fskip_oidc_redirect%3Dtrue",
     ],
 )
-async def test_injected_auth_page_returns_original_html_when_skipped(
+async def test_authorize_page_serves_home_assistant_page_when_skipped(
     hass: HomeAssistant,
     hass_client,
     request_target: str,
 ):
-    """Injected auth page should render HTML when redirect suppression is requested."""
+    """The login page is Home Assistant's own when redirect suppression is requested."""
 
     await setup_mock_authorize_route(hass)
     await setup(hass)
@@ -1224,122 +1161,39 @@ async def test_injected_auth_page_returns_original_html_when_skipped(
     client = await hass_client()
     response = await client.get(request_target, allow_redirects=False)
 
-    await assert_normal_login_screen(response)
+    await assert_home_assistant_login_page(response)
 
 
 @pytest.mark.asyncio
-async def test_injected_auth_page_trusted_networks_bypass_skips_oidc_redirect(
+async def test_authorize_redirect_uses_https_when_forced(
     hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
-    """Trusted network hosts should bypass OIDC redirect when trusted_networks is first."""
-
-    class TrustedNetworksAllowProvider:
-        def async_validate_access(self, _ip_addr):
-            return None
-
-    hass.auth._providers = OrderedDict(
-        [(("trusted_networks", None), TrustedNetworksAllowProvider())]
-    )
-
+    """With force_https, the login page redirects to https and returns to https."""
     await setup_mock_authorize_route(hass)
-    await setup(hass)
+    assert await async_setup_component(
+        hass,
+        DOMAIN,
+        {
+            DOMAIN: {
+                CLIENT_ID: "dummy",
+                DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
+                FEATURES: {FEATURES_FORCE_HTTPS: True},
+            }
+        },
+    )
 
     client = await hass_client()
     encoded_redirect_uri = quote(
         create_redirect_uri(get_test_client_id(client), get_test_origin(client)),
         safe="",
     )
-
     resp = await client.get(
-        f"/auth/authorize?redirect_uri={encoded_redirect_uri}",
-        allow_redirects=False,
+        f"/auth/authorize?redirect_uri={encoded_redirect_uri}", allow_redirects=False
     )
 
-    await assert_normal_login_screen(resp)
-
-
-@pytest.mark.asyncio
-async def test_injected_auth_page_ignores_trusted_networks_when_not_first(
-    hass: HomeAssistant, hass_client: ClientSessionGenerator
-):
-    """OIDC redirect should continue when trusted_networks is not the first provider."""
-
-    class DummyProvider:
-        pass
-
-    class TrustedNetworksAllowProvider:
-        def async_validate_access(self, _ip_addr):
-            return None
-
-    # Keep trusted_networks present but not first, so bypass should not apply.
-    hass.auth._providers = OrderedDict(
-        [
-            (("homeassistant", None), DummyProvider()),
-            (("trusted_networks", None), TrustedNetworksAllowProvider()),
-        ]
-    )
-
-    await setup_mock_authorize_route(hass)
-    await setup(hass)
-
-    client = await hass_client()
-    encoded_redirect_uri = quote(
-        create_redirect_uri(get_test_client_id(client), get_test_origin(client)),
-        safe="",
-    )
-
-    resp = await client.get(
-        f"/auth/authorize?redirect_uri={encoded_redirect_uri}",
-        allow_redirects=False,
-    )
-
-    assert_redirects_to_welcome(resp)
-
-
-@pytest.mark.asyncio
-async def test_injected_auth_page_converts_http_to_https_in_redirect(
-    hass: HomeAssistant,
-):
-    """_get_welcome_redirect_location should convert HTTP to HTTPS when force_https is True."""
-    await setup(hass)
-
-    provider = hass.auth.get_auth_providers(DOMAIN)[0]
-    injected_page = OIDCInjectedAuthPage(
-        html="<html></html>",
-        provider=provider,
-        force_https=True,
-        has_trusted_networks_provider_first=False,
-    )
-
-    # Create a mock request with HTTP URL
-    mock_req = MagicMock(spec=web.Request)
-    mock_req.url = "http://example.com/auth/authorize?redirect_uri=test"
-
-    with patch(
-        "custom_components.auth_oidc.endpoints.injected_auth_page.get_url"
-    ) as mock_get_url:
-        mock_get_url.return_value = (
-            "https://example.com/auth/oidc/welcome?redirect_uri=..."
-        )
-
-        injected_page._get_welcome_redirect_location(mock_req)
-
-        # Verify that the URL was converted from HTTP to HTTPS before being passed to get_url
-        call_args = mock_get_url.call_args
-        assert call_args is not None
-        welcome_path_with_redirect = call_args[0][
-            0
-        ]  # First positional argument to get_url
-
-        # Extract the redirect_uri parameter and decode it
-        parsed = urlparse(welcome_path_with_redirect)
-        query_params = parse_qs(parsed.query)
-        encoded_redirect_uri = query_params.get("redirect_uri", [None])[0]
-
-        # Decode the base64-encoded redirect_uri
-        if encoded_redirect_uri:
-            decoded_redirect_uri = base64.b64decode(
-                unquote(encoded_redirect_uri)
-            ).decode("utf-8")
-            # Verify it contains https:// instead of http://
-            assert decoded_redirect_uri.startswith("https://example.com")
+    location = resp.headers["Location"]
+    return_url = base64.b64decode(
+        unquote(parse_qs(urlparse(location).query)["redirect_uri"][0])
+    ).decode()
+    assert location.startswith("https://")
+    assert return_url.startswith("https://")

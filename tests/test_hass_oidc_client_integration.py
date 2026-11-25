@@ -18,7 +18,7 @@ from custom_components.auth_oidc.config.const import (
     CLIENT_ID,
     DISCOVERY_URL,
 )
-from custom_components.auth_oidc.provider import COOKIE_NAME
+from custom_components.auth_oidc.tools.helpers import STATE_COOKIE_NAME
 from custom_components.auth_oidc.tools.oidc_client import (
     OIDCDiscoveryClient,
     OIDCDiscoveryInvalid,
@@ -303,7 +303,7 @@ async def test_login_flow_init_completes_with_state_cookie(
         flow = await provider.async_login_flow({})
 
         fake_request = SimpleNamespace(
-            cookies={COOKIE_NAME: state},
+            cookies={STATE_COOKIE_NAME: state},
             remote="127.0.0.1",
         )
         with patch(

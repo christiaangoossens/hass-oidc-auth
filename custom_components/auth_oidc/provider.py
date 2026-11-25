@@ -35,6 +35,7 @@ from .config.const import (
     FEATURES_REQUIRE_EXISTING_USER,
 )
 from .stores.state_store import STATE_TTL, StateStore
+from .tools.helpers import STATE_COOKIE_NAME, get_state_id
 from .tools.types import OIDCFlow, UserDetails
 
 type IPAddress = IPv4Address | IPv6Address
@@ -43,7 +44,6 @@ _LOGGER = logging.getLogger(__name__)
 
 PROVIDER_TYPE = "auth_oidc"
 HASS_PROVIDER_TYPE = "homeassistant"
-COOKIE_NAME = "auth_oidc_state"
 
 
 class InvalidAuthError(HAInvalidAuthError):
@@ -71,10 +71,9 @@ class OpenIDAuthProvider(AuthProvider):  # pylint: disable=abstract-method
             {
                 # Currently register as default, might be used when we have multiple OIDC providers
                 CONF_ID: "default",
-                # Stable label for HA's native auth-picker row. Kept fixed so the
-                # frontend-injection script can match it without threading the
-                # user-configurable display_name through. The user's display_name
-                # is still rendered on the welcome page.
+                # Label in Home Assistant's provider picker, only shown once the
+                # OIDC login is ready. The configured display_name is used on the
+                # welcome page.
                 CONF_NAME: DEFAULT_TITLE,
                 # Type
                 CONF_TYPE: PROVIDER_TYPE,
@@ -166,6 +165,35 @@ class OpenIDAuthProvider(AuthProvider):  # pylint: disable=abstract-method
             )
             return False
 
+    def is_login_ready(self) -> bool:
+        """Check if the current request carries a state that finished the OIDC login.
+
+        Used to offer OIDC on the login page only when its login can finish, as
+        starting it otherwise can only show "Login aborted". Errors are caught,
+        as Home Assistant would otherwise fail the whole login page.
+        """
+        try:
+            req = http.current_request.get()
+            if req is None or self._state_store is None:
+                return False
+
+            state_id = get_state_id(req)
+            return state_id is not None and self._state_store.is_state_ready(
+                state_id, self._resolve_ip()
+            )
+        # pylint: disable-next=broad-except
+        except Exception:
+            _LOGGER.exception(
+                "Could not check if the OIDC login is ready, so OIDC is hidden on the "
+                "login page. Please report this as a bug"
+            )
+            return False
+
+    @callback
+    def async_can_start_login(self, context: AuthFlowContext) -> bool:
+        """Offer OIDC only when its login can finish (Home Assistant 2026.11+)."""
+        return self.is_login_ready()
+
     async def async_create_state(self, redirect_uri: str, ip: str | None = None) -> str:
         """Create a new OIDC state and return the state id."""
         if self._state_store is None:
@@ -247,9 +275,7 @@ class OpenIDAuthProvider(AuthProvider):  # pylint: disable=abstract-method
             await self.async_initialize()
             assert self._state_store is not None
 
-        return await self._state_store.async_is_state_ready(
-            state_id, self._resolve_ip(ip)
-        )
+        return self._state_store.is_state_ready(state_id, self._resolve_ip(ip))
 
     async def async_link_state_to_code(
         self, state_id: str, code: str, ip: str | None = None
@@ -308,7 +334,7 @@ class OpenIDAuthProvider(AuthProvider):  # pylint: disable=abstract-method
 
         # Set a cookie for the other pages to know the state_id, as long as the state lives
         return {
-            "set-cookie": f"{COOKIE_NAME}={state_id}; Path=/auth/; SameSite=Lax; "
+            "set-cookie": f"{STATE_COOKIE_NAME}={state_id}; Path=/auth/; SameSite=Lax; "
             + f"HttpOnly; Max-Age={max_age}{secure_flag}",
         }
 
@@ -482,8 +508,8 @@ class OpenIdLoginFlow(LoginFlow[OpenIDAuthProvider]):
 
         # Check if the cookie is present to login
         req = http.current_request.get()
-        if req and req.cookies:
-            state_cookie = req.cookies.get(COOKIE_NAME)
+        if req:
+            state_cookie = get_state_id(req)
 
             if state_cookie:
                 try:

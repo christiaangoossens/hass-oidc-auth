@@ -4,11 +4,13 @@ import base64
 import re
 from collections import OrderedDict
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import patch
 from urllib.parse import parse_qs, unquote, urlparse
 
 import pytest
 from homeassistant.auth import InvalidAuthError
+from homeassistant.auth.models import AuthFlowContext
 from homeassistant.components.person import DOMAIN as PERSON_DOMAIN
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -26,6 +28,8 @@ from custom_components.auth_oidc.config.const import (
     FEATURES_AUTOMATIC_USER_LINKING,
     FEATURES_REQUIRE_EXISTING_USER,
 )
+from custom_components.auth_oidc.provider import OpenIDAuthProvider
+from custom_components.auth_oidc.tools.helpers import STATE_COOKIE_NAME
 
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
 
@@ -45,13 +49,25 @@ def make_fake_redirect_url(client) -> str:
     )
 
 
-async def setup(hass: HomeAssistant, config: dict, expect_success: bool) -> bool:
+async def setup(hass: HomeAssistant, config: dict, expect_success: bool) -> None:
     """Set up the auth_oidc component."""
     result = await async_setup_component(hass, DOMAIN, {DOMAIN: config})
 
     if expect_success:
         assert result
         assert DOMAIN in hass.data
+
+
+def get_oidc_provider(hass: HomeAssistant) -> OpenIDAuthProvider:
+    """Return the registered OIDC provider."""
+    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    assert isinstance(provider, OpenIDAuthProvider)
+    return provider
+
+
+def set_auth_providers(hass: HomeAssistant, providers: list[tuple]) -> None:
+    """Replace Home Assistant's registered providers, stand-ins included."""
+    hass.auth._providers = OrderedDict(providers)
 
 
 async def get_auth_store_ids(hass: HomeAssistant) -> tuple[set[str], set[str]]:
@@ -79,17 +95,15 @@ async def test_setup_success_auth_provider_registration(hass: HomeAssistant):
     )
 
     # Ensure the auth provider is registered
-    auth_providers = hass.auth.get_auth_providers(DOMAIN)
-    assert len(auth_providers) == 1
+    assert len(hass.auth.get_auth_providers(DOMAIN)) == 1
 
     # Public auth-provider contract: OIDC provider does not support HA MFA
-    assert auth_providers[0].support_mfa is False
+    assert get_oidc_provider(hass).support_mfa is False
 
 
 @pytest.mark.asyncio
 async def test_provider_name_is_stable_regardless_of_display_name(hass: HomeAssistant):
-    """CONF_NAME stays at DEFAULT_TITLE so injection.js can match the picker
-    row regardless of the configured display_name."""
+    """The provider picker shows DEFAULT_TITLE, whatever the configured display_name."""
     await setup(
         hass,
         {
@@ -100,8 +114,44 @@ async def test_provider_name_is_stable_regardless_of_display_name(hass: HomeAssi
         True,
     )
 
-    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    provider = get_oidc_provider(hass)
     assert provider.name == DEFAULT_TITLE
+
+
+@pytest.mark.asyncio
+async def test_provider_hides_login_from_another_ip(hass: HomeAssistant):
+    """A finished OIDC login is only offered to the client that finished it."""
+    await setup(hass, DEFAULT_CONFIG, True)
+    provider = get_oidc_provider(hass)
+
+    state_id = await provider.async_create_state("https://example.com/", "127.0.0.1")
+    await provider.async_save_user_info(
+        state_id,
+        {"sub": "sub", "display_name": None, "username": None, "role": "system-users"},
+    )
+
+    request = SimpleNamespace(remote="10.0.0.1", cookies={STATE_COOKIE_NAME: state_id})
+
+    with patch(
+        "custom_components.auth_oidc.provider.http.current_request"
+    ) as current_request:
+        current_request.get.return_value = request
+        assert provider.async_can_start_login(AuthFlowContext()) is False
+
+
+@pytest.mark.asyncio
+async def test_provider_hides_login_when_the_check_fails(hass: HomeAssistant, caplog):
+    """An error while checking hides OIDC and is logged, instead of failing the page."""
+    await setup(hass, DEFAULT_CONFIG, True)
+    provider = get_oidc_provider(hass)
+
+    with patch(
+        "custom_components.auth_oidc.provider.http.current_request"
+    ) as current_request:
+        current_request.get.side_effect = RuntimeError("boom")
+        assert provider.async_can_start_login(AuthFlowContext()) is False
+
+    assert "Could not check if the OIDC login is ready" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -115,7 +165,7 @@ async def test_provider_ip_fallback_fails_closed_without_request_context(
         True,
     )
 
-    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    provider = get_oidc_provider(hass)
 
     with patch(
         "custom_components.auth_oidc.provider.http.current_request"
@@ -133,7 +183,7 @@ async def test_provider_cookie_header_sets_secure_when_requested(hass: HomeAssis
         True,
     )
 
-    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    provider = get_oidc_provider(hass)
     cookie_header = provider.get_cookie_header("state-id", secure=True)["set-cookie"]
 
     assert "SameSite=Lax" in cookie_header
@@ -152,17 +202,18 @@ async def test_provider_is_trusted_network_host_true_for_allowed_ip(
         True,
     )
 
-    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    provider = get_oidc_provider(hass)
 
     class TrustedNetworksAllowProvider:
         def async_validate_access(self, _ip_addr):
             return None
 
-    hass.auth._providers = OrderedDict(
+    set_auth_providers(
+        hass,
         [
             (("trusted_networks", None), TrustedNetworksAllowProvider()),
             ((provider.type, provider.id), provider),
-        ]
+        ],
     )
 
     with patch(
@@ -183,17 +234,18 @@ async def test_provider_is_trusted_network_host_false_for_disallowed_ip(
         True,
     )
 
-    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    provider = get_oidc_provider(hass)
 
     class TrustedNetworksDenyProvider:
         def async_validate_access(self, _ip_addr):
             raise InvalidAuthError("Not in trusted_networks")
 
-    hass.auth._providers = OrderedDict(
+    set_auth_providers(
+        hass,
         [
             (("trusted_networks", None), TrustedNetworksDenyProvider()),
             ((provider.type, provider.id), provider),
-        ]
+        ],
     )
 
     with patch(
@@ -223,7 +275,7 @@ async def test_provider_is_trusted_network_host_false_without_trusted_provider(
         True,
     )
 
-    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    provider = get_oidc_provider(hass)
 
     # Without actually getting the IP, should also be false
     assert provider.is_trusted_network_host() is False
@@ -247,10 +299,8 @@ async def test_welcome_redirects_when_only_trusted_networks_and_not_in_trusted_n
             raise InvalidAuthError("Not in trusted_networks")
 
     # Simulate that only trusted_networks is registered before OIDC provider setup
-    hass.auth._providers = OrderedDict(
-        [
-            (("trusted_networks", None), TrustedNetworksDenyProvider()),
-        ]
+    set_auth_providers(
+        hass, [(("trusted_networks", None), TrustedNetworksDenyProvider())]
     )
 
     # Now setup the OIDC provider which should detect trusted_networks as the only other provider
@@ -275,10 +325,10 @@ async def test_welcome_redirects_when_only_trusted_networks_and_not_in_trusted_n
 async def login_user(hass: HomeAssistant, state_id: str):
     """Helper to login a user from the stored OIDC state."""
 
-    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    provider = get_oidc_provider(hass)
     # This helper runs outside an HTTP request, so pass the known local test IP.
     sub = await provider.async_get_subject(state_id, "127.0.0.1")
-    assert sub == MockOIDCServer.get_final_subject()
+    assert sub is not None and sub == MockOIDCServer.get_final_subject()
 
     # Get credentials
     credentials = await provider.async_get_or_create_credentials({"sub": sub})
@@ -317,7 +367,8 @@ async def get_login_state(hass: HomeAssistant, hass_client):
     assert query_params["state"][0] == state_id
 
     session = async_get_clientsession(hass)
-    resp = session.get(auth_url, allow_redirects=False)
+    # The OIDC mock returns the response itself, without awaiting
+    resp: Any = session.get(auth_url, allow_redirects=False)
     assert resp.status == 200
 
     # Mock OIDC returns JSON
@@ -420,9 +471,9 @@ async def test_require_existing_user_denies_new_oidc_identity(
 
     with mock_oidc_responses("username"):
         state_id = await get_login_state(hass, hass_client)
-        provider = hass.auth.get_auth_providers(DOMAIN)[0]
+        provider = get_oidc_provider(hass)
         sub = await provider.async_get_subject(state_id, "127.0.0.1")
-        assert sub == MockOIDCServer.get_final_subject()
+        assert sub is not None and sub == MockOIDCServer.get_final_subject()
 
         users_before, credentials_before = await get_auth_store_ids(hass)
 
@@ -455,7 +506,7 @@ async def test_require_existing_user_aborts_login_flow_cleanly(
 
     with mock_oidc_responses("username"):
         state_id = await get_login_state(hass, hass_client)
-        provider = hass.auth.get_auth_providers(DOMAIN)[0]
+        provider = get_oidc_provider(hass)
         flow = await provider.async_login_flow({})
         users_before, credentials_before = await get_auth_store_ids(hass)
 
@@ -468,8 +519,8 @@ async def test_require_existing_user_aborts_login_flow_cleanly(
             current_request.get.return_value = fake_request
             result = await flow.async_step_init({})
 
-        assert result["type"] == FlowResultType.ABORT
-        assert result["reason"] == "invalid_auth"
+        assert result.get("type") == FlowResultType.ABORT
+        assert result.get("reason") == "invalid_auth"
         assert await get_auth_store_ids(hass) == (users_before, credentials_before)
 
 
@@ -501,9 +552,9 @@ async def test_require_existing_user_does_not_link_when_linking_is_disabled(
         users_before, credentials_before = await get_auth_store_ids(hass)
 
         state_id = await get_login_state(hass, hass_client)
-        provider = hass.auth.get_auth_providers(DOMAIN)[0]
+        provider = get_oidc_provider(hass)
         sub = await provider.async_get_subject(state_id, "127.0.0.1")
-        assert sub == MockOIDCServer.get_final_subject()
+        assert sub is not None and sub == MockOIDCServer.get_final_subject()
 
         with pytest.raises(InvalidAuthError):
             await provider.async_get_or_create_credentials({"sub": sub})
@@ -569,7 +620,7 @@ async def test_require_existing_user_allows_existing_oidc_credential(
         first_state = await get_login_state(hass, hass_client)
         user = await login_user(hass, first_state)
 
-        provider = hass.auth.get_auth_providers(DOMAIN)[0]
+        provider = get_oidc_provider(hass)
         provider.require_existing_user = True
 
         second_state = await get_login_state(hass, hass_client)
@@ -647,12 +698,12 @@ async def test_login_shows_form(hass: HomeAssistant):
         True,
     )
 
-    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    provider = get_oidc_provider(hass)
     flow = await provider.async_login_flow({})
 
     result = await flow.async_step_init({})
-    assert result["type"] == FlowResultType.ABORT
-    assert result["reason"] == "no_oidc_cookie_found"
+    assert result.get("type") == FlowResultType.ABORT
+    assert result.get("reason") == "no_oidc_cookie_found"
 
 
 @pytest.mark.asyncio
@@ -670,7 +721,7 @@ async def test_login_with_invalid_cookie_aborts(hass: HomeAssistant):
         True,
     )
 
-    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    provider = get_oidc_provider(hass)
     flow = await provider.async_login_flow({})
 
     fake_request = SimpleNamespace(
@@ -683,8 +734,8 @@ async def test_login_with_invalid_cookie_aborts(hass: HomeAssistant):
 
         result = await flow.async_step_init({})
 
-    assert result["type"] == FlowResultType.ABORT
-    assert result["reason"] == "oidc_cookie_invalid"
+    assert result.get("type") == FlowResultType.ABORT
+    assert result.get("reason") == "oidc_cookie_invalid"
 
 
 @pytest.mark.asyncio
@@ -702,7 +753,7 @@ async def test_login_with_no_cookie_aborts(hass: HomeAssistant):
         True,
     )
 
-    provider = hass.auth.get_auth_providers(DOMAIN)[0]
+    provider = get_oidc_provider(hass)
     flow = await provider.async_login_flow({})
 
     fake_request = SimpleNamespace(cookies={}, remote="127.0.0.1")
@@ -713,5 +764,5 @@ async def test_login_with_no_cookie_aborts(hass: HomeAssistant):
 
         result = await flow.async_step_init({})
 
-    assert result["type"] == FlowResultType.ABORT
-    assert result["reason"] == "no_oidc_cookie_found"
+    assert result.get("type") == FlowResultType.ABORT
+    assert result.get("reason") == "no_oidc_cookie_found"

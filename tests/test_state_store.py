@@ -88,7 +88,7 @@ async def test_state_store_generate_and_receive_state(state_store: StateStore):
 
     user = make_user("user1")
     assert await state_store.async_add_userinfo_to_state(state_id, user) is True
-    assert await state_store.async_is_state_ready(state_id, TEST_IP) is True
+    assert state_store.is_state_ready(state_id, TEST_IP) is True
     assert state_id in state_store.get_data()
 
     result = await state_store.async_receive_userinfo_for_state(state_id, TEST_IP)
@@ -109,7 +109,7 @@ async def test_state_store_generate_code_and_link_state(state_store: StateStore)
         await state_store.async_link_state_to_code(donor_state, code, TEST_IP) is True
     )
     assert donor_state not in state_store.get_data()
-    assert await state_store.async_is_state_ready(target_state, TEST_IP) is True
+    assert state_store.is_state_ready(target_state, TEST_IP) is True
     assert (
         await state_store.async_receive_userinfo_for_state(target_state, TEST_IP)
         == user
@@ -130,7 +130,7 @@ async def test_state_store_link_state_returns_false_for_wrong_code(
         is False
     )
     assert donor_state in state_store.get_data()
-    assert await state_store.async_is_state_ready(target_state, TEST_IP) is False
+    assert state_store.is_state_ready(target_state, TEST_IP) is False
 
 
 async def test_state_store_throttles_device_code_link_attempts(
@@ -185,8 +185,8 @@ async def test_state_store_duplicate_codes_link_nothing(state_store: StateStore)
     assert (
         await state_store.async_link_state_to_code(donor_state, code, TEST_IP) is False
     )
-    assert await state_store.async_is_state_ready(first_state, TEST_IP) is False
-    assert await state_store.async_is_state_ready(second_state, TEST_IP) is False
+    assert state_store.is_state_ready(first_state, TEST_IP) is False
+    assert state_store.is_state_ready(second_state, TEST_IP) is False
     assert state_store.get_data()[donor_state]["device_code_attempts"] == 1
 
 
@@ -217,7 +217,7 @@ async def test_state_store_expired_state(state_store: StateStore):
     expire(state_store, state_id)
 
     assert await state_store.async_get_redirect_uri_for_state(state_id, TEST_IP) is None
-    assert await state_store.async_is_state_ready(state_id, TEST_IP) is False
+    assert state_store.is_state_ready(state_id, TEST_IP) is False
     assert await state_store.async_receive_userinfo_for_state(state_id, TEST_IP) is None
 
 
