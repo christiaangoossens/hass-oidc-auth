@@ -1,7 +1,6 @@
 """OIDC Integration for Home Assistant."""
 
 import logging
-import re
 from collections import OrderedDict
 
 from homeassistant.components.http import StaticPathConfig
@@ -15,9 +14,7 @@ from .config import (
     CLAIMS,
     CLIENT_ID,
     CLIENT_SECRET,
-    DEFAULT_TITLE,
     DISCOVERY_URL,
-    DISPLAY_NAME,
     DOMAIN,
     FEATURES,
     FEATURES_DEFAULT_REDIRECT,
@@ -32,7 +29,7 @@ from .config import (
     convert_ui_config_entry_to_internal_format,
 )
 
-# Import and re-export config schema explictly for HA
+# Import and re-export config schema explicitly for HA
 from .config import (
     CONFIG_SCHEMA as CONFIG_SCHEMA,
 )
@@ -65,9 +62,7 @@ async def async_setup(hass: HomeAssistant, config):
         hass.data[DOMAIN] = {}
     hass.data[DOMAIN]["yaml_config"] = my_config
 
-    await _setup_oidc_provider(
-        hass, my_config, config[DOMAIN].get(DISPLAY_NAME, DEFAULT_TITLE)
-    )
+    await _setup_oidc_provider(hass, my_config)
     return True
 
 
@@ -79,10 +74,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Convert config entry format to internal format
     my_config = convert_ui_config_entry_to_internal_format(config_data)
 
-    # Get display name from config entry
-    display_name = config_data.get("display_name", DEFAULT_TITLE)
-
-    await _setup_oidc_provider(hass, my_config, display_name)
+    await _setup_oidc_provider(hass, my_config)
     return True
 
 
@@ -142,7 +134,7 @@ async def _register_oidc_provider(
     return provider, has_trusted_networks_provider_first
 
 
-async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_name: str):
+async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict):
     """Set up the OIDC provider with the given configuration."""
     # pylint: disable=too-many-locals
     state_store = StateStore(hass)
@@ -188,9 +180,6 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_CLOSE, oidc_client.async_close)
 
     # Register the views
-    name = display_name
-    name = re.sub(r"[^A-Za-z0-9 _\-\(\)]", "", name)
-
     force_https = features_config.get(FEATURES_FORCE_HTTPS, False)
     default_redirect = features_config.get(FEATURES_DEFAULT_REDIRECT, False)
 
@@ -205,7 +194,6 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
             provider,
             state_store,
             OIDCWelcomeOptions(
-                name=name,
                 force_https=force_https,
                 prefers_skipping=default_redirect,
             ),

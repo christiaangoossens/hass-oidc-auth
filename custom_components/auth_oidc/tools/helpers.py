@@ -4,7 +4,7 @@ from aiohttp import web
 from homeassistant.components import http
 
 from ..config.const import REPO_ROOT_URL
-from ..stores.state_store import StateStore
+from ..stores.state_store import STATE_TTL, StateStore
 from ..views.i18n import async_get_translator
 from ..views.loader import AsyncTemplateRenderer
 
@@ -44,6 +44,17 @@ async def get_view(template: str, parameters: dict | None = None) -> str:
 def get_state_id(request: web.Request) -> str | None:
     """Return the current OIDC state cookie, if present."""
     return request.cookies.get(STATE_COOKIE_NAME)
+
+
+def state_cookie_header(state_id: str, secure: bool) -> dict[str, str]:
+    """Return the header that sets the state cookie, for as long as the state lives."""
+    secure_flag = "; Secure" if secure else ""
+    max_age = int(STATE_TTL.total_seconds())
+
+    return {
+        "set-cookie": f"{STATE_COOKIE_NAME}={state_id}; Path=/auth/; SameSite=Lax; "
+        + f"HttpOnly; Max-Age={max_age}{secure_flag}",
+    }
 
 
 def reset_state_cookie() -> str:

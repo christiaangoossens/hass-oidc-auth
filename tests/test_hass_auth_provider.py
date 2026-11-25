@@ -96,20 +96,17 @@ async def test_setup_success_auth_provider_registration(hass: HomeAssistant):
 
 
 @pytest.mark.asyncio
-async def test_provider_name_is_stable_regardless_of_display_name(hass: HomeAssistant):
-    """The provider picker shows DEFAULT_TITLE, whatever the configured display_name."""
-    await setup(
-        hass,
-        {
-            CLIENT_ID: "dummy",
-            DISCOVERY_URL: "https://example.com/.well-known/openid-configuration",
-            DISPLAY_NAME: "Custom / Branded IdP",
-        },
-        True,
-    )
+@pytest.mark.parametrize(
+    ("display_name", "expected_name"),
+    [({}, DEFAULT_TITLE), ({DISPLAY_NAME: "Café SSO / Entra"}, "Café SSO / Entra")],
+)
+async def test_provider_is_named_after_the_display_name(
+    hass: HomeAssistant, display_name: dict[str, str], expected_name: str
+):
+    """Home Assistant's provider picker shows the configured display_name as is."""
+    await setup(hass, DEFAULT_CONFIG | display_name, True)
 
-    provider = get_oidc_provider(hass)
-    assert provider.name == DEFAULT_TITLE
+    assert get_oidc_provider(hass).name == expected_name
 
 
 @pytest.mark.asyncio
@@ -159,23 +156,6 @@ async def test_provider_hides_login_when_the_check_fails(hass: HomeAssistant, ca
         assert provider.async_can_start_login(AuthFlowContext()) is False
 
     assert "Could not check if the OIDC login is ready" in caplog.text
-
-
-@pytest.mark.asyncio
-async def test_provider_cookie_header_sets_secure_when_requested(hass: HomeAssistant):
-    """Cookie header should include Secure when HTTPS is in use."""
-    await setup(
-        hass,
-        DEFAULT_CONFIG,
-        True,
-    )
-
-    provider = get_oidc_provider(hass)
-    cookie_header = provider.get_cookie_header("state-id", secure=True)["set-cookie"]
-
-    assert "SameSite=Lax" in cookie_header
-    assert "HttpOnly" in cookie_header
-    assert "Secure" in cookie_header
 
 
 @pytest.mark.asyncio

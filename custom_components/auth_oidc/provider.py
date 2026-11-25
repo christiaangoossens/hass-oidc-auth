@@ -29,13 +29,14 @@ from homeassistant.core import HomeAssistant, callback
 
 from .config.const import (
     DEFAULT_TITLE,
+    DISPLAY_NAME,
     FEATURES,
     FEATURES_AUTOMATIC_PERSON_CREATION,
     FEATURES_AUTOMATIC_USER_LINKING,
     FEATURES_REQUIRE_EXISTING_USER,
 )
-from .stores.state_store import STATE_TTL, StateStore
-from .tools.helpers import STATE_COOKIE_NAME, get_state_id
+from .stores.state_store import StateStore
+from .tools.helpers import get_state_id
 from .tools.types import UserDetails
 
 type IPAddress = IPv4Address | IPv6Address
@@ -83,10 +84,8 @@ class OpenIDAuthProvider(AuthProvider):
             {
                 # Currently register as default, might be used when we have multiple OIDC providers
                 CONF_ID: "default",
-                # Label in Home Assistant's provider picker, only shown once the
-                # OIDC login is ready. The configured display_name is used on the
-                # welcome page.
-                CONF_NAME: DEFAULT_TITLE,
+                # Shown on the welcome page and in Home Assistant's provider picker
+                CONF_NAME: config.get(DISPLAY_NAME, DEFAULT_TITLE),
                 # Type
                 CONF_TYPE: PROVIDER_TYPE,
             },
@@ -276,22 +275,10 @@ class OpenIDAuthProvider(AuthProvider):
 
         return None
 
-    def get_cookie_header(self, state_id: str, secure: bool = False):
-        """Get the cookie header to set the state_id cookie."""
-        secure_flag = "; Secure" if secure else ""
-        max_age = int(STATE_TTL.total_seconds())
-
-        # Set a cookie for the other pages to know the state_id, as long as the state lives
-        return {
-            "set-cookie": f"{STATE_COOKIE_NAME}={state_id}; Path=/auth/; SameSite=Lax; "
-            + f"HttpOnly; Max-Age={max_age}{secure_flag}",
-        }
-
     # ====
     # Handler for user created and related functions (person creation)
     # ====
 
-    @callback
     async def async_user_created(self, event) -> None:
         """Handle the user created event."""
         user_id = event.data["user_id"]
