@@ -127,6 +127,16 @@ async def test_state_store_throttles_device_code_link_attempts(
         assert state_store.link_state_to_code(donor_state, wrong_code, TEST_IP) is False
 
     assert state_store.link_state_to_code(donor_state, code, TEST_IP) is False
+    assert state_store.has_device_code_attempts_left(donor_state, TEST_IP) is False
+
+
+async def test_state_store_unknown_state_has_no_attempts(state_store: StateStore):
+    """A state that doesn't exist, or belongs to another IP, can't link a device."""
+    state_id = create_ready_state(state_store, make_user("attempts"))
+
+    assert state_store.has_device_code_attempts_left(state_id, TEST_IP) is True
+    assert state_store.has_device_code_attempts_left(state_id, "10.0.0.1") is False
+    assert state_store.has_device_code_attempts_left("unknown", TEST_IP) is False
 
 
 async def test_state_store_new_login_forgets_previous_user(state_store: StateStore):

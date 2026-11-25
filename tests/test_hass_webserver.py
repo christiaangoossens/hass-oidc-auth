@@ -9,6 +9,7 @@ from unittest.mock import ANY, AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse
 
 import pytest
+from aiohttp import web
 from auth_oidc.config.const import (
     CLIENT_ID,
     DISCOVERY_URL,
@@ -24,6 +25,7 @@ from homeassistant.setup import async_setup_component
 
 from custom_components.auth_oidc import DOMAIN
 from custom_components.auth_oidc.endpoints import device_sse
+from custom_components.auth_oidc.tools.http_route_takeover import take_over_get_route
 from custom_components.auth_oidc.tools.types import OIDCFlow
 
 from .integration import get_state_store
@@ -1282,6 +1284,23 @@ async def test_authorize_page_serves_home_assistant_page_when_skipped(
     response = await client.get(request_target, allow_redirects=False)
 
     await assert_home_assistant_login_page(response)
+
+
+@pytest.mark.parametrize("path", ["/test/post-only", "/test/missing"])
+async def test_route_takeover_needs_an_existing_get_route(
+    hass: HomeAssistant, path: str
+):
+    """A path without a GET route, or without any route, is not taken over."""
+    await async_setup_component(hass, HTTP_DOMAIN, {})
+
+    async def handler(_request: web.Request) -> web.Response:
+        return web.Response(text="post")
+
+    hass.http.app.router.add_post("/test/post-only", handler)
+    wrap = MagicMock()
+
+    assert take_over_get_route(hass, path, wrap) is False
+    wrap.assert_not_called()
 
 
 @pytest.mark.asyncio

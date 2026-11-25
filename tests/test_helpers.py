@@ -153,6 +153,17 @@ async def test_html_response_and_template_helpers():
     )
 
 
+async def test_template_response_without_parameters():
+    """A template without parameters still gets the help link."""
+    with patch(
+        "custom_components.auth_oidc.tools.helpers.get_view",
+        new=AsyncMock(return_value="<p>rendered</p>"),
+    ) as mocked_get_view:
+        await template_response("finish")
+
+    mocked_get_view.assert_awaited_once_with("finish", {"help_url": REPO_ROOT_URL})
+
+
 @pytest.mark.parametrize("reset_cookie", [True, False])
 async def test_error_response_resets_cookie_only_when_asked(reset_cookie: bool):
     """The error page clears the state cookie unless the state is still valid."""

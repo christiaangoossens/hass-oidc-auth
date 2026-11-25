@@ -49,6 +49,9 @@ class MockOIDCServer:
         # Path -> error raised when that endpoint is requested
         self.failing_paths: dict[str, Exception] = {}
 
+        # Path -> (JSON body, status) returned instead of the normal response
+        self.response_overrides: dict[str, tuple[Any, int]] = {}
+
         if scenario:
             scenario_path = os.path.join(
                 os.path.dirname(__file__), "scenarios", f"{scenario}.json"
@@ -234,10 +237,12 @@ def mock_oidc_responses(scenario: str | None = None) -> Iterator[MockOIDCServer]
     def handle(method: str, url: str, **kwargs: Any) -> AsyncMock:
         _LOGGER.debug("Mocked %s request to %s", method, url)
 
-        if (
-            error := mock_oidc_server.failing_paths.get(urlparse(url).path)
-        ) is not None:
+        path = urlparse(url).path
+        if (error := mock_oidc_server.failing_paths.get(path)) is not None:
             raise error
+
+        if (override := mock_oidc_server.response_overrides.get(path)) is not None:
+            return make_mock_response(*override)
 
         body = kwargs.get("data") or kwargs.get("json")
         json_data, status = mock_oidc_server.process_request(url, method, body)

@@ -507,12 +507,9 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         jwks_data = await self._fetch_jwks(discovery_document["jwks_uri"])
 
         try:
-            # Obtain the id_token header
+            # Obtain the id_token header, joserfc rejects a header without alg
             token_obj = jws.extract_compact(id_token.encode())
             unverified_header = token_obj.protected
-            if not unverified_header:
-                _LOGGER.warning("Could not get header from received id_token.")
-                return None
 
             # Obtain the signing algorithm from the header of the id_token
             alg = unverified_header.get("alg")

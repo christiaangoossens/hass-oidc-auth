@@ -9,6 +9,7 @@ from unittest.mock import patch
 from urllib.parse import parse_qs, unquote, urlparse
 
 import pytest
+from aiohttp import web
 from homeassistant.auth import InvalidAuthError
 from homeassistant.auth.models import AuthFlowContext, User
 from homeassistant.components.person import DOMAIN as PERSON_DOMAIN
@@ -28,6 +29,7 @@ from custom_components.auth_oidc.config.const import (
     FEATURES_AUTOMATIC_USER_LINKING,
     FEATURES_REQUIRE_EXISTING_USER,
 )
+from custom_components.auth_oidc.endpoints.auth_providers import filter_providers
 from custom_components.auth_oidc.stores.state_store import LEGACY_STORAGE_KEY
 from custom_components.auth_oidc.tools.helpers import STATE_COOKIE_NAME
 
@@ -156,6 +158,23 @@ async def test_provider_hides_login_when_the_check_fails(hass: HomeAssistant, ca
         assert provider.async_can_start_login(AuthFlowContext()) is False
 
     assert "Could not check if the OIDC login is ready" in caplog.text
+
+
+async def test_credentials_need_a_finished_oidc_login(hass: HomeAssistant):
+    """Credentials are only created for a subject that just finished an OIDC login."""
+    await setup(hass, DEFAULT_CONFIG, True)
+    provider = get_oidc_provider(hass)
+
+    with pytest.raises(InvalidAuthError):
+        await provider.async_get_or_create_credentials({"sub": "never-logged-in"})
+
+
+async def test_auth_providers_error_response_passes_through(hass: HomeAssistant):
+    """On older Home Assistant, an error from /auth/providers is passed on unchanged."""
+    await setup(hass, DEFAULT_CONFIG, True)
+    response = web.Response(status=400, text="Onboarding not finished")
+
+    assert filter_providers(response, get_oidc_provider(hass)) is response
 
 
 @pytest.mark.parametrize("remote", ["127.0.0.1", None], ids=["provider-fails", "no-ip"])

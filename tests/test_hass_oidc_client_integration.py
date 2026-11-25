@@ -1008,6 +1008,80 @@ async def test_callback_rejects_invalid_identity_provider_data(
         assert "Failed to get user details" in await resp.text()
 
 
+@pytest.mark.parametrize(
+    ("path", "status", "logged"),
+    [
+        ("/jwks", 500, "Error fetching JWKS"),
+        ("/token", 400, "did you forget the client_secret?"),
+        ("/token", 500, "Unexpected error exchanging token"),
+    ],
+    ids=["jwks-500", "token-400", "token-500"],
+)
+async def test_callback_shows_error_on_identity_provider_http_error(
+    hass: HomeAssistant, hass_client, caplog, path: str, status: int, logged: str
+):
+    """An HTTP error from the identity provider gives a login error, and the
+    log says which request failed."""
+    await setup(hass)
+
+    with mock_oidc_responses() as server:
+        client = await hass_client()
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(client))
+        state, _, _ = await get_welcome_for_client(client, redirect_uri)
+        code = await get_code_from_provider(hass, await get_redirect_auth_url(client))
+
+        server.response_overrides[path] = ({"error": "server_error"}, status)
+        resp = await client.get(
+            f"/auth/oidc/callback?code={code}&state={state}",
+            allow_redirects=False,
+        )
+
+        assert resp.status == 500
+        assert "Failed to get user details" in await resp.text()
+        assert logged in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("status", "logged"),
+    [(404, "Discovery document not found"), (500, "Error fetching discovery")],
+    ids=["not-found", "server-error"],
+)
+async def test_redirect_shows_error_on_discovery_http_error(
+    hass: HomeAssistant, hass_client, caplog, status: int, logged: str
+):
+    """An HTTP error for the discovery document gives the misconfigured page."""
+    await setup(hass)
+
+    with mock_oidc_responses() as server:
+        client = await hass_client()
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(client))
+        await get_welcome_for_client(client, redirect_uri)
+
+        server.response_overrides["/.well-known/openid-configuration"] = ({}, status)
+        resp = await client.get("/auth/oidc/redirect", allow_redirects=False)
+
+        assert resp.status == 500
+        assert "Integration is misconfigured" in await resp.text()
+        assert logged in caplog.text
+
+
+async def test_finish_rejects_a_file_as_device_code(hass: HomeAssistant, hass_client):
+    """An uploaded file instead of a device code is refused, and the login stays."""
+    await setup(hass)
+
+    with mock_oidc_responses():
+        browser = await hass_client()
+        await login_with_oidc(hass, browser)
+
+        form = aiohttp.FormData()
+        form.add_field("device_code", b"123456", filename="code.txt")
+        resp = await browser.post("/auth/oidc/finish", data=form)
+
+        assert resp.status == 400
+        assert "Failed to link state to device code" in await resp.text()
+        assert not clears_state_cookie(resp)
+
+
 async def test_redirect_shows_error_when_discovery_times_out(
     hass: HomeAssistant, hass_client
 ):
