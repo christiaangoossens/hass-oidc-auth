@@ -103,8 +103,4 @@ STATIC_FILE_REGISTRATIONS = {
         "custom_components/auth_oidc/static/device.js",
         True,
     ],
-    "/static/auth_oidc/injection.js": [
-        "custom_components/auth_oidc/static/injection.js",
-        True,
-    ],
 }

@@ -78,6 +78,11 @@ If you installed the integration by cloning master/downloading the source code (
 
 Installing development builds is not recommended! See the question below for more information.
 
+## Help! The login page no longer sends me to OIDC
+A Home Assistant update may have changed its login page in a way this integration does not handle yet. The Home Assistant logs then show an error from `auth_oidc`.
+
+You can still log in with OIDC by opening `/auth/oidc/welcome` on your Home Assistant address, for example `https://homeassistant.example.com/auth/oidc/welcome`. Please also submit an issue with your Home Assistant version and the error from the logs.
+
 ## Why should I only install releases (either from Github or HACS) instead of using the source code?
 The `main` branch is in constant development, both manually (PR's) as well as automatically (Renovate Bot/dependency management). While a CI pipeline with tests is run on the `main` branch, manual tests are only performed upon PR merge and during the release creation.
 

@@ -40,10 +40,11 @@ from .endpoints import (
     OIDCCallbackView,
     OIDCDeviceSSE,
     OIDCFinishView,
-    OIDCInjectedAuthPage,
     OIDCRedirectView,
     OIDCWelcomeView,
 )
+from .endpoints.auth_providers import has_login_hook, take_over_auth_providers
+from .endpoints.authorize import take_over_authorize_page
 from .provider import OpenIDAuthProvider
 from .tools.oidc_client import OIDCClient
 from .tools.types import OIDCWelcomeOptions
@@ -222,9 +223,12 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
 
     _LOGGER.info("Registered OIDC views")
 
-    # Inject OIDC code into the frontend for /auth/authorize for automatic redirect
-    await OIDCInjectedAuthPage.inject(
+    take_over_authorize_page(
         hass, provider, force_https, has_trusted_networks_provider_first
     )
+
+    # Newer Home Assistant versions ask the provider itself if it can be offered
+    if not has_login_hook():
+        take_over_auth_providers(hass, provider)
 
     return True

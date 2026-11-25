@@ -191,7 +191,7 @@ class StateStore:
 
         return None
 
-    async def async_is_state_ready(self, state_id: str, ip: str | None) -> bool:
+    def is_state_ready(self, state_id: str, ip: str | None) -> bool:
         """Check if the state has received the user info from the OIDC callback."""
         state = self._data.get(state_id)
         return (

@@ -108,6 +108,8 @@ dmypy.json
 /config/
 
 .venv
+.claude
+.vscode
 
 .pytest_logs.log
 
