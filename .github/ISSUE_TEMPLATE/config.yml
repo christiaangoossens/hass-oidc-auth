@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: AI policy (read before using AI)
+    url: https://github.com/christiaangoossens/hass-oidc-auth/blob/main/CONTRIBUTING.md#ai-use
+    about: AI-assisted issues are welcome, issues created and submitted fully by AI agents are not.
   - name: Feature Request
     url: https://github.com/christiaangoossens/hass-oidc-auth/discussions/categories/ideas
     about: Please submit your feature request in the Ideas section of the Discussions.

@@ -1,5 +1,33 @@
 # Contribution Guide
-Contibutions are very welcome!
+Contributions are very welcome!
+
+## AI use
+### What is allowed?
+When contributing to this repository, for instance through creating issues, contributing to discussions, submitting security advisories or by making a PR, you are allowed to use AI to:
+
+- Create your work, for instance in AI-assisted programming or by using AI security analysis tools (like Mythos) to find possible vulnerabilities
+- Check your work, for instance to create tests or to verify the first proof of concept
+
+You are welcome to submit AI-assisted work that you reviewed and submitted yourself, and that you fully understand and can discuss without a bot.
+
+### What is not allowed?
+Your contribution will be declined if:
+
+- You communicate with maintainers exclusively through AI, for instance by having a bot answer comments.
+- You created your work fully with AI, for instance with an AI submissions bot that also writes the issue/PR/advisory text.
+- You do not fully understand your submitted work when asked to explain.
+- You did not check your work manually (code review, vulnerability testing) in addition to any AI checks.
+- The contribution is not aligned with the values of this project (see the [core values in the README](./README.md)).
+
+TL;DR: fully vibe-coded work is not accepted.
+
+### Why?
+Now that LLMs are commonplace, open source maintainers are getting spammed with low quality bug reports, security advisories and PRs. I encourage users to spend their time on complicated and exciting issues and new features, but instead I keep receiving AI-made fixes for the easiest issues, often submitted to build up a contribution count.
+
+This integration is focused on security and stability and review takes time. Besides just taking time, some PRs and proposed solutions that AI created are just plain wrong, do not follow the project values or have other maintainability downsides.
+
+TL;DR: If I can create the same thing within a few minutes with my own AI assistance and manually understand and review it, it is not worth reviewing your vibe-coded contribution.
+
 
 ## Non-code contributions
 If you are not a programmer, you can still contribute by:
@@ -76,4 +104,6 @@ services:
 ```
 
 # Found a security issue?
-Please see [SECURITY.md](./SECURITY.md) for more information on how to submit your security issue securely. You can find previously found vulnerablities and their corresponding security advisories at the [Security Advisories page](https://github.com/christiaangoossens/hass-oidc-auth/security/advisories).
+Please see [SECURITY.md](./SECURITY.md) for more information on how to submit your security issue securely. You can find previously found vulnerabilities and their corresponding security advisories at the [Security Advisories page](https://github.com/christiaangoossens/hass-oidc-auth/security/advisories).
+
+Do not submit security issues as normal public issues!
