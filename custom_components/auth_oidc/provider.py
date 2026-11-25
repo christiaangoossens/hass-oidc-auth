@@ -34,7 +34,7 @@ from .config.const import (
     FEATURES_AUTOMATIC_USER_LINKING,
     FEATURES_REQUIRE_EXISTING_USER,
 )
-from .stores.state_store import StateStore
+from .stores.state_store import STATE_TTL, StateStore
 from .tools.types import UserDetails
 
 type IPAddress = IPv4Address | IPv6Address
@@ -108,15 +108,12 @@ class OpenIDAuthProvider(AuthProvider):  # pylint: disable=abstract-method
     async def async_initialize(self) -> None:
         """Initialize the auth provider."""
 
-        # Init the store first
-        # Use the same technique as the HomeAssistant auth provider for storage
-        # (/auth/providers/homeassistant.py#L392)
         async with self._init_lock:
             if self._state_store is not None:
                 return
 
             store = StateStore(self.hass)
-            await store.async_load()
+            await store.async_remove_legacy_storage()
             self._state_store = store
             self._user_meta = {}
 
@@ -283,13 +280,12 @@ class OpenIDAuthProvider(AuthProvider):  # pylint: disable=abstract-method
     def get_cookie_header(self, state_id: str, secure: bool = False):
         """Get the cookie header to set the state_id cookie."""
         secure_flag = "; Secure" if secure else ""
+        max_age = int(STATE_TTL.total_seconds())
+
+        # Set a cookie for the other pages to know the state_id, as long as the state lives
         return {
-            # Set a cookie for the other pages to know the state_id
-            # Keep cookie lifetime aligned with state lifetime in storage (5 minutes).
-            "set-cookie": f"{COOKIE_NAME}="
-            + state_id
-            + "; Path=/auth/; SameSite=Lax; HttpOnly; Max-Age=300"
-            + secure_flag,
+            "set-cookie": f"{COOKIE_NAME}={state_id}; Path=/auth/; SameSite=Lax; "
+            + f"HttpOnly; Max-Age={max_age}{secure_flag}",
         }
 
     # ====
