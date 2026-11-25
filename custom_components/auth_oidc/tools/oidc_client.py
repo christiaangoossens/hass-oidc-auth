@@ -387,14 +387,14 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         await self.http_session.close()
         self.http_session = None
 
-    async def _make_token_request(self, token_endpoint, query_params):
-        """Performs the token POST call"""
+    async def _make_token_request(self, token_endpoint, query_params) -> dict:
+        """Performs the token POST call and returns the validated token response."""
         try:
             session = await self._get_http_session()
 
             async with session.post(token_endpoint, data=query_params) as response:
                 await http_raise_for_status(response)
-                return await response.json()
+                token_response = await response.json()
         except HTTPClientError as e:
             if e.status == 400:
                 _LOGGER.warning(
@@ -408,6 +408,22 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                 _LOGGER.warning("Unexpected error exchanging token: %s", e)
 
             raise OIDCTokenResponseInvalid from e
+        except (aiohttp.ContentTypeError, ValueError) as e:
+            _LOGGER.warning("Token response is not valid JSON: %s", e)
+            raise OIDCTokenResponseInvalid from e
+
+        # OpenID Connect Core 1.0 Section 3.1.3.3
+        # A successful token response contains both an ID token and an access token
+        if not isinstance(token_response, dict):
+            _LOGGER.warning("Token response is not a JSON object")
+            raise OIDCTokenResponseInvalid()
+
+        for field in ("id_token", "access_token"):
+            if not isinstance(token_response.get(field), str):
+                _LOGGER.warning("Token response does not contain an %s", field)
+                raise OIDCTokenResponseInvalid()
+
+        return token_response
 
     async def _get_userinfo(self, userinfo_uri, access_token):
         """Fetches userinfo from the given URL."""
@@ -450,11 +466,8 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
 
     async def _parse_id_token(self, id_token: str) -> dict | None:
         """Parses the ID token into a dict containing token contents."""
-        if self.discovery_document is None:
-            self.discovery_document = await self._fetch_discovery_document()
-
-        jwks_uri = self.discovery_document["jwks_uri"]
-        jwks_data = await self._fetch_jwks(jwks_uri)
+        discovery_document = await self._fetch_discovery_document()
+        jwks_data = await self._fetch_jwks(discovery_document["jwks_uri"])
 
         try:
             # Obtain the id_token header
@@ -507,8 +520,8 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
 
                 # Get the correct key
                 signing_key = None
-                for key in jwks_data["keys"]:
-                    if key["kid"] == kid:
+                for key in jwks_data.get("keys", []):
+                    if key.get("kid") == kid:
                         signing_key = key
                         break
 
@@ -545,7 +558,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                 # OpenID Connect Core 1.0 Section 3.1.3.7.2
                 # The Issuer Identifier for the OpenID Provider MUST exactly
                 # match the value of the iss (issuer) Claim.
-                iss={"essential": True, "value": self.discovery_document["issuer"]},
+                iss={"essential": True, "value": discovery_document["issuer"]},
                 # OpenID Connect Core 1.0 Section 3.1.3.7.9
                 # OpenID Connect Core 1.0 Section 3.1.3.7.10
                 # No need to specify exp, nbf, iat, they are in here by default
@@ -693,10 +706,8 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                 token_endpoint, query_params
             )
 
-            id_token = token_response.get("id_token")
-
             # Parse the id token to obtain the relevant details
-            id_token = await self._parse_id_token(id_token)
+            id_token = await self._parse_id_token(token_response["id_token"])
 
             if id_token is None:
                 _LOGGER.warning("ID token could not be parsed!")
@@ -710,8 +721,9 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                 _LOGGER.warning("Nonce mismatch!")
                 return None
 
-            access_token = token_response.get("access_token")
-            data = await self.parse_user_details(id_token, access_token)
+            data = await self.parse_user_details(
+                id_token, token_response["access_token"]
+            )
 
             # Log which details were obtained for debugging
             # Also log the original subject identifier such that you can look it up in your provider
