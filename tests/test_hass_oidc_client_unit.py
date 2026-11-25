@@ -4,7 +4,7 @@ import base64
 import hashlib
 import json
 import time
-from typing import Literal
+from typing import Any, Literal
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, urlparse
 
@@ -809,54 +809,45 @@ async def test_get_http_session_reuses_existing_session(hass: HomeAssistant):
     assert session is existing_session
 
 
-@pytest.mark.asyncio
-async def test_get_http_session_applies_tls_verify_flag(hass: HomeAssistant):
-    """Session helper should pass tls_verify setting into TCP connector."""
-    client = make_client(hass, network={"tls_verify": False})
-
-    with (
-        patch(
-            "custom_components.auth_oidc.tools.oidc_client.aiohttp.TCPConnector",
-            return_value=MagicMock(),
-        ) as tcp_connector,
-        patch(
-            "custom_components.auth_oidc.tools.oidc_client.aiohttp.ClientSession",
-            return_value=MagicMock(),
-        ),
-    ):
-        await client._get_http_session()
-
-    tcp_connector.assert_called_once_with(verify_ssl=False)
-
-
-@pytest.mark.asyncio
-async def test_get_http_session_uses_custom_ca_path(hass: HomeAssistant):
-    """Session helper should create SSL context when custom CA path is configured."""
-    client = make_client(
-        hass,
-        network={"tls_verify": True, "tls_ca_path": "/tmp/test-ca.pem"},
-    )
-    fake_ssl_context = object()
+@pytest.mark.parametrize(
+    ("network", "expected_ssl"),
+    [
+        ({}, True),
+        ({"tls_verify": False}, False),
+        ({"tls_verify": True, "tls_ca_path": "/tmp/test-ca.pem"}, "custom CA"),
+        ({"tls_verify": False, "tls_ca_path": "/tmp/test-ca.pem"}, False),
+    ],
+)
+async def test_get_http_session_tls_options(
+    hass: HomeAssistant, network: dict[str, Any], expected_ssl: Any
+):
+    """Verification on, off, or with a custom CA, where turning it off wins over a CA."""
+    client = make_client(hass, network=network)
 
     with (
         patch.object(
-            hass.loop,
-            "run_in_executor",
-            new=AsyncMock(return_value=fake_ssl_context),
-        ) as run_in_executor,
-        patch(
-            "custom_components.auth_oidc.tools.oidc_client.aiohttp.TCPConnector",
-            return_value=MagicMock(),
-        ) as tcp_connector,
-        patch(
-            "custom_components.auth_oidc.tools.oidc_client.aiohttp.ClientSession",
-            return_value=MagicMock(),
+            hass.loop, "run_in_executor", new=AsyncMock(return_value="custom CA")
         ),
+        patch(
+            "custom_components.auth_oidc.tools.oidc_client.aiohttp.TCPConnector"
+        ) as tcp_connector,
+        patch("custom_components.auth_oidc.tools.oidc_client.aiohttp.ClientSession"),
     ):
         await client._get_http_session()
 
-    run_in_executor.assert_awaited_once()
-    tcp_connector.assert_called_once_with(verify_ssl=True, ssl=fake_ssl_context)
+    tcp_connector.assert_called_once_with(ssl=expected_ssl)
+
+
+async def test_async_close_closes_the_session(hass: HomeAssistant):
+    """Closing the client closes its HTTP session, and is safe to repeat."""
+    client = make_client(hass)
+    session = await client._get_http_session()
+
+    await client.async_close()
+    await client.async_close()
+
+    assert session.closed
+    assert client.http_session is None
 
 
 @pytest.mark.asyncio

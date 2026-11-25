@@ -1,14 +1,18 @@
 """Tests for the YAML config setup of OIDC"""
 
+from unittest.mock import patch
+
 import pytest
+from homeassistant.const import EVENT_HOMEASSISTANT_CLOSE
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 
 from custom_components.auth_oidc import DOMAIN
 from custom_components.auth_oidc.config.const import ADDITIONAL_SCOPES
+from custom_components.auth_oidc.tools.oidc_client import OIDCClient
 
 
-async def setup(hass: HomeAssistant, config: dict, expect_success: bool) -> bool:
+async def setup(hass: HomeAssistant, config: dict, expect_success: bool) -> None:
     """Set up the auth_oidc component."""
     result = await async_setup_component(hass, DOMAIN, {DOMAIN: config})
 
@@ -39,6 +43,24 @@ async def test_setup_success_yaml(hass: HomeAssistant, config: dict):
         config,
         True,
     )
+
+
+async def test_http_session_closes_when_home_assistant_stops(hass: HomeAssistant):
+    """The OIDC client's HTTP session is closed on shutdown."""
+    with patch.object(OIDCClient, "async_close") as async_close:
+        await setup(
+            hass,
+            {
+                "client_id": "dummy",
+                "discovery_url": "https://example.com/.well-known/openid-configuration",
+            },
+            True,
+        )
+
+        hass.bus.async_fire(EVENT_HOMEASSISTANT_CLOSE)
+        await hass.async_block_till_done()
+
+    async_close.assert_awaited_once()
 
 
 @pytest.mark.asyncio
