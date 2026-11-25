@@ -16,11 +16,11 @@ STATE_COOKIE_NAME = "auth_oidc_state"
 
 
 def get_url(path: str, force_https: bool) -> str:
-    """Returns the requested path appended to the current request base URL."""
+    """Returns the requested path appended to the origin of the current request."""
     if (req := http.current_request.get()) is None:
         raise RuntimeError("No current request in context")
 
-    base_uri = str(req.url).split("/auth", 2)[0]
+    base_uri = str(req.url.origin())
     if force_https:
         base_uri = base_uri.replace("http://", "https://")
     return f"{base_uri}{path}"
