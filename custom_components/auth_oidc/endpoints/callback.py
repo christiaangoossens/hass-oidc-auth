@@ -1,5 +1,7 @@
 """Callback route to return the user to after external OIDC interaction."""
 
+import logging
+
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
@@ -9,6 +11,8 @@ from ..tools.helpers import error_response, get_url, get_valid_state_id
 from ..tools.oidc_client import OIDCClient
 
 PATH = "/auth/oidc/callback"
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class OIDCCallbackView(HomeAssistantView):
@@ -43,24 +47,36 @@ class OIDCCallbackView(HomeAssistantView):
         code = params.get("code")
         state = params.get("state")
 
+        error = params.get("error")
+        description = params.get("error_description")
+        if error:
+            _LOGGER.warning(
+                "Identity provider returned error %r: %r", error, description
+            )
+
         # The state is still valid from here on, so errors keep the cookie and
         # "Try again" restarts the login with the original redirect_uri.
 
-        # If the provider returned an OAuth error (for example access_denied),
-        # surface the provider error instead of the misleading missing code or
-        # state message.
-        if params.get("error"):
-            error_description = params.get("error_description", params.get("error"))
-            return await error_response(
-                "oidc_error", message=error_description, reset_cookie=False
-            )
-
-        if not (code and state):
+        # Both codes and errors from the identity provider carry our state
+        # (RFC 6749 Section 4.1.2 and 4.1.2.1). Checking it first means a
+        # crafted link can't show its own error text on this page.
+        if not state:
             return await error_response("missing_code_or_state", reset_cookie=False)
 
-        # Check if the states match
         if state != state_id:
             return await error_response("state_mismatch", reset_cookie=False)
+
+        # Show the identity provider's error (for example access_denied)
+        # instead of the misleading missing code message
+        if error:
+            return await error_response(
+                "oidc_error",
+                placeholders={"description": description or error},
+                reset_cookie=False,
+            )
+
+        if not code:
+            return await error_response("missing_code_or_state", reset_cookie=False)
 
         # The flow is only there if this state was sent to the identity provider.
         # Going back to an earlier callback leaves the login itself intact.

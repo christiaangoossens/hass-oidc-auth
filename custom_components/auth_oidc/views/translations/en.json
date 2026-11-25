@@ -54,7 +54,7 @@
       "invalid_redirect_uri": "Invalid redirect_uri, please restart login.",
       "device_code_failed": "Failed to generate device code, please restart login.",
       "misconfigured": "Integration is misconfigured, discovery could not be obtained.",
-      "oidc_error": "The OIDC provider returned an error. Please try again."
+      "oidc_error": "The OIDC provider returned an error: {description}"
     }
   }
 }
