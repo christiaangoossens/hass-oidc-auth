@@ -390,6 +390,36 @@ async def test_login_with_linking(hass: HomeAssistant, hass_client):
         assert user2.id == user.id  # Assert that the user was linked
 
 
+@pytest.mark.asyncio
+async def test_linking_does_not_ignore_case(hass: HomeAssistant, hass_client):
+    """An identity provider username that only differs in case is another user,
+    so it never links to the local account (see issues #58 and #374)."""
+    await setup(
+        hass,
+        {
+            **DEFAULT_CONFIG,
+            FEATURES: {
+                FEATURES_AUTOMATIC_PERSON_CREATION: False,
+                FEATURES_AUTOMATIC_USER_LINKING: True,
+            },
+        },
+        True,
+    )
+
+    with mock_oidc_responses("username_mixed_case"):
+        user = await hass.auth.async_create_user("Foo Bar")
+        hass_provider = hass.auth.get_auth_providers("homeassistant")[0]
+        credential = await hass_provider.async_get_or_create_credentials(
+            {"username": "foobar"}
+        )
+        await hass.auth.async_link_user(user, credential)
+
+        state_id = await get_login_state(hass, hass_client)
+        other_user = await login_user(hass, state_id)
+
+        assert other_user.id != user.id
+
+
 @pytest.mark.parametrize("automatic_user_linking", [False, True])
 @pytest.mark.asyncio
 async def test_require_existing_user_denies_new_oidc_identity(

@@ -265,7 +265,10 @@ class OpenIDAuthProvider(AuthProvider):
             if user.system_generated:
                 continue
 
-            # Check if we have a homeassistant credential with the provided username
+            # Check if we have a homeassistant credential with the provided username.
+            # The match is exact on purpose: identity providers can allow usernames
+            # that only differ in case, so ignoring case would let another identity
+            # provider user take over this account (see issues #58 and #374).
             for credential in user.credentials:
                 if (
                     credential.auth_provider_type == HASS_PROVIDER_TYPE
