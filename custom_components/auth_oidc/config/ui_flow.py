@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -12,6 +11,7 @@ import aiohttp
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from ..tools.oidc_client import (
     OIDCDiscoveryClient,
@@ -62,10 +62,6 @@ CONF_USER_GROUP = "user_group"
 CONF_ENABLE_USER_LINKING = "enable_user_linking"
 CONF_REQUIRE_EXISTING_USER = "require_existing_user"
 
-# Cache settings
-DISCOVERY_CACHE_TTL = 300  # 5 minutes
-MAX_CACHE_SIZE = 10
-
 
 @dataclass
 class FlowState:
@@ -94,36 +90,18 @@ class FeatureConfig:
     require_existing_user: bool = False
 
 
+# is_matching is only used for discovered flows, and this integration isn't discovered
+# pylint: disable-next=abstract-method
 class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for OIDC Authentication."""
 
     VERSION = 1
-
-    def is_matching(self, other_flow):
-        """Check if this flow is the same as another flow."""
-        self_state = getattr(self, "_flow_state", None)
-        other_state = getattr(other_flow, "_flow_state", None)
-
-        if not self_state or not other_state:
-            return False
-
-        self_discovery_url = self_state.discovery_url
-        other_discovery_url = other_state.discovery_url
-
-        return (
-            self_discovery_url
-            and other_discovery_url
-            and self_discovery_url.rstrip("/").lower()
-            == other_discovery_url.rstrip("/").lower()
-        )
 
     def __init__(self):
         """Initialize the config flow."""
         self._flow_state = FlowState()
         self._client_config = ClientConfig()
         self._feature_config = FeatureConfig()
-        self._discovery_cache = {}
-        self._cache_timestamps = {}
 
     @property
     def current_provider_config(self) -> dict[str, Any]:
@@ -136,36 +114,6 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def current_provider_name(self) -> str:
         """Get the name of the currently selected provider."""
         return get_provider_name(self._flow_state.provider)
-
-    def _cleanup_discovery_cache(self) -> None:
-        """Remove expired and excess cache entries."""
-        current_time = time.time()
-
-        # Remove expired entries
-        expired_keys = [
-            key
-            for key, timestamp in self._cache_timestamps.items()
-            if current_time - timestamp > DISCOVERY_CACHE_TTL
-        ]
-        for key in expired_keys:
-            self._discovery_cache.pop(key, None)
-            self._cache_timestamps.pop(key, None)
-
-        # Remove oldest entries if cache is too large
-        if len(self._discovery_cache) > MAX_CACHE_SIZE:
-            sorted_items = sorted(self._cache_timestamps.items(), key=lambda x: x[1])
-            excess_count = len(self._discovery_cache) - MAX_CACHE_SIZE
-            for key, _ in sorted_items[:excess_count]:
-                self._discovery_cache.pop(key, None)
-                self._cache_timestamps.pop(key, None)
-
-    def _is_cache_valid(self, cache_key: str) -> bool:
-        """Check if a cache entry is still valid."""
-        if cache_key not in self._cache_timestamps:
-            return False
-
-        age = time.time() - self._cache_timestamps[cache_key]
-        return age <= DISCOVERY_CACHE_TTL
 
     # =================
     # Step 1: Provider selection
@@ -285,40 +233,19 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Perform the actual OIDC validation and return discovery doc and errors."""
         errors = {}
         discovery_doc = {}
-        http_session = aiohttp.ClientSession()
 
         try:
             discovery_client = OIDCDiscoveryClient(
                 discovery_url=self._flow_state.discovery_url or "",
-                http_session=http_session,
+                http_session=async_get_clientsession(self.hass),
                 verification_context={
                     # Cannot be changed from the UI config currently
                     "id_token_signing_alg": DEFAULT_ID_TOKEN_SIGNING_ALGORITHM,
                 },
             )
 
-            # Clean up expired cache entries first
-            self._cleanup_discovery_cache()
-
-            # Check if discovery document is already cached and valid
-            cache_key = self._flow_state.discovery_url or ""
-            if cache_key in self._discovery_cache and self._is_cache_valid(cache_key):
-                discovery_doc = self._discovery_cache[cache_key]
-
-                # Still validate JWKS if available since this might be a retry
-                if "jwks_uri" in discovery_doc:
-                    await discovery_client.fetch_jwks(discovery_doc["jwks_uri"])
-            else:
-                # Perform discovery and JWKS validation
-                discovery_doc = await discovery_client.fetch_discovery_document()
-
-                # Cache the discovery document with timestamp
-                self._discovery_cache[cache_key] = discovery_doc
-                self._cache_timestamps[cache_key] = time.time()
-
-                # Validate JWKS if available
-                if "jwks_uri" in discovery_doc:
-                    await discovery_client.fetch_jwks(discovery_doc["jwks_uri"])
+            discovery_doc = await discovery_client.fetch_discovery_document()
+            await discovery_client.fetch_jwks(discovery_doc["jwks_uri"])
 
         except OIDCDiscoveryInvalid as e:
             errors["base"] = "discovery_invalid"
@@ -331,8 +258,6 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         except Exception:
             _LOGGER.exception("Unexpected error during validation")
             errors["base"] = "unknown"
-        finally:
-            await http_session.close()
 
         return discovery_doc, errors
 
@@ -673,8 +598,6 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle reconfiguration of OIDC client credentials."""
         errors = {}
         entry = self._get_reconfigure_entry()
-        if entry is None:
-            return self.async_abort(reason="unknown")
 
         if user_input is not None:
             try:
@@ -682,13 +605,12 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     entry, user_input
                 )
 
+                # The provider can't be reloaded, so the new credentials need a restart
                 if not errors:
-                    # Update the config entry
-                    await self.async_set_unique_id(entry.unique_id)
-                    self._abort_if_unique_id_mismatch()
-
-                    return self.async_update_reload_and_abort(
-                        entry, data_updates=data_updates or {}
+                    return self.async_update_and_abort(
+                        entry,
+                        data_updates=data_updates or {},
+                        reason="reconfigure_restart_required",
                     )
             # pylint: disable-next=broad-except
             except Exception:
@@ -708,34 +630,6 @@ class OIDCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "discovery_url": current_data.get("discovery_url", ""),
             },
         )
-
-    # Intentionally widens HA's return type: returns None instead of raising when the
-    # entry cannot be found, so the reconfigure step can abort gracefully.
-    def _get_reconfigure_entry(  # pyright: ignore[reportIncompatibleMethodOverride]
-        self,
-    ) -> config_entries.ConfigEntry | None:
-        """Return the config entry being reconfigured if available.
-
-        Prefer the entry referenced by the flow context's entry_id. Fall back to the
-        first existing entry for this domain when only a single instance is allowed.
-        """
-        # Try from flow context (preferred)
-        entry_id = None
-        context = getattr(self, "context", None)
-        if context and hasattr(context, "get"):
-            entry_id = context.get("entry_id")
-
-        if entry_id:
-            entry = self.hass.config_entries.async_get_entry(entry_id)
-            if entry and entry.domain == DOMAIN:
-                return entry
-
-        # Fallback: this integration allows a single instance; use the first
-        current = self._async_current_entries()
-        if current:
-            return current[0]
-
-        return None
 
     @staticmethod
     @callback
