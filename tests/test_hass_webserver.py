@@ -23,6 +23,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 
 from custom_components.auth_oidc import DOMAIN
+from custom_components.auth_oidc.endpoints import device_sse
 from custom_components.auth_oidc.endpoints.injected_auth_page import (
     OIDCInjectedAuthPage,
     frontend_injection,
@@ -886,16 +887,17 @@ async def test_finish_post_rejects_invalid_state(
 
 
 @pytest.mark.asyncio
-async def test_device_sse_requires_state_cookie(
+async def test_device_sse_without_state_reports_expired(
     hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
-    """SSE endpoint should reject requests without state cookie."""
+    """Without a valid state the stream says expired, so the page offers a new code."""
     await setup(hass)
 
     client = await hass_client()
     resp = await client.get("/auth/oidc/device-sse", allow_redirects=False)
-    assert resp.status == 400
-    assert "Missing session cookie" in await resp.text()
+
+    assert resp.status == 200
+    assert await resp.text() == "event: expired\ndata: false\n\n"
 
 
 @pytest.mark.asyncio
@@ -903,32 +905,6 @@ async def test_device_sse_emits_expired_for_unknown_state(
     hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
     """SSE should emit expired when the state can no longer be resolved."""
-    await setup(hass)
-
-    with patch(
-        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_get_redirect_uri_for_state",
-        new=AsyncMock(return_value=None),
-    ):
-        client = await hass_client()
-        redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID, get_test_origin(client))
-        encoded = encode_redirect_uri(redirect_uri)
-        resp_welcome = await client.get(
-            f"/auth/oidc/welcome?redirect_uri={encoded}",
-            allow_redirects=False,
-        )
-        assert resp_welcome.status == 200
-
-        resp = await client.get("/auth/oidc/device-sse", allow_redirects=False)
-        assert resp.status == 200
-        payload = await resp.text()
-        assert "event: expired" in payload
-
-
-@pytest.mark.asyncio
-async def test_device_sse_emits_timeout(
-    hass: HomeAssistant, hass_client: ClientSessionGenerator
-):
-    """SSE should emit timeout if the polling window is exceeded."""
     await setup(hass)
 
     client = await hass_client()
@@ -940,27 +916,86 @@ async def test_device_sse_emits_timeout(
     )
     assert resp_welcome.status == 200
 
-    fake_loop = MagicMock()
-    fake_loop.time.side_effect = [0, 301]
-
-    with (
-        patch(
-            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_get_redirect_uri_for_state",
-            new=AsyncMock(return_value=redirect_uri),
-        ),
-        patch(
-            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_ready",
-            new=AsyncMock(return_value=False),
-        ),
-        patch(
-            "custom_components.auth_oidc.endpoints.device_sse.asyncio.get_running_loop",
-            return_value=fake_loop,
-        ),
+    # Valid when the stream opens, expired at the first poll
+    with patch(
+        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_valid",
+        new=AsyncMock(side_effect=[True, False]),
     ):
         resp = await client.get("/auth/oidc/device-sse", allow_redirects=False)
         assert resp.status == 200
         payload = await resp.text()
-        assert "event: timeout" in payload
+        assert "event: expired" in payload
+
+
+@pytest.mark.asyncio
+async def test_device_sse_ready_wins_over_expired(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """An approved login finishes even when its state expires at the same poll."""
+    await setup(hass)
+
+    client = await hass_client()
+    redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID, get_test_origin(client))
+    await client.get(
+        f"/auth/oidc/welcome?redirect_uri={encode_redirect_uri(redirect_uri)}",
+        allow_redirects=False,
+    )
+
+    with (
+        patch(
+            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_valid",
+            new=AsyncMock(side_effect=[True, False]),
+        ),
+        patch(
+            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_ready",
+            new=AsyncMock(return_value=True),
+        ),
+    ):
+        resp = await client.get("/auth/oidc/device-sse", allow_redirects=False)
+        payload = await resp.text()
+
+    assert payload.endswith("event: ready\ndata: true\n\n")
+    assert "event: expired" not in payload
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("keepalive_seconds", "keepalives"),
+    [(0, 2), (15, 0)],
+)
+async def test_device_sse_sends_keepalive_while_waiting(
+    hass: HomeAssistant,
+    hass_client: ClientSessionGenerator,
+    monkeypatch: pytest.MonkeyPatch,
+    keepalive_seconds: int,
+    keepalives: int,
+):
+    """A waiting stream says so once, then only sends a keepalive after a quiet period."""
+    await setup(hass)
+
+    client = await hass_client()
+    redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID, get_test_origin(client))
+    await client.get(
+        f"/auth/oidc/welcome?redirect_uri={encode_redirect_uri(redirect_uri)}",
+        allow_redirects=False,
+    )
+
+    monkeypatch.setattr(device_sse, "POLL_SECONDS", 0)
+    monkeypatch.setattr(device_sse, "KEEPALIVE_SECONDS", keepalive_seconds)
+
+    # Valid when the stream opens and for two polls, expired at the third
+    with patch(
+        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_valid",
+        new=AsyncMock(side_effect=[True, True, True, False]),
+    ):
+        resp = await client.get("/auth/oidc/device-sse", allow_redirects=False)
+        payload = await resp.text()
+
+    assert resp.headers["Content-Type"] == "text/event-stream"
+    assert resp.headers["X-Accel-Buffering"] == "no"
+    assert payload.count("event: waiting") == 1
+    assert payload.count(": keepalive") == keepalives
+    assert payload.endswith("event: expired\ndata: false\n\n")
 
 
 @pytest.mark.asyncio
@@ -979,15 +1014,9 @@ async def test_device_sse_handles_runtime_error_and_returns_cleanly(
     )
     assert resp_welcome.status == 200
 
-    with (
-        patch(
-            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_get_redirect_uri_for_state",
-            new=AsyncMock(return_value=redirect_uri),
-        ),
-        patch(
-            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_ready",
-            new=AsyncMock(side_effect=RuntimeError("disconnect")),
-        ),
+    with patch(
+        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_ready",
+        new=AsyncMock(side_effect=RuntimeError("disconnect")),
     ):
         resp = await client.get("/auth/oidc/device-sse", allow_redirects=False)
         assert resp.status == 200
@@ -1011,8 +1040,8 @@ async def test_device_sse_ignores_write_eof_connection_reset(
 
     with (
         patch(
-            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_get_redirect_uri_for_state",
-            new=AsyncMock(return_value=None),
+            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_valid",
+            new=AsyncMock(side_effect=[True, False]),
         ),
         patch(
             "custom_components.auth_oidc.endpoints.device_sse.web.StreamResponse.write_eof",

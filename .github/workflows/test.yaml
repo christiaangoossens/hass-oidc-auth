@@ -35,3 +35,14 @@ jobs:
         uses: astral-sh/setup-uv@v10.4.0
       - name: Test on the minimum Home Assistant version from hacs.json
         run: scripts/test-ha
+
+  javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Test the page scripts
+        run: npm test
