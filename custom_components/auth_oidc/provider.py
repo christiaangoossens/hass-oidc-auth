@@ -156,20 +156,31 @@ class OpenIDAuthProvider(AuthProvider):
             return False
 
     def can_offer_other_login(self, req: web.Request) -> bool:
-        """Check if Home Assistant's login page offers another provider to this request."""
+        """Check if Home Assistant's login page offers another provider to this request.
+
+        If that can't be checked, for example without a client IP or when another
+        provider fails, the welcome page offers the default login anyway.
+        """
         others = [p for p in self.hass.auth.auth_providers if p is not self]
 
-        if has_login_hook():
-            # Same context as Home Assistant's /auth/providers (AuthProvidersView.get), see
-            # https://github.com/home-assistant/core/blob/master/homeassistant/components/auth/login_flow.py
-            context = AuthFlowContext(ip_address=ip_address(cast(str, req.remote)))
-            return any(provider.async_can_start_login(context) for provider in others)
+        try:
+            if has_login_hook():
+                # Same context as Home Assistant's /auth/providers (AuthProvidersView.get), see
+                # https://github.com/home-assistant/core/blob/master/homeassistant/components/auth/login_flow.py
+                context = AuthFlowContext(ip_address=ip_address(cast(str, req.remote)))
+                return any(
+                    provider.async_can_start_login(context) for provider in others
+                )
 
-        # Before 2026.11, trusted networks is the only provider that hides itself
-        return any(
-            provider.type != "trusted_networks" or self.is_trusted_network_host()
-            for provider in others
-        )
+            # Before 2026.11, trusted networks is the only provider that hides itself
+            return any(
+                provider.type != "trusted_networks" or self.is_trusted_network_host()
+                for provider in others
+            )
+        # pylint: disable-next=broad-except
+        except Exception:
+            _LOGGER.exception("Could not check the other login providers")
+            return True
 
     def is_login_ready(self) -> bool:
         """Check if the current request carries a state that finished the OIDC login.
@@ -251,11 +262,35 @@ class OpenIDAuthProvider(AuthProvider):
 
         Keeping this lookup behind the feature flag avoids silently weakening
         the security of automatic_user_linking=False.
+
+        A user that already has an OIDC login is never linked again. Otherwise
+        whoever gets the username next at the identity provider, after a rename
+        or a deletion, would get into the same account.
         """
         if not self.user_linking or not username:
             return None
 
-        return await self._async_find_user_by_username(username)
+        user = await self._async_find_user_by_username(username)
+        if user is None:
+            return None
+
+        if any(self._is_own_credential(cred) for cred in user.credentials):
+            _LOGGER.warning(
+                "Not linking OIDC username '%s' to Home Assistant user %s, "
+                "because that user is already linked to another OIDC login.",
+                username,
+                user.id,
+            )
+            return None
+
+        return user
+
+    def _is_own_credential(self, credential: Credentials) -> bool:
+        """Return whether the credential belongs to this OIDC provider."""
+        return (
+            credential.auth_provider_type == self.type
+            and credential.auth_provider_id == self.id
+        )
 
     async def _async_find_user_by_username(self, username: str) -> User | None:
         """Find a user by username."""
@@ -265,7 +300,10 @@ class OpenIDAuthProvider(AuthProvider):
             if user.system_generated:
                 continue
 
-            # Check if we have a homeassistant credential with the provided username
+            # Check if we have a homeassistant credential with the provided username.
+            # The match is exact on purpose: identity providers can allow usernames
+            # that only differ in case, so ignoring case would let another identity
+            # provider user take over this account (see issues #58 and #374).
             for credential in user.credentials:
                 if (
                     credential.auth_provider_type == HASS_PROVIDER_TYPE
@@ -289,11 +327,7 @@ class OpenIDAuthProvider(AuthProvider):
             return
 
         credential = user.credentials[0]
-        if not (
-            credential.auth_provider_type == self.type
-            and credential.auth_provider_id == self.id
-        ):
-            # Not mine, return
+        if not self._is_own_credential(credential):
             return
 
         # Audit log the user creation

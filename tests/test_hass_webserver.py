@@ -9,6 +9,7 @@ from unittest.mock import ANY, AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse
 
 import pytest
+from aiohttp import web
 from auth_oidc.config.const import (
     CLIENT_ID,
     DISCOVERY_URL,
@@ -24,6 +25,7 @@ from homeassistant.setup import async_setup_component
 
 from custom_components.auth_oidc import DOMAIN
 from custom_components.auth_oidc.endpoints import device_sse
+from custom_components.auth_oidc.tools.http_route_takeover import take_over_get_route
 from custom_components.auth_oidc.tools.types import OIDCFlow
 
 from .integration import get_state_store
@@ -698,35 +700,107 @@ async def test_callback_rejects_missing_code(
     assert "Missing code or state parameter." in await resp_missing_code.text()
 
 
-@pytest.mark.asyncio
-async def test_callback_surfaces_provider_error(
-    hass: HomeAssistant, hass_client: ClientSessionGenerator
-):
-    """An OAuth error from the provider shows the provider error,
-    not the misleading missing code or state message."""
-    await setup(hass)
-
-    client = await hass_client()
+async def open_welcome_page(client) -> str:
+    """Open the welcome page like a browser, and return the state cookie."""
     redirect_uri = create_redirect_uri(
         get_test_client_id(client), get_test_origin(client)
     )
-    encoded = encode_redirect_uri(redirect_uri)
-    resp_welcome = await client.get(
-        f"/auth/oidc/welcome?redirect_uri={encoded}",
+    resp = await client.get(
+        f"/auth/oidc/welcome?redirect_uri={encode_redirect_uri(redirect_uri)}",
         allow_redirects=False,
     )
-    state = resp_welcome.cookies["auth_oidc_state"].value
+    return resp.cookies["auth_oidc_state"].value
 
-    resp_error = await client.get(
-        "/auth/oidc/callback?error=access_denied"
-        "&error_description=The+user+denied+access"
-        f"&state={state}",
+
+@pytest.mark.parametrize(
+    ("error_params", "language", "shown"),
+    [
+        (
+            {"error": "access_denied", "error_description": "The user denied access"},
+            "en",
+            "The OIDC provider returned an error: The user denied access",
+        ),
+        (
+            {"error": "access_denied"},
+            "en",
+            "The OIDC provider returned an error: access_denied",
+        ),
+        (
+            # Home Assistant itself already blocks queries with <...script...>
+            {"error": "access_denied", "error_description": "<b>{code}</b>"},
+            "en",
+            "The OIDC provider returned an error: &lt;b&gt;{code}&lt;/b&gt;",
+        ),
+        (
+            {"error": "access_denied", "error_description": "The user denied access"},
+            "de",
+            "Der OIDC-Anbieter hat einen Fehler zurückgegeben: The user denied access",
+        ),
+    ],
+    ids=["description", "code-only", "escaped", "german"],
+)
+async def test_callback_shows_provider_error(
+    hass: HomeAssistant,
+    hass_client: ClientSessionGenerator,
+    error_params: dict[str, str],
+    language: str,
+    shown: str,
+):
+    """An OAuth error from the identity provider, with our state, shows its
+    description, or its code, escaped and after a translated lead-in."""
+    await setup(hass)
+
+    client = await hass_client()
+    state = await open_welcome_page(client)
+
+    resp = await client.get(
+        f"/auth/oidc/callback?{urlencode({**error_params, 'state': state})}",
+        headers={"Accept-Language": language},
         allow_redirects=False,
     )
-    text = await resp_error.text()
-    assert resp_error.status == 400
-    assert "The user denied access" in text
-    assert "Missing code or state parameter." not in text
+    text = await resp.text()
+
+    assert resp.status == 400
+    assert shown in text
+    assert "<b>" not in text
+
+
+@pytest.mark.parametrize(
+    ("query", "shown_error"),
+    [
+        ("error=access_denied&state=other", "State parameter does not match"),
+        ("error=access_denied", "Missing code or state parameter."),
+    ],
+    ids=["wrong-state", "no-state"],
+)
+async def test_callback_hides_provider_text_without_matching_state(
+    hass: HomeAssistant,
+    hass_client: ClientSessionGenerator,
+    caplog: pytest.LogCaptureFixture,
+    query: str,
+    shown_error: str,
+):
+    """A crafted callback link can't show its own text on the error page,
+    because an error without our state is rejected like a code would be.
+    The error is still logged."""
+    await setup(hass)
+
+    client = await hass_client()
+    await open_welcome_page(client)
+
+    resp = await client.get(
+        f"/auth/oidc/callback?{query}&error_description=Call+support+now",
+        allow_redirects=False,
+    )
+    text = await resp.text()
+
+    assert resp.status == 400
+    assert shown_error in text
+    assert "Call support now" not in text
+    assert (
+        "Identity provider returned error 'access_denied': 'Call support now'"
+        in caplog.text
+    )
 
 
 @pytest.mark.asyncio
@@ -1212,11 +1286,29 @@ async def test_authorize_page_serves_home_assistant_page_when_skipped(
     await assert_home_assistant_login_page(response)
 
 
+@pytest.mark.parametrize("path", ["/test/post-only", "/test/missing"])
+async def test_route_takeover_needs_an_existing_get_route(
+    hass: HomeAssistant, path: str
+):
+    """A path without a GET route, or without any route, is not taken over."""
+    await async_setup_component(hass, HTTP_DOMAIN, {})
+
+    async def handler(_request: web.Request) -> web.Response:
+        return web.Response(text="post")
+
+    hass.http.app.router.add_post("/test/post-only", handler)
+    wrap = MagicMock()
+
+    assert take_over_get_route(hass, path, wrap) is False
+    wrap.assert_not_called()
+
+
 @pytest.mark.asyncio
 async def test_authorize_redirect_uses_https_when_forced(
     hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
-    """With force_https, the login page redirects to https and returns to https."""
+    """With force_https, the login page redirects to https and returns to https,
+    without changing the client's own redirect_uri."""
     await setup_mock_authorize_route(hass)
     assert await async_setup_component(
         hass,
@@ -1245,3 +1337,6 @@ async def test_authorize_redirect_uses_https_when_forced(
     ).decode()
     assert location.startswith("https://")
     assert return_url.startswith("https://")
+
+    client_redirect_uri = parse_qs(urlparse(return_url).query)["redirect_uri"][0]
+    assert client_redirect_uri == unquote(encoded_redirect_uri)

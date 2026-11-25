@@ -7,6 +7,7 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_CLOSE
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryError
 
 # Get all the constants for the config
 from .config import (
@@ -22,6 +23,7 @@ from .config import (
     FEATURES_INCLUDE_GROUPS_SCOPE,
     GROUPS_SCOPE,
     ID_TOKEN_SIGNING_ALGORITHM,
+    MAP_GROUPS_TO_ROLES,
     NETWORK,
     REQUIRED_SCOPES,
     ROLES,
@@ -68,6 +70,13 @@ async def async_setup(hass: HomeAssistant, config):
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up OIDC Authentication from a config entry (UI config)."""
+    # A second setup would register the routes and listeners again
+    if hass.data.get(DOMAIN, {}).get("yaml_config"):
+        raise ConfigEntryError(
+            "OIDC is already configured in YAML. "
+            + "Remove either the YAML configuration or this entry."
+        )
+
     # Convert config entry data to the format expected by the existing setup
     config_data = entry.data.copy()
 
@@ -176,6 +185,7 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict):
         claims=my_config.get(CLAIMS, {}),
         roles=my_config.get(ROLES, {}),
         network=my_config.get(NETWORK, {}),
+        map_groups_to_roles=my_config.get(MAP_GROUPS_TO_ROLES, True),
     )
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_CLOSE, oidc_client.async_close)
 

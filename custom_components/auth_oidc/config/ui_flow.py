@@ -33,6 +33,8 @@ from .const import (
     DISPLAY_NAME,
     DOMAIN,
     FEATURES,
+    FEATURES_INCLUDE_GROUPS_SCOPE,
+    MAP_GROUPS_TO_ROLES,
     ROLES,
 )
 from .provider_catalog import (
@@ -754,5 +756,10 @@ def convert_ui_config_entry_to_internal_format(config_data: dict) -> dict:
     # Roles configuration
     if "roles" in config_data:
         my_config[ROLES] = config_data["roles"]
+
+    # With groups off, the groups claim must not grant a role (such as the
+    # default "admins" group), even if the identity provider sends it
+    features = config_data.get("features", {})
+    my_config[MAP_GROUPS_TO_ROLES] = features.get(FEATURES_INCLUDE_GROUPS_SCOPE, True)
 
     return my_config

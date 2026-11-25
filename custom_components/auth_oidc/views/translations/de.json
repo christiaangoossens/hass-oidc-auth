@@ -49,11 +49,12 @@
       "user_not_allowed": "Dieses Konto darf sich nicht bei Home Assistant anmelden. Bitte kontaktiere deinen Administrator!",
       "save_user_info_failed": "Benutzerinformationen konnten nicht gespeichert werden, vermutlich ist die Sitzung abgelaufen. Bitte melde dich erneut an.",
       "invalid_state": "Ungültiger Status, bitte starte die Anmeldung neu.",
-      "device_link_failed": "Der Status konnte nicht mit dem Geräte-Code verknüpft werden, bitte starte die Anmeldung neu.",
+      "device_link_failed": "Der Status konnte nicht mit dem Geräte-Code verknüpft werden, bitte prüfe den Code und versuche es erneut.",
+      "device_code_attempts_exceeded": "Zu viele falsche Gerätecodes, bitte starte die Anmeldung neu.",
       "invalid_redirect_uri": "Ungültige redirect_uri, bitte starte die Anmeldung neu.",
       "device_code_failed": "Gerätecode konnte nicht erstellt werden, bitte starte die Anmeldung neu.",
       "misconfigured": "Die Integration ist falsch konfiguriert, die Discovery-Konfiguration konnte nicht abgerufen werden.",
-      "oidc_error": "Der OIDC-Anbieter hat einen Fehler zurückgegeben. Bitte versuche es erneut."
+      "oidc_error": "Der OIDC-Anbieter hat einen Fehler zurückgegeben: {description}"
     }
   }
 }

@@ -55,9 +55,8 @@ class AuthorizeRedirect:
 
     def welcome_location(self, req: web.Request) -> str:
         """Build the welcome URL that returns to this login page afterwards."""
-        url = str(req.url)
-        if self.force_https:
-            url = url.replace("http://", "https://")
+        # Only the scheme changes, not http:// inside query values like redirect_uri
+        url = str(req.url.with_scheme("https") if self.force_https else req.url)
 
         encoded_current_url = quote(
             base64.b64encode(url.encode("utf-8")).decode("ascii")

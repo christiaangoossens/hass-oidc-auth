@@ -31,6 +31,12 @@ from .validation import validate_url
 
 _LOGGER = logging.getLogger(__name__)
 
+# Seconds before any request to the identity provider is given up
+HTTP_TIMEOUT = 15
+
+# Connection, DNS and timeout errors, and responses that aren't valid JSON
+TRANSPORT_ERRORS = (aiohttp.ClientError, TimeoutError, ValueError)
+
 
 class OIDCClientException(Exception):
     "Raised when the OIDC Client encounters an error"
@@ -306,6 +312,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         discovery_url: str,
         client_id: str,
         scope: str,
+        map_groups_to_roles: bool = True,
         **kwargs: Any,
     ):
         self.hass = hass
@@ -313,6 +320,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         self.discovery_document = None
         self.client_id = client_id
         self.scope = scope
+        self.map_groups_to_roles = map_groups_to_roles
 
         # Optional parameters
         self.client_secret = kwargs.get("client_secret")
@@ -375,7 +383,9 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             )
 
         self.http_session = aiohttp.ClientSession(
-            trust_env=True, connector=aiohttp.TCPConnector(ssl=ssl_option)
+            trust_env=True,
+            connector=aiohttp.TCPConnector(ssl=ssl_option),
+            timeout=aiohttp.ClientTimeout(total=HTTP_TIMEOUT),
         )
         return self.http_session
 
@@ -408,8 +418,8 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                 _LOGGER.warning("Unexpected error exchanging token: %s", e)
 
             raise OIDCTokenResponseInvalid from e
-        except (aiohttp.ContentTypeError, ValueError) as e:
-            _LOGGER.warning("Token response is not valid JSON: %s", e)
+        except TRANSPORT_ERRORS as e:
+            _LOGGER.warning("Token request failed: %r", e)
             raise OIDCTokenResponseInvalid from e
 
         # OpenID Connect Core 1.0 Section 3.1.3.3
@@ -437,6 +447,9 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         except HTTPClientError as e:
             _LOGGER.warning("Error fetching userinfo: %s", e)
             raise OIDCUserinfoInvalid from e
+        except TRANSPORT_ERRORS as e:
+            _LOGGER.warning("Userinfo request failed: %r", e)
+            raise OIDCUserinfoInvalid from e
 
     async def _fetch_discovery_document(self):
         """Fetches discovery document."""
@@ -453,7 +466,13 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                 },
             )
 
-        self.discovery_document = await self.discovery_class.fetch_discovery_document()
+        try:
+            document = await self.discovery_class.fetch_discovery_document()
+        except TRANSPORT_ERRORS as e:
+            _LOGGER.warning("Discovery request failed: %r", e)
+            raise OIDCDiscoveryInvalid(type="fetch_error") from e
+
+        self.discovery_document = document
         return self.discovery_document
 
     async def _fetch_jwks(self, jwks_uri: str):
@@ -462,7 +481,25 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             await self._fetch_discovery_document()
 
         assert self.discovery_class is not None
-        return await self.discovery_class.fetch_jwks(jwks_uri)
+        try:
+            return await self.discovery_class.fetch_jwks(jwks_uri)
+        except TRANSPORT_ERRORS as e:
+            _LOGGER.warning("JWKS request failed: %r", e)
+            raise OIDCJWKSInvalid from e
+
+    @staticmethod
+    def _find_signing_key(jwks_data: Any, kid: str) -> dict | None:
+        """Return the key with the given key ID from the JWKS, if it has one."""
+        keys = jwks_data.get("keys") if isinstance(jwks_data, dict) else None
+        if not isinstance(keys, list):
+            _LOGGER.warning("JWKS does not contain a list of keys")
+            return None
+
+        for key in keys:
+            if isinstance(key, dict) and key.get("kid") == kid:
+                return key
+
+        return None
 
     async def _parse_id_token(self, id_token: str) -> dict | None:
         """Parses the ID token into a dict containing token contents."""
@@ -470,12 +507,9 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         jwks_data = await self._fetch_jwks(discovery_document["jwks_uri"])
 
         try:
-            # Obtain the id_token header
+            # Obtain the id_token header, joserfc rejects a header without alg
             token_obj = jws.extract_compact(id_token.encode())
             unverified_header = token_obj.protected
-            if not unverified_header:
-                _LOGGER.warning("Could not get header from received id_token.")
-                return None
 
             # Obtain the signing algorithm from the header of the id_token
             alg = unverified_header.get("alg")
@@ -518,13 +552,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                     _LOGGER.warning("JWT does not have kid (Key ID)")
                     return None
 
-                # Get the correct key
-                signing_key = None
-                for key in jwks_data.get("keys", []):
-                    if key.get("kid") == kid:
-                        signing_key = key
-                        break
-
+                signing_key = self._find_signing_key(jwks_data, kid)
                 if not signing_key:
                     _LOGGER.warning("Could not find matching key with kid: %s", kid)
                     return None
@@ -559,17 +587,20 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                 # The Issuer Identifier for the OpenID Provider MUST exactly
                 # match the value of the iss (issuer) Claim.
                 iss={"essential": True, "value": discovery_document["issuer"]},
-                # OpenID Connect Core 1.0 Section 3.1.3.7.9
-                # OpenID Connect Core 1.0 Section 3.1.3.7.10
-                # No need to specify exp, nbf, iat, they are in here by default
+                # OpenID Connect Core 1.0 Section 3.1.3.7.9 and 3.1.3.7.10
+                # exp and iat are required in an ID token (Section 2), so they
+                # must be present. Their values, and nbf, are always checked.
+                exp={"essential": True},
+                iat={"essential": True},
                 sub={"essential": True},
             )
 
             id_token_validator.validate(decoded_token.claims)
             return decoded_token.claims
 
-        except joserfc_errors.JoseError as e:
-            _LOGGER.warning("JWT verification failed: %s", e)
+        # A malformed key or token can also raise ValueError or TypeError
+        except (joserfc_errors.JoseError, ValueError, TypeError) as e:
+            _LOGGER.warning("JWT verification failed: %r", e)
             return None
 
     async def async_get_authorization_url(
@@ -617,6 +648,59 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             _LOGGER.warning("Error generating authorization URL: %s", e)
             return None
 
+    def _check_userinfo_subject(self, userinfo: Any, id_token: dict) -> None:
+        """Check that the userinfo is about the user of the ID token.
+
+        OpenID Connect Core 1.0 Section 5.3.2: the sub Claim in the UserInfo
+        Response MUST be verified to exactly match the sub Claim in the ID Token.
+        """
+        if not isinstance(userinfo, dict):
+            _LOGGER.warning("Userinfo response is not a JSON object")
+            raise OIDCUserinfoInvalid()
+
+        if userinfo.get("sub") != id_token.get("sub"):
+            _LOGGER.warning(
+                "Userinfo subject %r does not match the ID token subject %r",
+                userinfo.get("sub"),
+                id_token.get("sub"),
+            )
+            raise OIDCUserinfoInvalid()
+
+    @staticmethod
+    def _get_string_claim(id_token: dict, claim: str) -> str | None:
+        """Return the claim if it is a string, otherwise leave it out."""
+        value = id_token.get(claim)
+        if value is None or isinstance(value, str):
+            return value
+
+        _LOGGER.warning("Claim '%s' is not a string, ignoring it", claim)
+        return None
+
+    def _get_role_from_groups(self, id_token: dict) -> UserRole:
+        """Return the role for the groups in the groups claim.
+
+        Precedence, from lowest to highest: user -> read-only -> admin.
+        The read-only group is checked after the user group so that an
+        explicit read-only group also applies to users that match the
+        (possibly unset, thus catch-all) user role.
+        """
+        groups = id_token.get(self.groups_claim, [])
+        if not isinstance(groups, list):
+            _LOGGER.warning("Groups claim is not a list, using empty list instead.")
+            groups = []
+
+        role: UserRole = "invalid"
+        if self.user_role in groups or self.user_role is None:
+            role = "system-users"
+
+        if self.read_only_role is not None and self.read_only_role in groups:
+            role = "system-read-only"
+
+        if self.admin_role in groups:
+            role = "system-admin"
+
+        return role
+
     async def parse_user_details(
         self, id_token: dict, access_token: str
     ) -> UserDetails:
@@ -628,6 +712,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
         if "userinfo_endpoint" in discovery_document:
             userinfo_endpoint = discovery_document["userinfo_endpoint"]
             userinfo = await self._get_userinfo(userinfo_endpoint, access_token)
+            self._check_userinfo_subject(userinfo, id_token)
 
             # Replace missing claims in the id_token with their userinfo version
             for claim in (
@@ -638,26 +723,9 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                 if claim not in id_token and claim in userinfo:
                     id_token[claim] = userinfo[claim]
 
-        # Get and parse groups (to check if it's an array)
-        groups = id_token.get(self.groups_claim, [])
-        if not isinstance(groups, list):
-            _LOGGER.warning("Groups claim is not a list, using empty list instead.")
-            groups = []
-
-        # Assign role if user has the required groups.
-        # Precedence, from lowest to highest: user -> read-only -> admin.
-        # The read-only group is checked after the user group so that an
-        # explicit read-only group also applies to users that match the
-        # (possibly unset, thus catch-all) user role.
-        role: UserRole = "invalid"
-        if self.user_role in groups or self.user_role is None:
-            role = "system-users"
-
-        if self.read_only_role is not None and self.read_only_role in groups:
-            role = "system-read-only"
-
-        if self.admin_role in groups:
-            role = "system-admin"
+        role: UserRole = "system-users"
+        if self.map_groups_to_roles:
+            role = self._get_role_from_groups(id_token)
 
         # Create a user details dict based on the contents of the id_token & userinfo
         return {
@@ -669,9 +737,9 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                 f"{discovery_document['issuer']}.{id_token.get('sub')}".encode()
             ).hexdigest(),
             # Display name, configurable
-            "display_name": id_token.get(self.display_name_claim),
+            "display_name": self._get_string_claim(id_token, self.display_name_claim),
             # Username, configurable
-            "username": id_token.get(self.username_claim),
+            "username": self._get_string_claim(id_token, self.username_claim),
             # Role
             "role": role,
         }

@@ -15,7 +15,7 @@
 <script>
     // Redirect after loading the page to show the redirect visual
     setTimeout(() => {
-        auth_url = decodeURIComponent("{{ url }}");
+        const auth_url = decodeURIComponent("{{ url }}");
         window.location.href = auth_url;
     }, 0);
 </script>

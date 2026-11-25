@@ -128,6 +128,12 @@ async def test_static_url_includes_hash(tmp_path, monkeypatch):
     assert result == f"{url}?v={md5(b'abc').hexdigest()[:8]}"
 
 
+async def test_static_url_of_unregistered_file_is_refused():
+    """Only files the integration registers can be linked from a page."""
+    with pytest.raises(ValueError, match="not registered"):
+        await AsyncTemplateRenderer.get_static_file_url("/static/auth_oidc/nope.js")
+
+
 @pytest.mark.asyncio
 async def test_static_url_works_from_any_working_directory(tmp_path, monkeypatch):
     """Home Assistant can be started from any directory, the hash still works."""

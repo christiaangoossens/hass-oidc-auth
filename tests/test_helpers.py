@@ -10,6 +10,7 @@ from aiohttp.test_utils import make_mocked_request
 from custom_components.auth_oidc.config.const import REPO_ROOT_URL
 from custom_components.auth_oidc.tools.helpers import (
     STATE_COOKIE_NAME,
+    concat_url_query,
     error_response,
     get_state_id,
     get_url,
@@ -152,6 +153,30 @@ async def test_html_response_and_template_helpers():
     )
 
 
+async def test_template_response_without_parameters():
+    """A template without parameters still gets the help link."""
+    with patch(
+        "custom_components.auth_oidc.tools.helpers.get_view",
+        new=AsyncMock(return_value="<p>rendered</p>"),
+    ) as mocked_get_view:
+        await template_response("finish")
+
+    mocked_get_view.assert_awaited_once_with("finish", {"help_url": REPO_ROOT_URL})
+
+
+@pytest.mark.parametrize("reset_cookie", [True, False])
+async def test_error_response_resets_cookie_only_when_asked(reset_cookie: bool):
+    """The error page clears the state cookie unless the state is still valid."""
+    with patch(
+        "custom_components.auth_oidc.tools.helpers.get_view",
+        new=AsyncMock(return_value="<p>error</p>"),
+    ):
+        response = await error_response("misconfigured", reset_cookie=reset_cookie)
+
+    cleared = f"{STATE_COOKIE_NAME}=;" in response.headers.get("set-cookie", "")
+    assert cleared is reset_cookie
+
+
 @pytest.mark.asyncio
 async def test_error_response():
     """Error response helper should render the shared error template with status
@@ -169,6 +194,7 @@ async def test_error_response():
         {
             "error": "Integration is misconfigured, discovery could not be obtained.",
             "help_url": REPO_ROOT_URL,
+            "retry_url": "/auth/oidc/redirect",
         },
     )
 
@@ -216,3 +242,17 @@ async def test_client_id():
     assert not validate_client_id(" ")
     assert validate_client_id("test4")
     assert validate_client_id("test4 ")
+
+
+@pytest.mark.parametrize(
+    ("base", "expected"),
+    [
+        ("https://a.example/", "https://a.example/?skip=true"),
+        ("https://a.example/?x=1", "https://a.example/?x=1&skip=true"),
+        ("https://a.example/#/page", "https://a.example/?skip=true#/page"),
+        ("https://a.example/?x=1#/p?y=2", "https://a.example/?x=1&skip=true#/p?y=2"),
+    ],
+)
+def test_concat_url_query_adds_before_the_fragment(base: str, expected: str):
+    """The query is added where the server sees it, before a #fragment."""
+    assert concat_url_query(base, "skip=true") == expected

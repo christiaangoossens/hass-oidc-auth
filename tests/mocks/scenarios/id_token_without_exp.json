@@ -1,0 +1,3 @@
+{
+    "omit_id_token_claims": ["exp"]
+}

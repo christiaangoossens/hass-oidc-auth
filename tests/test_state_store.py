@@ -127,6 +127,42 @@ async def test_state_store_throttles_device_code_link_attempts(
         assert state_store.link_state_to_code(donor_state, wrong_code, TEST_IP) is False
 
     assert state_store.link_state_to_code(donor_state, code, TEST_IP) is False
+    assert state_store.has_device_code_attempts_left(donor_state, TEST_IP) is False
+
+
+async def test_state_store_unknown_state_has_no_attempts(state_store: StateStore):
+    """A state that doesn't exist, or belongs to another IP, can't link a device."""
+    state_id = create_ready_state(state_store, make_user("attempts"))
+
+    assert state_store.has_device_code_attempts_left(state_id, TEST_IP) is True
+    assert state_store.has_device_code_attempts_left(state_id, "10.0.0.1") is False
+    assert state_store.has_device_code_attempts_left("unknown", TEST_IP) is False
+
+
+async def test_state_store_new_login_forgets_previous_user(state_store: StateStore):
+    """Starting a new identity provider login on a ready state makes it not ready."""
+    state_id = create_ready_state(state_store, make_user("first-user"))
+
+    assert state_store.set_flow_for_state(state_id, TEST_FLOW, TEST_IP)
+
+    assert state_store.is_state_ready(state_id, TEST_IP) is False
+
+
+async def test_state_store_new_login_keeps_device_code_attempts(
+    state_store: StateStore,
+):
+    """Logging in again on the same state doesn't give new device code attempts."""
+    donor_state = create_ready_state(state_store, make_user("user-retry"))
+    _, code = create_device_state(state_store)
+    wrong_code = "000000" if code != "000000" else "111111"
+
+    for _ in range(MAX_DEVICE_CODE_ATTEMPTS):
+        state_store.link_state_to_code(donor_state, wrong_code, TEST_IP)
+
+    assert state_store.set_flow_for_state(donor_state, TEST_FLOW, TEST_IP)
+    assert state_store.set_userinfo_for_state(donor_state, make_user("user-retry"))
+
+    assert state_store.link_state_to_code(donor_state, code, TEST_IP) is False
 
 
 async def test_state_store_device_codes_are_unique(state_store: StateStore):
@@ -199,6 +235,16 @@ async def test_state_store_state_is_only_valid_for_its_ip(state_store: StateStor
 
     expire(state_store, state_id)
     assert not state_store.is_state_valid(state_id, TEST_IP)
+
+
+async def test_state_store_other_ip_cannot_use_up_a_login(state_store: StateStore):
+    """Someone with the state id but another IP can't throw away the login."""
+    user = make_user("ip-bound")
+    state_id = create_ready_state(state_store, user)
+
+    assert state_store.pop_userinfo_for_state(state_id, "10.0.0.1") is None
+
+    assert state_store.pop_userinfo_for_state(state_id, TEST_IP) == user
 
 
 async def test_state_store_keeps_states_in_memory(

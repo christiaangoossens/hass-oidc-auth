@@ -45,7 +45,7 @@ packages = ["custom_components/auth_oidc"]
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
-addopts = "-p no:respx --cov=custom_components --cov-fail-under=90"
+addopts = "-p no:respx --cov=custom_components --cov-fail-under=95"
 log_level = "DEBUG"
 
 [tool.pyright]

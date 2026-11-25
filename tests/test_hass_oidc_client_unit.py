@@ -291,6 +291,7 @@ async def test_parse_user_details_uses_userinfo_for_missing_claims(
             "_get_userinfo",
             new=AsyncMock(
                 return_value={
+                    "sub": "subject",
                     "name": "From UserInfo",
                     "preferred_username": "userinfo-user",
                     "groups": ["admins"],

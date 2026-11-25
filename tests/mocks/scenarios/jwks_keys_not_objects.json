@@ -1,0 +1,3 @@
+{
+    "jwks": {"keys": ["not a key"]}
+}
