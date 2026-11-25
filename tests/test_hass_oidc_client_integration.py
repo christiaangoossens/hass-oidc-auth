@@ -541,6 +541,9 @@ async def test_device_login_flow_two_browsers(hass: HomeAssistant, hass_client):
         assert mobile_state is not None
         assert 'id="device-instructions"' in mobile_html
         assert 'id="device-code"' in mobile_html
+        for element_id in ("device-waiting", "device-expired", "device-check-again"):
+            assert f'id="{element_id}"' in mobile_html
+        assert "/static/auth_oidc/device.js?v=" in mobile_html
 
         mobile_device_code = get_device_code(mobile_html)
 

@@ -99,6 +99,10 @@ STATIC_FILE_REGISTRATIONS = {
         True,
     ],
     "/static/auth_oidc/icon.png": ["custom_components/auth_oidc/brand/icon.png", True],
+    "/static/auth_oidc/device.js": [
+        "custom_components/auth_oidc/static/device.js",
+        True,
+    ],
     "/static/auth_oidc/injection.js": [
         "custom_components/auth_oidc/static/injection.js",
         True,
