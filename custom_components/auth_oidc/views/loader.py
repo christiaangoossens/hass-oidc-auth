@@ -28,27 +28,27 @@ class AsyncTemplateRenderer:
         )
 
     async def fetch_templates(self) -> None:
-        """Fetches all HTML files from the template directory."""
-        templates.clear()
+        """Fetches all HTML files from the template directory.
 
-        files = await async_scandir(self.template_dir)
+        The shared cache is only replaced once every file is read, so a render
+        running at the same time never sees a partly filled cache.
+        """
+        loaded: dict[str, str] = {}
 
-        for file in files:
-            if file.is_dir():
+        for file in await async_scandir(self.template_dir):
+            if file.is_dir() or not file.name.endswith(".html"):
                 continue
 
-            filename = file.name
-            if filename.endswith(".html"):
-                template_path = path.join(self.template_dir, filename)
-                try:
-                    _LOGGER.debug("Fetching template %s from disk", filename)
-                    async with async_open(
-                        template_path, mode="r", encoding="utf-8"
-                    ) as f:
-                        content = await f.read()
-                        templates[filename] = content
-                except OSError as e:  # pragma: no cover
-                    _LOGGER.warning("Error reading template file %s: %s", filename, e)
+            template_path = path.join(self.template_dir, file.name)
+            try:
+                _LOGGER.debug("Fetching template %s from disk", file.name)
+                async with async_open(template_path, mode="r", encoding="utf-8") as f:
+                    loaded[file.name] = await f.read()
+            except OSError as e:  # pragma: no cover
+                _LOGGER.warning("Error reading template file %s: %s", file.name, e)
+
+        templates.clear()
+        templates.update(loaded)
 
     async def render_template(
         self, template_name: str, accept_language: str | None = None, **kwargs: Any
@@ -60,10 +60,9 @@ class AsyncTemplateRenderer:
         function and the 'lang' variable.
         """
 
-        if not templates:
-            await (
-                self.fetch_templates()
-            )  # If the templates haven't been fetched, fetch them
+        # Load the templates on first use, and again if one is missing
+        if template_name not in templates:
+            await self.fetch_templates()
 
         if template_name not in templates:
             raise ValueError(f"Template '{template_name}' not found.")

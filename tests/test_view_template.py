@@ -1,7 +1,9 @@
 """Tests for the view templates"""
 
+import asyncio
 from hashlib import md5
 from os import path
+from unittest.mock import patch
 
 import pytest
 
@@ -84,6 +86,30 @@ async def test_random_render_error():
     await renderer.fetch_templates()
     with pytest.raises(ValueError):
         await renderer.render_template("non_existing.html")
+
+
+async def test_render_reloads_a_partly_filled_cache():
+    """A template missing from the cache, e.g. after an interrupted load, is loaded."""
+    loader.templates.clear()
+    loader.templates["other.html"] = "<p>Other</p>"
+
+    rendered = await AsyncTemplateRenderer().render_template("welcome.html", name="X")
+
+    assert "<!DOCTYPE html>" in rendered
+
+
+async def test_interrupted_load_leaves_cache_untouched():
+    """A load that is cancelled halfway doesn't replace the cache with a partial one."""
+    loader.templates.clear()
+    loader.templates["index.html"] = "<p>Cached</p>"
+
+    with (
+        patch.object(loader, "async_open", side_effect=asyncio.CancelledError),
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await AsyncTemplateRenderer(template_dir=FAKE_TEMPLATE_PATH).fetch_templates()
+
+    assert loader.templates == {"index.html": "<p>Cached</p>"}
 
 
 @pytest.mark.asyncio
