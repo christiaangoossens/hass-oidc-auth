@@ -1216,7 +1216,8 @@ async def test_authorize_page_serves_home_assistant_page_when_skipped(
 async def test_authorize_redirect_uses_https_when_forced(
     hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
-    """With force_https, the login page redirects to https and returns to https."""
+    """With force_https, the login page redirects to https and returns to https,
+    without changing the client's own redirect_uri."""
     await setup_mock_authorize_route(hass)
     assert await async_setup_component(
         hass,
@@ -1245,3 +1246,6 @@ async def test_authorize_redirect_uses_https_when_forced(
     ).decode()
     assert location.startswith("https://")
     assert return_url.startswith("https://")
+
+    client_redirect_uri = parse_qs(urlparse(return_url).query)["redirect_uri"][0]
+    assert client_redirect_uri == unquote(encoded_redirect_uri)
