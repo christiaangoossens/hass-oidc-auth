@@ -1,8 +1,11 @@
 """Tests for the registered webpages"""
 
+from __future__ import annotations
+
 import base64
 import os
 from collections import OrderedDict
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse
 
@@ -18,13 +21,17 @@ from homeassistant.components.http import DOMAIN as HTTP_DOMAIN
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
-from pytest_homeassistant.typing import ClientSessionGenerator
 
 from custom_components.auth_oidc import DOMAIN
 from custom_components.auth_oidc.endpoints.injected_auth_page import (
     OIDCInjectedAuthPage,
     frontend_injection,
 )
+
+if TYPE_CHECKING:
+    # Annotation only, so the tests also run with the older
+    # pytest-homeassistant-custom-component harness (HA < 2026.11)
+    from pytest_homeassistant.typing import ClientSessionGenerator
 
 MOBILE_CLIENT_ID = "https://home-assistant.io/Android"
 WELCOME_PATH = "/auth/oidc/welcome"

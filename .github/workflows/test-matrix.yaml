@@ -1,0 +1,37 @@
+---
+name: Tests (all Home Assistant versions)
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  versions:
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.list.outputs.versions }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: List the stable Home Assistant versions to test
+        id: list
+        run: echo "versions=$(scripts/ha-versions)" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: versions
+    name: Home Assistant ${{ matrix.version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ fromJSON(needs.versions.outputs.versions) }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: "Set up Python"
+        uses: actions/setup-python@v7
+        with:
+          python-version-file: ".python-version"
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v10.4.0
+      - name: Test
+        run: scripts/test-ha ${{ matrix.version }}

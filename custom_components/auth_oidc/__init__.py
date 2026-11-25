@@ -4,7 +4,7 @@ import logging
 import re
 from collections import OrderedDict
 
-from homeassistant.components.http.server import StaticPathConfig
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 

@@ -1,0 +1,30 @@
+#! /bin/bash
+# Run the test suite against a stable Home Assistant release, in a throwaway environment.
+# Usage: scripts/test-ha [2025.11 | 2025.11.3] [pytest args...]
+# Defaults to the minimum version from hacs.json.
+set -e
+
+version="${1:-$(python3 -c 'import json; print(json.load(open("hacs.json"))["homeassistant"])')}"
+[ $# -gt 0 ] && shift
+
+# A minor (2025.11) selects its latest patch release, a full version pins it exactly
+if [[ "$version" =~ ^[0-9]+\.[0-9]+$ ]]; then
+    ha_spec="homeassistant~=$version.0"
+else
+    ha_spec="homeassistant==$version"
+fi
+
+# The test harness was renamed in 2026.11, both pin the matching Home Assistant version
+if [ "$(printf '%s\n' 2026.11 "$version" | sort -V | head -1)" = "2026.11" ]; then
+    harness="pytest-homeassistant"
+else
+    harness="pytest-homeassistant-custom-component"
+fi
+
+# The integration itself (with its runtime dependencies), without the locked dev group.
+# The pytest floor keeps uv from falling back to ancient harness releases that don't
+# pin Home Assistant, so a missing harness fails instead of testing the wrong version.
+echo "Testing against $ha_spec using $harness"
+uv run --isolated --no-project \
+    --with-editable . --with "$ha_spec" --with "$harness" --with "pytest>=8.4" --with pytest-cov \
+    pytest tests/ "$@"
