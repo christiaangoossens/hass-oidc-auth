@@ -10,7 +10,7 @@ from functools import partial
 from typing import Any
 
 import aiohttp
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, HomeAssistant
 from joserfc import errors as joserfc_errors
 from joserfc import jwk, jws, jwt
 
@@ -360,19 +360,32 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             self.tls_ca_path,
         )
 
-        tcp_connector_args = {"verify_ssl": self.tls_verify}
+        # True or False to turn verification on or off, or a context with the custom CA
+        ssl_option: ssl.SSLContext | bool = self.tls_verify
 
-        if self.tls_ca_path:
+        if self.tls_ca_path and not self.tls_verify:
+            _LOGGER.warning(
+                "Certificate verification is off, so the custom CA file %s is not used",
+                self.tls_ca_path,
+            )
+        elif self.tls_ca_path:
             # Move to hass' executor to prevent blocking code inside non-blocking method
-            ssl_context = await self.hass.loop.run_in_executor(
+            ssl_option = await self.hass.loop.run_in_executor(
                 None, partial(ssl.create_default_context, cafile=self.tls_ca_path)
             )
-            tcp_connector_args["ssl"] = ssl_context
 
         self.http_session = aiohttp.ClientSession(
-            trust_env=True, connector=aiohttp.TCPConnector(**tcp_connector_args)
+            trust_env=True, connector=aiohttp.TCPConnector(ssl=ssl_option)
         )
         return self.http_session
+
+    async def async_close(self, _event: Event | None = None) -> None:
+        """Close the HTTP session, called when Home Assistant stops."""
+        if self.http_session is None:
+            return
+
+        await self.http_session.close()
+        self.http_session = None
 
     async def _make_token_request(self, token_endpoint, query_params):
         """Performs the token POST call"""

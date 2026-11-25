@@ -6,6 +6,7 @@ from collections import OrderedDict
 
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EVENT_HOMEASSISTANT_CLOSE
 from homeassistant.core import HomeAssistant
 
 # Get all the constants for the config
@@ -178,6 +179,7 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
         roles=my_config.get(ROLES, {}),
         network=my_config.get(NETWORK, {}),
     )
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_CLOSE, oidc_client.async_close)
 
     # Register the views
     name = display_name
