@@ -203,6 +203,47 @@ async def test_complete_token_flow_handles_token_request_failure(hass: HomeAssis
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "read_json",
+    [
+        AsyncMock(return_value={"access_token": "access"}),
+        AsyncMock(return_value={"id_token": None, "access_token": "access"}),
+        AsyncMock(return_value={"id_token": "id"}),
+        AsyncMock(return_value=["not", "an", "object"]),
+        AsyncMock(side_effect=json.JSONDecodeError("Expecting value", "", 0)),
+    ],
+    ids=["no_id_token", "null_id_token", "no_access_token", "not_an_object", "no_json"],
+)
+async def test_complete_token_flow_rejects_malformed_token_response(
+    hass: HomeAssistant, read_json: AsyncMock
+):
+    """A malformed token response fails the login instead of raising."""
+    client = make_client(hass)
+    response = MagicMock()
+    response.ok = True
+    response.json = read_json
+
+    context_manager = AsyncMock()
+    context_manager.__aenter__.return_value = response
+    session = MagicMock()
+    session.post.return_value = context_manager
+
+    with (
+        patch.object(
+            client,
+            "_fetch_discovery_document",
+            new=AsyncMock(return_value={"token_endpoint": "https://issuer/token"}),
+        ),
+        patch.object(client, "_get_http_session", new=AsyncMock(return_value=session)),
+    ):
+        result = await client.async_complete_token_flow(
+            "https://example.com/callback", "code", TEST_FLOW
+        )
+
+    assert result is None
+
+
+@pytest.mark.asyncio
 async def test_parse_user_details_handles_non_list_groups(hass: HomeAssistant):
     """Non-list groups should not accidentally grant roles."""
     client = make_client(hass, roles={"user": "users", "admin": "admins"})
@@ -496,7 +537,7 @@ async def test_parse_id_token_returns_none_when_kid_missing(hass: HomeAssistant)
 
 @pytest.mark.asyncio
 async def test_parse_id_token_returns_none_when_kid_not_found(hass: HomeAssistant):
-    """ID token with unknown kid should be rejected."""
+    """ID token with unknown kid should be rejected, also when keys have no kid."""
     client = make_client(hass)
     client.discovery_document = {
         "issuer": "https://issuer",
@@ -508,7 +549,7 @@ async def test_parse_id_token_returns_none_when_kid_not_found(hass: HomeAssistan
     with patch.object(
         client,
         "_fetch_jwks",
-        new=AsyncMock(return_value={"keys": [{"kid": "other"}]}),
+        new=AsyncMock(return_value={"keys": [{"kty": "RSA"}, {"kid": "other"}]}),
     ):
         parsed = await client._parse_id_token(token)
 
@@ -856,7 +897,8 @@ async def test_make_token_request_returns_json_on_success(hass: HomeAssistant):
     client = make_client(hass)
     response = MagicMock()
     response.ok = True
-    response.json = AsyncMock(return_value={"access_token": "token"})
+    token_response = {"id_token": "id", "access_token": "token"}
+    response.json = AsyncMock(return_value=token_response)
 
     context_manager = AsyncMock()
     context_manager.__aenter__.return_value = response
@@ -868,7 +910,7 @@ async def test_make_token_request_returns_json_on_success(hass: HomeAssistant):
             "https://issuer/token", {"code": "abc"}
         )
 
-    assert payload == {"access_token": "token"}
+    assert payload == token_response
 
 
 @pytest.mark.asyncio
