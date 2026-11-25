@@ -356,6 +356,20 @@ async def test_full_login(hass: HomeAssistant, hass_client):
         assert user2.id == user.id
 
 
+async def test_login_ignores_name_claims_that_are_not_strings(
+    hass: HomeAssistant, hass_client
+):
+    """A display name or username that isn't a string is left out,
+    and the login still creates a user."""
+    await setup(hass, DEFAULT_CONFIG, True)
+
+    with mock_oidc_responses("name_claims_not_strings"):
+        state_id = await get_login_state(hass, hass_client)
+        user = await login_user(hass, state_id)
+
+    assert user.name is None
+
+
 @pytest.mark.asyncio
 async def test_login_with_linking(hass: HomeAssistant, hass_client):
     """Test a linking login."""

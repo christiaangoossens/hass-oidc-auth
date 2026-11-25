@@ -1,0 +1,6 @@
+{
+    "id_token_claims": {
+        "name": ["Test", "Name"],
+        "preferred_username": 42
+    }
+}

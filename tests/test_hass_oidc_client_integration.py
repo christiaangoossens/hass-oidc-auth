@@ -981,13 +981,16 @@ async def test_callback_shows_error_when_identity_provider_fails(
         "userinfo_not_object",
         "id_token_without_exp",
         "id_token_without_iat",
+        "jwks_not_object",
+        "jwks_keys_not_objects",
+        "jwks_key_not_base64",
     ],
 )
 async def test_callback_rejects_invalid_identity_provider_data(
     hass: HomeAssistant, hass_client, scenario: str
 ):
-    """Userinfo about another user, or an ID token without exp or iat,
-    gives a login error instead of a login."""
+    """Userinfo about another user, an ID token without exp or iat, or a
+    malformed JWKS gives a login error instead of a login or a crash."""
     await setup(hass)
 
     with mock_oidc_responses(scenario):

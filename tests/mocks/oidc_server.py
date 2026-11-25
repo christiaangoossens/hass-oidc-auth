@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, urlparse
 
 from joserfc import jwt
-from joserfc.jwk import KeySet, RSAKey
+from joserfc.jwk import RSAKey
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,8 +31,9 @@ class MockOIDCServer:
 
     A scenario file can override the discovery document ("discovery"),
     the subject ("subject"), the username ("username"), the userinfo
-    response ("userinfo"), leave claims out of the ID token
-    ("omit_id_token_claims") and
+    response ("userinfo"), override or leave out ID token claims
+    ("id_token_claims", "omit_id_token_claims"), replace the JWKS ("jwks")
+    or change the published key ("jwks_key"), and
     require a client secret at the token endpoint ("client_secret").
     """
 
@@ -178,14 +179,22 @@ class MockOIDCServer:
             "exp": now + 3600,
         }
 
+        claims.update(self._scenario.get("id_token_claims", {}))
         for claim in self._scenario.get("omit_id_token_claims", []):
             claims.pop(claim)
 
         return jwt.encode(header, claims, self._jwk)
 
-    def _get_jwks_response(self) -> tuple[dict, int]:
+    def _get_jwks_response(self) -> tuple[Any, int]:
         """Return a mock JWKS response with only the public key."""
-        return dict(KeySet([self._jwk]).as_dict(private=False)), 200
+        if "jwks" in self._scenario:
+            return self._scenario["jwks"], 200
+
+        public_key = {
+            **self._jwk.as_dict(private=False),
+            **self._scenario.get("jwks_key", {}),
+        }
+        return {"keys": [public_key]}, 200
 
     def _get_userinfo_response(self) -> tuple[dict, int]:
         """Return a mock userinfo response."""

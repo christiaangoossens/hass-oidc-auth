@@ -487,6 +487,20 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             _LOGGER.warning("JWKS request failed: %r", e)
             raise OIDCJWKSInvalid from e
 
+    @staticmethod
+    def _find_signing_key(jwks_data: Any, kid: str) -> dict | None:
+        """Return the key with the given key ID from the JWKS, if it has one."""
+        keys = jwks_data.get("keys") if isinstance(jwks_data, dict) else None
+        if not isinstance(keys, list):
+            _LOGGER.warning("JWKS does not contain a list of keys")
+            return None
+
+        for key in keys:
+            if isinstance(key, dict) and key.get("kid") == kid:
+                return key
+
+        return None
+
     async def _parse_id_token(self, id_token: str) -> dict | None:
         """Parses the ID token into a dict containing token contents."""
         discovery_document = await self._fetch_discovery_document()
@@ -541,13 +555,7 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                     _LOGGER.warning("JWT does not have kid (Key ID)")
                     return None
 
-                # Get the correct key
-                signing_key = None
-                for key in jwks_data.get("keys", []):
-                    if key.get("kid") == kid:
-                        signing_key = key
-                        break
-
+                signing_key = self._find_signing_key(jwks_data, kid)
                 if not signing_key:
                     _LOGGER.warning("Could not find matching key with kid: %s", kid)
                     return None
@@ -593,8 +601,9 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             id_token_validator.validate(decoded_token.claims)
             return decoded_token.claims
 
-        except joserfc_errors.JoseError as e:
-            _LOGGER.warning("JWT verification failed: %s", e)
+        # A malformed key or token can also raise ValueError or TypeError
+        except (joserfc_errors.JoseError, ValueError, TypeError) as e:
+            _LOGGER.warning("JWT verification failed: %r", e)
             return None
 
     async def async_get_authorization_url(
@@ -660,6 +669,16 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
             )
             raise OIDCUserinfoInvalid()
 
+    @staticmethod
+    def _get_string_claim(id_token: dict, claim: str) -> str | None:
+        """Return the claim if it is a string, otherwise leave it out."""
+        value = id_token.get(claim)
+        if value is None or isinstance(value, str):
+            return value
+
+        _LOGGER.warning("Claim '%s' is not a string, ignoring it", claim)
+        return None
+
     def _get_role_from_groups(self, id_token: dict) -> UserRole:
         """Return the role for the groups in the groups claim.
 
@@ -721,9 +740,9 @@ class OIDCClient:  # pylint: disable=too-many-instance-attributes
                 f"{discovery_document['issuer']}.{id_token.get('sub')}".encode()
             ).hexdigest(),
             # Display name, configurable
-            "display_name": id_token.get(self.display_name_claim),
+            "display_name": self._get_string_claim(id_token, self.display_name_claim),
             # Username, configurable
-            "username": id_token.get(self.username_claim),
+            "username": self._get_string_claim(id_token, self.username_claim),
             # Role
             "role": role,
         }
