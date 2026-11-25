@@ -1,5 +1,10 @@
 """Tests for the UI config flow"""
 
+# Flow results are TypedDicts with optional keys, a missing key fails the test anyway
+# pyright: reportTypedDictNotRequiredAccess=false
+
+from types import MappingProxyType
+
 import pytest
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
@@ -32,6 +37,47 @@ DEMO_CLIENT_ID = "testing_example_client_id"
 DEMO_CLIENT_SECRET = "faz"
 DEMO_ADMIN_ROLE = "boo"
 DEMO_USER_ROLE = "far"
+
+
+async def async_add_entry(hass: HomeAssistant) -> config_entries.ConfigEntry:
+    """Add a config entry as the full config flow would create it."""
+    entry = config_entries.ConfigEntry(
+        version=1,
+        minor_version=0,
+        domain=DOMAIN,
+        title=OIDC_PROVIDERS["authentik"]["name"],
+        data={
+            "provider": "authentik",
+            CLIENT_ID: DEMO_CLIENT_ID,
+            CLIENT_SECRET: DEMO_CLIENT_SECRET,
+            DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
+            DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["name"],
+            FEATURES: {
+                FEATURES_AUTOMATIC_USER_LINKING: False,
+                FEATURES_AUTOMATIC_PERSON_CREATION: True,
+                FEATURES_INCLUDE_GROUPS_SCOPE: True,
+            },
+            CLAIMS: {
+                CLAIMS_DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["claims"][
+                    "display_name"
+                ],
+                CLAIMS_USERNAME: OIDC_PROVIDERS["authentik"]["claims"]["username"],
+                CLAIMS_GROUPS: OIDC_PROVIDERS["authentik"]["claims"]["groups"],
+            },
+            ROLES: {ROLE_ADMINS: DEMO_ADMIN_ROLE, ROLE_USERS: DEMO_USER_ROLE},
+        },
+        source=config_entries.SOURCE_USER,
+        entry_id="1",
+        unique_id="test_unique_id",
+        options={},
+        pref_disable_new_entities=False,
+        pref_disable_polling=False,
+        discovery_keys=MappingProxyType({}),
+        subentries_data=None,
+    )
+
+    await hass.config_entries.async_add(entry)
+    return entry
 
 
 @pytest.mark.asyncio
@@ -178,43 +224,7 @@ async def test_full_config_flow_success(hass: HomeAssistant):
 async def test_options_flow_success(hass: HomeAssistant):
     """Test a successful options flow."""
 
-    # First, set up an initial config entry as in the full config flow
-    initial_data = {
-        "provider": "authentik",
-        CLIENT_ID: DEMO_CLIENT_ID,
-        CLIENT_SECRET: DEMO_CLIENT_SECRET,
-        DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
-        DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["name"],
-        FEATURES: {
-            FEATURES_AUTOMATIC_USER_LINKING: False,
-            FEATURES_AUTOMATIC_PERSON_CREATION: True,
-            FEATURES_INCLUDE_GROUPS_SCOPE: True,
-        },
-        CLAIMS: {
-            CLAIMS_DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["claims"]["display_name"],
-            CLAIMS_USERNAME: OIDC_PROVIDERS["authentik"]["claims"]["username"],
-            CLAIMS_GROUPS: OIDC_PROVIDERS["authentik"]["claims"]["groups"],
-        },
-        ROLES: {ROLE_ADMINS: DEMO_ADMIN_ROLE, ROLE_USERS: DEMO_USER_ROLE},
-    }
-
-    entry = config_entries.ConfigEntry(
-        version=1,
-        minor_version=0,
-        domain=DOMAIN,
-        title=OIDC_PROVIDERS["authentik"]["name"],
-        data=initial_data,
-        source=config_entries.SOURCE_USER,
-        entry_id="1",
-        unique_id="test_unique_id",
-        options={},
-        pref_disable_new_entities=False,
-        pref_disable_polling=False,
-        discovery_keys=[],
-        subentries_data=None,
-    )
-
-    await hass.config_entries.async_add(entry)
+    entry = await async_add_entry(hass)
 
     # Start the reconfigure flow
     result = await hass.config_entries.options.async_init(entry.entry_id)
@@ -283,43 +293,7 @@ async def test_options_flow_success(hass: HomeAssistant):
 async def test_reconfigure_flow_success(hass: HomeAssistant):
     """Test a successful reconfigure flow."""
 
-    # First, set up an initial config entry as in the full config flow
-    initial_data = {
-        "provider": "authentik",
-        CLIENT_ID: DEMO_CLIENT_ID,
-        CLIENT_SECRET: DEMO_CLIENT_SECRET,
-        DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
-        DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["name"],
-        FEATURES: {
-            FEATURES_AUTOMATIC_USER_LINKING: False,
-            FEATURES_AUTOMATIC_PERSON_CREATION: True,
-            FEATURES_INCLUDE_GROUPS_SCOPE: True,
-        },
-        CLAIMS: {
-            CLAIMS_DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["claims"]["display_name"],
-            CLAIMS_USERNAME: OIDC_PROVIDERS["authentik"]["claims"]["username"],
-            CLAIMS_GROUPS: OIDC_PROVIDERS["authentik"]["claims"]["groups"],
-        },
-        ROLES: {ROLE_ADMINS: DEMO_ADMIN_ROLE, ROLE_USERS: DEMO_USER_ROLE},
-    }
-
-    entry = config_entries.ConfigEntry(
-        version=1,
-        minor_version=0,
-        domain=DOMAIN,
-        title=OIDC_PROVIDERS["authentik"]["name"],
-        data=initial_data,
-        source=config_entries.SOURCE_USER,
-        entry_id="1",
-        unique_id="test_unique_id",
-        options={},
-        pref_disable_new_entities=False,
-        pref_disable_polling=False,
-        discovery_keys=[],
-        subentries_data=None,
-    )
-
-    await hass.config_entries.async_add(entry)
+    entry = await async_add_entry(hass)
 
     # Start async_step_reconfigure to reconfigure the entry
     result = await hass.config_entries.flow.async_init(
@@ -357,13 +331,15 @@ async def test_reconfigure_flow_success(hass: HomeAssistant):
         },
     )
 
-    # Should finish and update the entry data
+    # Should save the entry data and ask for a restart
     assert result["type"] == FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
+    assert result["reason"] == "reconfigure_restart_required"
 
-    # Verify that the config entry was loaded into Home Assistant
+    # The running provider can't be unloaded, so the entry stays loaded
+    await hass.async_block_till_done()
     entries = hass.config_entries.async_entries(DOMAIN)
     assert len(entries) == 1
+    assert entries[0].state is config_entries.ConfigEntryState.LOADED
     assert entries[0].data[CLIENT_ID] == new_client_id
     assert entries[0].data[CLIENT_SECRET] == new_client_secret
 
@@ -371,42 +347,7 @@ async def test_reconfigure_flow_success(hass: HomeAssistant):
 @pytest.mark.asyncio
 async def test_reconfigure_flow_rejects_invalid_client_id(hass: HomeAssistant):
     """Reconfigure should keep the form open when the client ID is invalid."""
-    initial_data = {
-        "provider": "authentik",
-        CLIENT_ID: DEMO_CLIENT_ID,
-        CLIENT_SECRET: DEMO_CLIENT_SECRET,
-        DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
-        DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["name"],
-        FEATURES: {
-            FEATURES_AUTOMATIC_USER_LINKING: False,
-            FEATURES_AUTOMATIC_PERSON_CREATION: True,
-            FEATURES_INCLUDE_GROUPS_SCOPE: True,
-        },
-        CLAIMS: {
-            CLAIMS_DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["claims"]["display_name"],
-            CLAIMS_USERNAME: OIDC_PROVIDERS["authentik"]["claims"]["username"],
-            CLAIMS_GROUPS: OIDC_PROVIDERS["authentik"]["claims"]["groups"],
-        },
-        ROLES: {ROLE_ADMINS: DEMO_ADMIN_ROLE, ROLE_USERS: DEMO_USER_ROLE},
-    }
-
-    entry = config_entries.ConfigEntry(
-        version=1,
-        minor_version=0,
-        domain=DOMAIN,
-        title=OIDC_PROVIDERS["authentik"]["name"],
-        data=initial_data,
-        source=config_entries.SOURCE_USER,
-        entry_id="1",
-        unique_id="test_unique_id",
-        options={},
-        pref_disable_new_entities=False,
-        pref_disable_polling=False,
-        discovery_keys=[],
-        subentries_data=None,
-    )
-
-    await hass.config_entries.async_add(entry)
+    entry = await async_add_entry(hass)
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
@@ -423,48 +364,13 @@ async def test_reconfigure_flow_rejects_invalid_client_id(hass: HomeAssistant):
 
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "reconfigure"
-    assert result["errors"]["client_id"] == "invalid_client_id"
+    assert result["errors"] == {"client_id": "invalid_client_id"}
 
 
 @pytest.mark.asyncio
 async def test_reconfigure_flow_keeps_client_secret_when_blank(hass: HomeAssistant):
     """Submitting a blank secret should keep the existing client secret."""
-    initial_data = {
-        "provider": "authentik",
-        CLIENT_ID: DEMO_CLIENT_ID,
-        CLIENT_SECRET: DEMO_CLIENT_SECRET,
-        DISCOVERY_URL: MockOIDCServer.get_discovery_url(),
-        DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["name"],
-        FEATURES: {
-            FEATURES_AUTOMATIC_USER_LINKING: False,
-            FEATURES_AUTOMATIC_PERSON_CREATION: True,
-            FEATURES_INCLUDE_GROUPS_SCOPE: True,
-        },
-        CLAIMS: {
-            CLAIMS_DISPLAY_NAME: OIDC_PROVIDERS["authentik"]["claims"]["display_name"],
-            CLAIMS_USERNAME: OIDC_PROVIDERS["authentik"]["claims"]["username"],
-            CLAIMS_GROUPS: OIDC_PROVIDERS["authentik"]["claims"]["groups"],
-        },
-        ROLES: {ROLE_ADMINS: DEMO_ADMIN_ROLE, ROLE_USERS: DEMO_USER_ROLE},
-    }
-
-    entry = config_entries.ConfigEntry(
-        version=1,
-        minor_version=0,
-        domain=DOMAIN,
-        title=OIDC_PROVIDERS["authentik"]["name"],
-        data=initial_data,
-        source=config_entries.SOURCE_USER,
-        entry_id="1",
-        unique_id="test_unique_id",
-        options={},
-        pref_disable_new_entities=False,
-        pref_disable_polling=False,
-        discovery_keys=[],
-        subentries_data=None,
-    )
-
-    await hass.config_entries.async_add(entry)
+    entry = await async_add_entry(hass)
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
@@ -480,7 +386,7 @@ async def test_reconfigure_flow_keeps_client_secret_when_blank(hass: HomeAssista
     )
 
     assert result["type"] == FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
+    assert result["reason"] == "reconfigure_restart_required"
 
     updated_entry = hass.config_entries.async_get_entry(entry.entry_id)
     assert updated_entry is not None
@@ -550,22 +456,7 @@ async def test_user_flow_aborts_when_yaml_configured(hass: HomeAssistant):
 @pytest.mark.asyncio
 async def test_user_flow_aborts_when_entry_already_exists(hass: HomeAssistant):
     """The flow should not create a second OIDC config entry."""
-    entry = config_entries.ConfigEntry(
-        version=1,
-        minor_version=0,
-        domain=DOMAIN,
-        title=OIDC_PROVIDERS["authentik"]["name"],
-        data={"provider": "authentik"},
-        source=config_entries.SOURCE_USER,
-        entry_id="1",
-        unique_id="test_unique_id",
-        options={},
-        pref_disable_new_entities=False,
-        pref_disable_polling=False,
-        discovery_keys=[],
-        subentries_data=None,
-    )
-    await hass.config_entries.async_add(entry)
+    await async_add_entry(hass)
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
@@ -591,7 +482,7 @@ async def test_discovery_url_validation_rejects_invalid_url(hass: HomeAssistant)
 
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "discovery_url"
-    assert result["errors"]["discovery_url"] == "invalid_url_format"
+    assert result["errors"] == {"discovery_url": "invalid_url_format"}
 
 
 @pytest.mark.asyncio
