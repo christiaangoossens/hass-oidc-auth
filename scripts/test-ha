@@ -24,7 +24,9 @@ fi
 # The integration itself (with its runtime dependencies), without the locked dev group.
 # The pytest floor keeps uv from falling back to ancient harness releases that don't
 # pin Home Assistant, so a missing harness fails instead of testing the wrong version.
+# Coverage is only gated on the locked latest version: older versions skip version-specific
+# code paths. pytest-cov stays installed for the --cov options in pyproject.toml.
 echo "Testing against $ha_spec using $harness"
 uv run --isolated --no-project \
     --with-editable . --with "$ha_spec" --with "$harness" --with "pytest>=8.4" --with pytest-cov \
-    pytest tests/ "$@"
+    pytest tests/ --no-cov "$@"
