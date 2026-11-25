@@ -60,8 +60,9 @@ class OIDCFinishView(HomeAssistantView):
             raise web.HTTPFound(location=redirect_uri)
 
         # Only plain form values are valid device codes, not uploaded files
+        # The login itself is still ready, so let the user enter the code again
         if not isinstance(device_code, str):
-            return await error_response("device_link_failed")
+            return await self._device_link_failed()
 
         # Check if we can link this device
         linked = self.state_store.link_state_to_code(
@@ -69,6 +70,12 @@ class OIDCFinishView(HomeAssistantView):
         )
 
         if not linked:
-            return await error_response("device_link_failed")
+            return await self._device_link_failed()
 
         return await template_response("device_success", {})
+
+    async def _device_link_failed(self) -> web.Response:
+        """Show the device link error, with "Try again" back to the code entry."""
+        return await error_response(
+            "device_link_failed", reset_cookie=False, retry_url=PATH
+        )

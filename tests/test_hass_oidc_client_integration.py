@@ -19,6 +19,7 @@ from custom_components.auth_oidc.config.const import (
     CLIENT_ID,
     DISCOVERY_URL,
 )
+from custom_components.auth_oidc.stores.state_store import MAX_DEVICE_CODE_ATTEMPTS
 from custom_components.auth_oidc.tools.helpers import STATE_COOKIE_NAME
 from custom_components.auth_oidc.tools.oidc_client import (
     OIDCDiscoveryClient,
@@ -93,6 +94,19 @@ async def get_code_from_provider(hass: HomeAssistant, authorization_url: str) ->
     async with async_get_clientsession(hass).get(authorization_url) as resp:
         assert resp.status == 200
         return (await resp.json())["code"]
+
+
+def get_try_again_url(html: str) -> str:
+    """Return where the "Try again" button on an error page leads."""
+    match = re.search(r"href='([^']+)'[^>]*>\s*Try again", html)
+    assert match is not None, "Error page should have a Try again button"
+
+    return match.group(1)
+
+
+def clears_state_cookie(resp) -> bool:
+    """Return whether the response clears the state cookie."""
+    return f"{STATE_COOKIE_NAME}=;" in resp.headers.get("Set-Cookie", "")
 
 
 def get_device_code(html: str) -> str:
@@ -673,6 +687,143 @@ async def test_finish_rejects_device_code_that_is_already_linked(
     assert statuses == [200, 400]
 
 
+async def test_mistyped_device_code_keeps_the_login(hass: HomeAssistant, hass_client):
+    """After a wrong device code, "Try again" leads back to the code entry,
+    and the same login can still link the right one."""
+    await setup(hass)
+
+    with mock_oidc_responses():
+        mobile_client = await hass_client()
+        mobile_redirect_uri = create_redirect_uri(
+            MOBILE_CLIENT_ID, get_test_origin(mobile_client)
+        )
+        _, mobile_html, _ = await get_welcome_for_client(
+            mobile_client, mobile_redirect_uri
+        )
+        device_code = get_device_code(mobile_html)
+
+        browser = await hass_client()
+        await login_with_oidc(hass, browser)
+
+        wrong = await browser.post(
+            "/auth/oidc/finish", data={"device_code": "000000"}, allow_redirects=False
+        )
+        assert wrong.status == 400
+        assert not clears_state_cookie(wrong)
+
+        retry_url = get_try_again_url(await wrong.text())
+        code_entry = await browser.get(retry_url, allow_redirects=False)
+        assert code_entry.status == 200
+        assert 'id="device-code-input"' in await code_entry.text()
+
+        right = await browser.post(
+            "/auth/oidc/finish",
+            data={"device_code": device_code},
+            allow_redirects=False,
+        )
+        assert right.status == 200
+
+
+async def test_device_code_attempts_stay_limited_with_kept_cookie(
+    hass: HomeAssistant, hass_client
+):
+    """Keeping the cookie after wrong codes doesn't allow more than the limit."""
+    await setup(hass)
+
+    with mock_oidc_responses():
+        mobile_client = await hass_client()
+        mobile_redirect_uri = create_redirect_uri(
+            MOBILE_CLIENT_ID, get_test_origin(mobile_client)
+        )
+        _, mobile_html, _ = await get_welcome_for_client(
+            mobile_client, mobile_redirect_uri
+        )
+        device_code = get_device_code(mobile_html)
+        wrong_code = "000000" if device_code != "000000" else "111111"
+
+        browser = await hass_client()
+        await login_with_oidc(hass, browser)
+
+        for _ in range(MAX_DEVICE_CODE_ATTEMPTS):
+            await browser.post("/auth/oidc/finish", data={"device_code": wrong_code})
+
+        right = await browser.post(
+            "/auth/oidc/finish",
+            data={"device_code": device_code},
+            allow_redirects=False,
+        )
+        assert right.status == 400
+
+
+async def test_try_again_after_identity_provider_error_keeps_redirect_uri(
+    hass: HomeAssistant, hass_client
+):
+    """After an identity provider error, "Try again" finishes for the app that
+    started the login, not for the web frontend."""
+    await setup(hass)
+
+    with mock_oidc_responses():
+        client = await hass_client()
+        redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID, get_test_origin(client))
+        state, _, _ = await get_welcome_for_client(client, redirect_uri)
+        await get_redirect_auth_url(client)
+
+        denied = await client.get(
+            f"/auth/oidc/callback?error=access_denied&state={state}",
+            allow_redirects=False,
+        )
+        assert denied.status == 400
+        assert not clears_state_cookie(denied)
+
+        retry_url = get_try_again_url(await denied.text())
+        assert retry_url == "/auth/oidc/redirect"
+
+        authorization_url = await get_redirect_auth_url(client)
+        code = await get_code_from_provider(hass, authorization_url)
+        await complete_callback_and_finish(client, code, state)
+
+        await verify_back_redirect(client, redirect_uri)
+
+
+async def test_failed_new_login_forgets_the_previous_user(
+    hass: HomeAssistant, hass_client
+):
+    """Logging in again on a ready login and failing leaves no user to finish with."""
+    await setup(hass)
+
+    with mock_oidc_responses() as server:
+        mobile_client = await hass_client()
+        mobile_redirect_uri = create_redirect_uri(
+            MOBILE_CLIENT_ID, get_test_origin(mobile_client)
+        )
+        _, mobile_html, _ = await get_welcome_for_client(
+            mobile_client, mobile_redirect_uri
+        )
+        device_code = get_device_code(mobile_html)
+
+        browser = await hass_client()
+        redirect_uri = create_redirect_uri(WEB_CLIENT_ID, get_test_origin(browser))
+        state, _, _ = await get_welcome_for_client(browser, redirect_uri)
+        code = await get_code_from_provider(hass, await get_redirect_auth_url(browser))
+        await complete_callback_and_finish(browser, code, state)
+
+        # Start over at the identity provider, and fail this time
+        code = await get_code_from_provider(hass, await get_redirect_auth_url(browser))
+        server.failing_paths["/token"] = aiohttp.ClientConnectionError()
+        failed = await browser.get(
+            f"/auth/oidc/callback?code={code}&state={state}",
+            allow_redirects=False,
+        )
+        assert failed.status == 500
+
+        link = await browser.post(
+            "/auth/oidc/finish",
+            data={"device_code": device_code},
+            allow_redirects=False,
+        )
+        assert link.status == 400
+
+
 @pytest.mark.asyncio
 async def test_callback_shows_error_if_userinfo_save_fails(
     hass: HomeAssistant, hass_client
@@ -702,6 +853,7 @@ async def test_callback_shows_error_if_userinfo_save_fails(
         assert resp.status == 500
         text = await resp.text()
         assert "Failed to save user information, session probably expired." in text
+        assert clears_state_cookie(resp)
 
 
 @pytest.mark.asyncio
@@ -771,6 +923,7 @@ async def test_callback_replay_is_rejected(hass: HomeAssistant, hass_client):
         )
         assert replay.status == 400
         assert "Invalid state, please restart login." in await replay.text()
+        assert clears_state_cookie(replay)
 
 
 @pytest.mark.parametrize(

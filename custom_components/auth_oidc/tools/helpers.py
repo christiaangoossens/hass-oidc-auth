@@ -98,21 +98,32 @@ async def template_response(
 
 
 async def error_response(
-    error_key: str, status: int = 400, message: str | None = None
+    error_key: str,
+    status: int = 400,
+    message: str | None = None,
+    reset_cookie: bool = True,
+    retry_url: str = "/auth/oidc/redirect",
 ) -> web.Response:
     """Render the shared error view with the translated message
     for the given error key. An optional message overrides the
-    translated fallback."""
+    translated fallback.
+
+    Pass reset_cookie=False when the login state is still valid, so the
+    user can retry without starting over. The "Try again" button goes
+    to retry_url."""
     translator = await async_get_translator(get_accept_language())
     translated = translator(f"error.messages.{error_key}")
     message = message or translated
+
+    headers = {"vary": "Accept-Language"}
+    if reset_cookie:
+        headers["set-cookie"] = reset_state_cookie()
+
+    parameters = {"error": message, "help_url": REPO_ROOT_URL, "retry_url": retry_url}
     return html_response(
-        await get_view("error", {"error": message, "help_url": REPO_ROOT_URL}),
+        await get_view("error", parameters),
         status=status,
-        headers={
-            "set-cookie": reset_state_cookie(),
-            "vary": "Accept-Language",
-        },
+        headers=headers,
     )
 
 

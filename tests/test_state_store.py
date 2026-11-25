@@ -129,6 +129,32 @@ async def test_state_store_throttles_device_code_link_attempts(
     assert state_store.link_state_to_code(donor_state, code, TEST_IP) is False
 
 
+async def test_state_store_new_login_forgets_previous_user(state_store: StateStore):
+    """Starting a new identity provider login on a ready state makes it not ready."""
+    state_id = create_ready_state(state_store, make_user("first-user"))
+
+    assert state_store.set_flow_for_state(state_id, TEST_FLOW, TEST_IP)
+
+    assert state_store.is_state_ready(state_id, TEST_IP) is False
+
+
+async def test_state_store_new_login_keeps_device_code_attempts(
+    state_store: StateStore,
+):
+    """Logging in again on the same state doesn't give new device code attempts."""
+    donor_state = create_ready_state(state_store, make_user("user-retry"))
+    _, code = create_device_state(state_store)
+    wrong_code = "000000" if code != "000000" else "111111"
+
+    for _ in range(MAX_DEVICE_CODE_ATTEMPTS):
+        state_store.link_state_to_code(donor_state, wrong_code, TEST_IP)
+
+    assert state_store.set_flow_for_state(donor_state, TEST_FLOW, TEST_IP)
+    assert state_store.set_userinfo_for_state(donor_state, make_user("user-retry"))
+
+    assert state_store.link_state_to_code(donor_state, code, TEST_IP) is False
+
+
 async def test_state_store_device_codes_are_unique(state_store: StateStore):
     """A new device code never reuses the code of another active state."""
     with patch.object(

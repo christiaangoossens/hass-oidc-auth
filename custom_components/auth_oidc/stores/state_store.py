@@ -147,12 +147,16 @@ class StateStore:
         return state["device_code"]
 
     def set_flow_for_state(self, state_id: str, flow: OIDCFlow, ip: str | None) -> bool:
-        """Store the PKCE code verifier and nonce on the state."""
+        """Store the PKCE code verifier and nonce on the state.
+
+        This starts a new identity provider login, so a user from an
+        earlier login on this state is forgotten."""
         state = self._data.get(state_id)
         if state is None or not self._is_valid(state, ip):
             return False
 
         state["flow"] = flow
+        state["user_details"] = None
         return True
 
     def pop_flow_for_state(self, state_id: str, ip: str | None) -> OIDCFlow | None:

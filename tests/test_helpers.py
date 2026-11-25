@@ -152,6 +152,19 @@ async def test_html_response_and_template_helpers():
     )
 
 
+@pytest.mark.parametrize("reset_cookie", [True, False])
+async def test_error_response_resets_cookie_only_when_asked(reset_cookie: bool):
+    """The error page clears the state cookie unless the state is still valid."""
+    with patch(
+        "custom_components.auth_oidc.tools.helpers.get_view",
+        new=AsyncMock(return_value="<p>error</p>"),
+    ):
+        response = await error_response("misconfigured", reset_cookie=reset_cookie)
+
+    cleared = f"{STATE_COOKIE_NAME}=;" in response.headers.get("set-cookie", "")
+    assert cleared is reset_cookie
+
+
 @pytest.mark.asyncio
 async def test_error_response():
     """Error response helper should render the shared error template with status
@@ -169,6 +182,7 @@ async def test_error_response():
         {
             "error": "Integration is misconfigured, discovery could not be obtained.",
             "help_url": REPO_ROOT_URL,
+            "retry_url": "/auth/oidc/redirect",
         },
     )
 

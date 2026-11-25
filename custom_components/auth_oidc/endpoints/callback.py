@@ -43,21 +43,24 @@ class OIDCCallbackView(HomeAssistantView):
         code = params.get("code")
         state = params.get("state")
 
+        # The state is still valid from here on, so errors keep the cookie and
+        # "Try again" restarts the login with the original redirect_uri.
+
         # If the provider returned an OAuth error (for example access_denied),
         # surface the provider error instead of the misleading missing code or
-        # state message. The error view still offers the retry link.
+        # state message.
         if params.get("error"):
             error_description = params.get("error_description", params.get("error"))
             return await error_response(
-                "oidc_error", status=400, message=error_description
+                "oidc_error", message=error_description, reset_cookie=False
             )
 
         if not (code and state):
-            return await error_response("missing_code_or_state")
+            return await error_response("missing_code_or_state", reset_cookie=False)
 
         # Check if the states match
         if state != state_id:
-            return await error_response("state_mismatch")
+            return await error_response("state_mismatch", reset_cookie=False)
 
         # The flow is only there if this state was sent to the identity provider
         flow = self.state_store.pop_flow_for_state(state_id, request.remote)
@@ -70,14 +73,20 @@ class OIDCCallbackView(HomeAssistantView):
             redirect_uri, code, flow
         )
         if user_details is None:
-            return await error_response("user_details_failed", status=500)
+            return await error_response(
+                "user_details_failed", status=500, reset_cookie=False
+            )
 
         if user_details.get("role") == "invalid":
-            return await error_response("user_not_in_group", status=403)
+            return await error_response(
+                "user_not_in_group", status=403, reset_cookie=False
+            )
 
         # Reject here, as Home Assistant's login page can only say "Login aborted"
         if not await self.oidc_provider.async_can_log_in(user_details):
-            return await error_response("user_not_allowed", status=403)
+            return await error_response(
+                "user_not_allowed", status=403, reset_cookie=False
+            )
 
         # Finalize on the state
         success = self.state_store.set_userinfo_for_state(state_id, user_details)
