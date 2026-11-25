@@ -45,6 +45,19 @@ class StateStore:
         """Generate a random six-digit code."""
         return "".join(secrets.choice(string.digits) for _ in range(6))
 
+    def _generate_unique_code(self, data: dict[str, OIDCState]) -> str:
+        """Generate a six-digit code that no active state uses."""
+        in_use = {
+            state["device_code"]
+            for state in data.values()
+            if not self._is_expired(state)
+        }
+
+        while (code := self._generate_code()) in in_use:
+            continue
+
+        return code
+
     def _is_expired(self, state: OIDCState) -> bool:
         """Check if a state is expired."""
         return datetime.fromisoformat(state["expiration"]) < datetime.now(UTC)
@@ -87,7 +100,7 @@ class StateStore:
             raise RuntimeError("Data not loaded")
 
         try:
-            code = self._generate_code()
+            code = self._generate_unique_code(self._data)
             self._data[state_id]["device_code"] = code
             await self._async_save()
             return code
@@ -142,40 +155,37 @@ class StateStore:
 
         state_data = self._data.get(state_id)
         if (
-            state_data
-            and self._is_valid(state_data, ip)
-            and state_data["user_details"] is not None
+            not state_data
+            or not self._is_valid(state_data, ip)
+            or state_data["user_details"] is None
         ):
-            attempts = state_data.get("device_code_attempts", 0)
-            if attempts >= MAX_DEVICE_CODE_ATTEMPTS:
-                return False
+            return False
 
-            matching_states = [
-                state
-                for state in self._data.values()
-                if state["device_code"] == code and not self._is_expired(state)
-            ]
+        attempts = state_data.get("device_code_attempts", 0)
+        if attempts >= MAX_DEVICE_CODE_ATTEMPTS:
+            return False
 
-            if len(matching_states) > 1:
-                raise ValueError("Multiple states match the provided device code")
+        # Only a device that is still waiting can be linked, never one that already has a user
+        matching_states = [
+            state
+            for state in self._data.values()
+            if state["device_code"] == code
+            and state["user_details"] is None
+            and not self._is_expired(state)
+        ]
 
-            if matching_states:
-                state = matching_states[0]
-
-                # Set user details on the device state to allow it to complete login
-                state["user_details"] = state_data["user_details"]
-
-                # Delete the 'donor' state as it's one time use
-                self._data.pop(state_id)
-
-                # Save and return true
-                await self._async_save()
-                return True
-
+        # Codes are unique, so anything but exactly one match is a wrong code
+        if len(matching_states) != 1:
             state_data["device_code_attempts"] = attempts + 1
             await self._async_save()
+            return False
 
-        return False
+        # Give the device state the user details, and delete the one time use donor state
+        matching_states[0]["user_details"] = state_data["user_details"]
+        self._data.pop(state_id)
+
+        await self._async_save()
+        return True
 
     async def async_receive_userinfo_for_state(
         self, state_id: str, ip: str | None
