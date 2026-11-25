@@ -43,9 +43,9 @@ from .endpoints import (
     OIDCRedirectView,
     OIDCWelcomeView,
 )
-from .endpoints.auth_providers import has_login_hook, take_over_auth_providers
+from .endpoints.auth_providers import take_over_auth_providers
 from .endpoints.authorize import take_over_authorize_page
-from .provider import OpenIDAuthProvider
+from .provider import OpenIDAuthProvider, has_login_hook
 from .tools.oidc_client import OIDCClient
 from .tools.types import OIDCWelcomeOptions
 
@@ -135,17 +135,15 @@ async def _register_oidc_provider(hass: HomeAssistant, my_config: dict):
     # pylint: enable=protected-access
 
     _LOGGER.info("Registered OIDC provider")
-    return provider, auth_provider_count, has_trusted_networks_provider_first
+    return provider, has_trusted_networks_provider_first
 
 
 async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_name: str):
     """Set up the OIDC provider with the given configuration."""
     # pylint: disable=too-many-locals
-    (
-        provider,
-        auth_provider_count,
-        has_trusted_networks_provider_first,
-    ) = await _register_oidc_provider(hass, my_config)
+    provider, has_trusted_networks_provider_first = await _register_oidc_provider(
+        hass, my_config
+    )
 
     # Set the correct scopes
     # Always use 'openid' & 'profile' as they are specified in the OIDC spec
@@ -201,18 +199,13 @@ async def _setup_oidc_provider(hass: HomeAssistant, my_config: dict, display_nam
             ]
         )
 
-    has_only_trusted_networks = (
-        auth_provider_count == 1 and has_trusted_networks_provider_first
-    )
-
     hass.http.register_view(
         OIDCWelcomeView(
             provider,
             OIDCWelcomeOptions(
                 name=name,
                 force_https=force_https,
-                has_other_auth_providers=auth_provider_count > 0,
-                prefers_skipping=default_redirect or has_only_trusted_networks,
+                prefers_skipping=default_redirect,
             ),
         )
     )

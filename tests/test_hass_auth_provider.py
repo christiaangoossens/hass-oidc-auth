@@ -288,40 +288,6 @@ async def test_provider_is_trusted_network_host_false_without_trusted_provider(
         assert provider.is_trusted_network_host() is False
 
 
-@pytest.mark.asyncio
-async def test_welcome_redirects_when_only_trusted_networks_and_not_in_trusted_network(
-    hass: HomeAssistant, hass_client
-):
-    """When only trusted_networks is present, welcome should redirect regardless of IP."""
-
-    class TrustedNetworksDenyProvider:
-        def async_validate_access(self, _ip_addr):
-            raise InvalidAuthError("Not in trusted_networks")
-
-    # Simulate that only trusted_networks is registered before OIDC provider setup
-    set_auth_providers(
-        hass, [(("trusted_networks", None), TrustedNetworksDenyProvider())]
-    )
-
-    # Now setup the OIDC provider which should detect trusted_networks as the only other provider
-    await setup(hass, DEFAULT_CONFIG, True)
-
-    client = await hass_client()
-    redirect_uri = make_fake_redirect_url(client)
-    encoded_redirect_uri = base64.b64encode(redirect_uri.encode("utf-8")).decode(
-        "utf-8"
-    )
-
-    resp = await client.get(
-        f"/auth/oidc/welcome?redirect_uri={encoded_redirect_uri}",
-        allow_redirects=False,
-    )
-
-    # Should redirect straight to the OIDC redirect endpoint
-    assert resp.status == 302
-    assert resp.headers["Location"].endswith("/auth/oidc/redirect")
-
-
 async def login_user(hass: HomeAssistant, state_id: str):
     """Helper to login a user from the stored OIDC state."""
 

@@ -10,8 +10,9 @@ from ipaddress import (
     IPv6Address,
     ip_address,
 )
-from typing import Any
+from typing import Any, cast
 
+from aiohttp import web
 from homeassistant.auth import EVENT_USER_ADDED
 from homeassistant.auth import InvalidAuthError as HAInvalidAuthError
 from homeassistant.auth.auth_store import AuthStore
@@ -46,6 +47,11 @@ PROVIDER_TYPE = "auth_oidc"
 HASS_PROVIDER_TYPE = "homeassistant"
 
 
+def has_login_hook() -> bool:
+    """Check if Home Assistant asks providers whether their login can start (2026.11+)."""
+    return hasattr(AuthProvider, "async_can_start_login")
+
+
 class InvalidAuthError(HAInvalidAuthError):
     """Raised when submitting invalid authentication."""
 
@@ -54,7 +60,8 @@ class ExistingUserRequiredError(InvalidAuthError):
     """Raised when a new OIDC identity is not allowed to provision a user."""
 
 
-class OpenIDAuthProvider(AuthProvider):  # pylint: disable=abstract-method
+# pylint: disable-next=abstract-method,too-many-public-methods
+class OpenIDAuthProvider(AuthProvider):
     """Allow access to users based on login with an external
     OpenID Connect Identity Provider (IdP)."""
 
@@ -164,6 +171,22 @@ class OpenIDAuthProvider(AuthProvider):  # pylint: disable=abstract-method
                 "Error while validating trusted network for IP %s: %s", ip, e
             )
             return False
+
+    def can_offer_other_login(self, req: web.Request) -> bool:
+        """Check if Home Assistant's login page offers another provider to this request."""
+        others = [p for p in self.hass.auth.auth_providers if p is not self]
+
+        if has_login_hook():
+            # Same context as Home Assistant's /auth/providers (AuthProvidersView.get), see
+            # https://github.com/home-assistant/core/blob/master/homeassistant/components/auth/login_flow.py
+            context = AuthFlowContext(ip_address=ip_address(cast(str, req.remote)))
+            return any(provider.async_can_start_login(context) for provider in others)
+
+        # Before 2026.11, trusted networks is the only provider that hides itself
+        return any(
+            provider.type != "trusted_networks" or self.is_trusted_network_host()
+            for provider in others
+        )
 
     def is_login_ready(self) -> bool:
         """Check if the current request carries a state that finished the OIDC login.

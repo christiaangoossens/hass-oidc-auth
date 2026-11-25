@@ -22,11 +22,11 @@ from custom_components.auth_oidc.config.const import (
     FEATURES,
     FEATURES_DEFAULT_REDIRECT,
 )
-from custom_components.auth_oidc.endpoints.auth_providers import has_login_hook
-from custom_components.auth_oidc.provider import OpenIDAuthProvider
+from custom_components.auth_oidc.provider import OpenIDAuthProvider, has_login_hook
 
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
 from .test_hass_oidc_client_integration import (
+    MOBILE_CLIENT_ID,
     WEB_CLIENT_ID,
     create_redirect_uri,
     get_test_origin,
@@ -107,6 +107,17 @@ SCENARIOS = [
             first_login_after_oidc="create_entry",
         ),
         id="untrusted_network",
+    ),
+    pytest.param(
+        Scenario(
+            other_providers=[UNTRUSTED],
+            authorize_redirects=True,
+            welcome_continues=True,
+            providers=[],
+            first_login_without_cookie="no_providers",
+            first_login_after_oidc="create_entry",
+        ),
+        id="untrusted_network_only",
     ),
     pytest.param(
         Scenario(
@@ -238,6 +249,20 @@ async def test_authorize_page(
         _, _, status = await get_welcome_for_client(client, redirect_uri)
 
     assert status == (302 if scenario.welcome_continues else 200)
+
+
+@pytest.mark.parametrize("scenario", SCENARIOS)
+async def test_phone_offers_default_login_only_when_available(
+    hass: HomeAssistant, hass_client_no_auth, scenario: Scenario
+):
+    """The code page on a phone links to Home Assistant's login only if it offers one."""
+    await setup_scenario(hass, scenario)
+    client = await hass_client_no_auth()
+
+    redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID, get_test_origin(client))
+    _, page, _ = await get_welcome_for_client(client, redirect_uri)
+
+    assert ('id="alternative-sign-in-link"' in page) == bool(scenario.providers)
 
 
 @pytest.mark.usefixtures("oidc_hiding")
