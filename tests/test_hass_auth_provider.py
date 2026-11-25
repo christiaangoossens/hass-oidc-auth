@@ -308,6 +308,16 @@ async def login_user(hass: HomeAssistant, state_id: str):
 
 async def get_login_state(hass: HomeAssistant, hass_client):
     """Helper to complete the browser login flow and return the OIDC state id."""
+    state_id, resp = await get_callback_response(hass, hass_client)
+
+    assert resp.status == 302
+    assert resp.headers["Location"].endswith("/auth/oidc/finish")
+
+    return state_id
+
+
+async def get_callback_response(hass: HomeAssistant, hass_client) -> tuple[str, Any]:
+    """Helper to log in at the OIDC provider and return the state id and callback."""
     client = await hass_client()
 
     redirect_uri = make_fake_redirect_url(client)
@@ -346,10 +356,7 @@ async def get_login_state(hass: HomeAssistant, hass_client):
         f"/auth/oidc/callback?code={code}&state={state_id}", allow_redirects=False
     )
 
-    assert resp.status == 302
-    assert resp.headers["Location"].endswith("/auth/oidc/finish")
-
-    return state_id
+    return state_id, resp
 
 
 @pytest.mark.asyncio
@@ -436,34 +443,35 @@ async def test_require_existing_user_denies_new_oidc_identity(
     )
 
     with mock_oidc_responses("username"):
-        state_id = await get_login_state(hass, hass_client)
-        provider = get_oidc_provider(hass)
-        sub = await provider.async_get_subject(state_id, "127.0.0.1")
-        assert sub is not None and sub == MockOIDCServer.get_final_subject()
-
         users_before, credentials_before = await get_auth_store_ids(hass)
 
-        with pytest.raises(
-            InvalidAuthError,
-            match="not linked to an existing Home Assistant user",
-        ):
-            await provider.async_get_or_create_credentials({"sub": sub})
+        state_id, resp = await get_callback_response(hass, hass_client)
 
+        await assert_login_not_allowed(hass, state_id, resp)
         assert await get_auth_store_ids(hass) == (users_before, credentials_before)
+
+
+async def assert_login_not_allowed(hass: HomeAssistant, state_id: str, resp) -> None:
+    """Assert the callback showed the not allowed page and OIDC is not offered."""
+    assert resp.status == 403
+    assert "not allowed to log in" in await resp.text()
+
+    provider = get_oidc_provider(hass)
+    assert not await provider.async_is_state_ready(state_id, "127.0.0.1")
 
 
 @pytest.mark.asyncio
 async def test_require_existing_user_aborts_login_flow_cleanly(
     hass: HomeAssistant, hass_client
 ):
-    """The browser login flow returns an auth failure instead of raising."""
+    """If a user is removed after the callback, the login flow aborts without a user."""
     await setup(
         hass,
         {
             **DEFAULT_CONFIG,
             FEATURES: {
                 FEATURES_AUTOMATIC_PERSON_CREATION: False,
-                FEATURES_AUTOMATIC_USER_LINKING: False,
+                FEATURES_AUTOMATIC_USER_LINKING: True,
                 FEATURES_REQUIRE_EXISTING_USER: True,
             },
         },
@@ -471,7 +479,16 @@ async def test_require_existing_user_aborts_login_flow_cleanly(
     )
 
     with mock_oidc_responses("username"):
+        user = await hass.auth.async_create_user("Foo Bar")
+        hass_provider = hass.auth.get_auth_providers("homeassistant")[0]
+        local_credential = await hass_provider.async_get_or_create_credentials(
+            {"username": "foobar"}
+        )
+        await hass.auth.async_link_user(user, local_credential)
+
         state_id = await get_login_state(hass, hass_client)
+        await hass.auth.async_remove_user(user)
+
         provider = get_oidc_provider(hass)
         flow = await provider.async_login_flow({})
         users_before, credentials_before = await get_auth_store_ids(hass)
@@ -517,14 +534,9 @@ async def test_require_existing_user_does_not_link_when_linking_is_disabled(
         await hass.auth.async_link_user(user, local_credential)
         users_before, credentials_before = await get_auth_store_ids(hass)
 
-        state_id = await get_login_state(hass, hass_client)
-        provider = get_oidc_provider(hass)
-        sub = await provider.async_get_subject(state_id, "127.0.0.1")
-        assert sub is not None and sub == MockOIDCServer.get_final_subject()
+        state_id, resp = await get_callback_response(hass, hass_client)
 
-        with pytest.raises(InvalidAuthError):
-            await provider.async_get_or_create_credentials({"sub": sub})
-
+        await assert_login_not_allowed(hass, state_id, resp)
         assert await get_auth_store_ids(hass) == (users_before, credentials_before)
 
 

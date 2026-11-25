@@ -46,6 +46,7 @@
       "state_mismatch": "Der Status-Parameter stimmt nicht überein, möglicher CSRF-Angriff.",
       "user_details_failed": "Benutzerdetails konnten nicht abgerufen werden, weitere Informationen findest du im Home Assistant Protokoll.",
       "user_not_in_group": "Der Benutzer ist nicht in der richtigen Gruppe, um auf Home Assistant zuzugreifen. Bitte kontaktiere deinen Administrator!",
+      "user_not_allowed": "Dieses Konto darf sich nicht bei Home Assistant anmelden. Bitte kontaktiere deinen Administrator!",
       "save_user_info_failed": "Benutzerinformationen konnten nicht gespeichert werden, vermutlich ist die Sitzung abgelaufen. Bitte melde dich erneut an.",
       "invalid_state": "Ungültiger Status, bitte starte die Anmeldung neu.",
       "device_link_failed": "Der Status konnte nicht mit dem Geräte-Code verknüpft werden, bitte starte die Anmeldung neu.",
