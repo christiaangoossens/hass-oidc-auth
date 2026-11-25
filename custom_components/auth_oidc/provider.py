@@ -2,7 +2,6 @@
 Allow access to users based on login with an external OpenID Connect Identity Provider (IdP).
 """
 
-import asyncio
 import logging
 from collections.abc import Mapping
 from ipaddress import (
@@ -37,7 +36,7 @@ from .config.const import (
 )
 from .stores.state_store import STATE_TTL, StateStore
 from .tools.helpers import STATE_COOKIE_NAME, get_state_id
-from .tools.types import OIDCFlow, UserDetails
+from .tools.types import UserDetails
 
 type IPAddress = IPv4Address | IPv6Address
 
@@ -60,7 +59,7 @@ class ExistingUserRequiredError(InvalidAuthError):
     """Raised when a new OIDC identity is not allowed to provision a user."""
 
 
-# pylint: disable-next=abstract-method,too-many-public-methods
+# pylint: disable-next=abstract-method
 class OpenIDAuthProvider(AuthProvider):
     """Allow access to users based on login with an external
     OpenID Connect Identity Provider (IdP)."""
@@ -70,7 +69,13 @@ class OpenIDAuthProvider(AuthProvider):
         """Does this provider support MFA within HA? -> No we don't (the OIDC provider should)."""
         return False
 
-    def __init__(self, hass: HomeAssistant, store: AuthStore, config: dict[str, Any]):
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        store: AuthStore,
+        config: dict[str, Any],
+        state_store: StateStore,
+    ):
         """Initialize the OpenIDAuthProvider."""
         super().__init__(
             hass,
@@ -88,8 +93,7 @@ class OpenIDAuthProvider(AuthProvider):
         )
 
         self._user_meta: dict[str, UserDetails] = {}
-        self._state_store: StateStore | None = None
-        self._init_lock = asyncio.Lock()
+        self._state_store = state_store
 
         features = config.get(
             FEATURES,
@@ -112,36 +116,16 @@ class OpenIDAuthProvider(AuthProvider):
         self.create_persons = features.get(FEATURES_AUTOMATIC_PERSON_CREATION, True)
 
     async def async_initialize(self) -> None:
-        """Initialize the auth provider."""
-
-        async with self._init_lock:
-            if self._state_store is not None:
-                return
-
-            store = StateStore(self.hass)
-            await store.async_remove_legacy_storage()
-            self._state_store = store
-            self._user_meta = {}
-
-        # Listen for user creation events
+        """Initialize the auth provider, called once from the integration's setup."""
         self.hass.bus.async_listen(EVENT_USER_ADDED, self.async_user_created)
-
-    def _resolve_ip(self, ip: str | None = None) -> str | None:
-        """Resolve client IP from explicit input or current request context."""
-        if ip:
-            return ip
-
-        req = http.current_request.get()
-        if req and req.remote:
-            return req.remote
-
-        return None
 
     def is_trusted_network_host(self) -> bool:
         """Check if the current request is coming from a trusted network host."""
-        ip = self._resolve_ip()
-        if ip is None:
+        req = http.current_request.get()
+        if req is None or req.remote is None:
             return False
+
+        ip = req.remote
 
         # Check if trusted networks auth provider is present
         trusted_network_provider: Any = self.hass.auth.get_auth_provider(
@@ -197,12 +181,12 @@ class OpenIDAuthProvider(AuthProvider):
         """
         try:
             req = http.current_request.get()
-            if req is None or self._state_store is None:
+            if req is None:
                 return False
 
             state_id = get_state_id(req)
             return state_id is not None and self._state_store.is_state_ready(
-                state_id, self._resolve_ip()
+                state_id, req.remote
             )
         # pylint: disable-next=broad-except
         except Exception:
@@ -217,114 +201,11 @@ class OpenIDAuthProvider(AuthProvider):
         """Offer OIDC only when its login can finish (Home Assistant 2026.11+)."""
         return self.is_login_ready()
 
-    async def async_create_state(self, redirect_uri: str, ip: str | None = None) -> str:
-        """Create a new OIDC state and return the state id."""
-        if self._state_store is None:
-            await self.async_initialize()
-            assert self._state_store is not None
-
-        return await self._state_store.async_create_state_from_url(
-            redirect_uri, self._resolve_ip(ip)
-        )
-
-    async def async_generate_device_code(self, state_id: str) -> str | None:
-        """Generate a device code for the state, used for device login."""
-        if self._state_store is None:
-            await self.async_initialize()
-            assert self._state_store is not None
-
-        return await self._state_store.async_generate_code_for_state(state_id)
-
-    async def async_save_user_info(self, state_id: str, user_info: UserDetails) -> bool:
-        """Save user info to the given state."""
-        if self._state_store is None:
-            await self.async_initialize()
-            assert self._state_store is not None
-
-        return await self._state_store.async_add_userinfo_to_state(state_id, user_info)
-
-    async def async_save_flow(
-        self, state_id: str, flow: OIDCFlow, ip: str | None = None
-    ) -> bool:
-        """Save the PKCE code verifier and nonce to the given state."""
-        if self._state_store is None:
-            await self.async_initialize()
-            assert self._state_store is not None
-
-        return await self._state_store.async_set_flow_for_state(
-            state_id, flow, self._resolve_ip(ip)
-        )
-
-    async def async_pop_flow(
-        self, state_id: str, ip: str | None = None
-    ) -> OIDCFlow | None:
-        """Retrieve the PKCE code verifier and nonce of the given state, once."""
-        if self._state_store is None:
-            await self.async_initialize()
-            assert self._state_store is not None
-
-        return await self._state_store.async_pop_flow_for_state(
-            state_id, self._resolve_ip(ip)
-        )
-
-    async def async_get_redirect_uri_for_state(
-        self, state_id: str, ip: str | None = None
-    ) -> str | None:
-        """Get the redirect_uri for the given state."""
-        if self._state_store is None:
-            await self.async_initialize()
-            assert self._state_store is not None
-
-        return await self._state_store.async_get_redirect_uri_for_state(
-            state_id, self._resolve_ip(ip)
-        )
-
-    async def async_is_state_valid(self, state_id: str, ip: str | None = None) -> bool:
-        """Check if a state exists, belongs to this IP, and is not expired."""
-        if self._state_store is None:
-            await self.async_initialize()
-            assert self._state_store is not None
-
-        return (
-            await self._state_store.async_get_redirect_uri_for_state(
-                state_id, self._resolve_ip(ip)
-            )
-            is not None
-        )
-
-    async def async_is_state_ready(self, state_id: str, ip: str | None = None) -> bool:
-        """Check if the state has received the user info from the OIDC callback."""
-        if self._state_store is None:
-            await self.async_initialize()
-            assert self._state_store is not None
-
-        return self._state_store.is_state_ready(state_id, self._resolve_ip(ip))
-
-    async def async_link_state_to_code(
-        self, state_id: str, code: str, ip: str | None = None
-    ) -> bool:
-        """Link two states together by copying the user info from one to the other."""
-        if self._state_store is None:
-            await self.async_initialize()
-            assert self._state_store is not None
-
-        return await self._state_store.async_link_state_to_code(
-            state_id, code, self._resolve_ip(ip)
-        )
-
-    async def async_get_subject(
-        self, state_id: str, ip: str | None = None
-    ) -> str | None:
+    def get_subject(self, state_id: str, ip: str | None) -> str | None:
         """Retrieve user from the state_id, return subject and save meta
         for later use with this provider instance."""
-        if self._state_store is None:
-            await self.async_initialize()
-            assert self._state_store is not None
-
         # This also deletes the state as we are using it for sign-in
-        user_data = await self._state_store.async_receive_userinfo_for_state(
-            state_id, self._resolve_ip(ip)
-        )
+        user_data = self._state_store.pop_userinfo_for_state(state_id, ip)
         if user_data is None:
             return None
 
@@ -546,8 +427,8 @@ AUTH_PROVIDERS.register("oidc")(OpenIDAuthProvider)
 class OpenIdLoginFlow(LoginFlow[OpenIDAuthProvider]):
     """Handler for the login flow."""
 
-    async def _finalize_user(self, state_id: str) -> AuthFlowResult:
-        sub = await self._auth_provider.async_get_subject(state_id)
+    async def _finalize_user(self, state_id: str, ip: str | None) -> AuthFlowResult:
+        sub = self._auth_provider.get_subject(state_id, ip)
         if sub:
             credentials = await self._auth_provider.async_get_or_create_credentials(
                 {"sub": sub}
@@ -572,7 +453,7 @@ class OpenIdLoginFlow(LoginFlow[OpenIDAuthProvider]):
 
             if state_cookie:
                 try:
-                    return await self._finalize_user(state_cookie)
+                    return await self._finalize_user(state_cookie, req.remote)
                 except ExistingUserRequiredError:
                     # Keep the browser response generic to avoid disclosing whether
                     # a particular Home Assistant username exists.

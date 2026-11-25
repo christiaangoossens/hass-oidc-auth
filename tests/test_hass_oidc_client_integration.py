@@ -4,7 +4,7 @@ import asyncio
 import base64
 import re
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
 import pytest
@@ -682,8 +682,8 @@ async def test_callback_shows_error_if_userinfo_save_fails(
     with (
         mock_oidc_responses(),
         patch(
-            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_save_user_info",
-            new=AsyncMock(return_value=False),
+            "custom_components.auth_oidc.stores.state_store.StateStore.set_userinfo_for_state",
+            new=MagicMock(return_value=False),
         ),
     ):
         client = await hass_client()

@@ -28,9 +28,10 @@ from custom_components.auth_oidc.config.const import (
     FEATURES_AUTOMATIC_USER_LINKING,
     FEATURES_REQUIRE_EXISTING_USER,
 )
-from custom_components.auth_oidc.provider import OpenIDAuthProvider
+from custom_components.auth_oidc.stores.state_store import LEGACY_STORAGE_KEY
 from custom_components.auth_oidc.tools.helpers import STATE_COOKIE_NAME
 
+from .integration import get_oidc_provider, get_state_store
 from .mocks.oidc_server import MockOIDCServer, mock_oidc_responses
 
 DEFAULT_CONFIG = {
@@ -56,13 +57,6 @@ async def setup(hass: HomeAssistant, config: dict, expect_success: bool) -> None
     if expect_success:
         assert result
         assert DOMAIN in hass.data
-
-
-def get_oidc_provider(hass: HomeAssistant) -> OpenIDAuthProvider:
-    """Return the registered OIDC provider."""
-    provider = hass.auth.get_auth_providers(DOMAIN)[0]
-    assert isinstance(provider, OpenIDAuthProvider)
-    return provider
 
 
 def set_auth_providers(hass: HomeAssistant, providers: list[tuple]) -> None:
@@ -119,13 +113,26 @@ async def test_provider_name_is_stable_regardless_of_display_name(hass: HomeAssi
 
 
 @pytest.mark.asyncio
+async def test_setup_removes_states_saved_by_older_versions(
+    hass: HomeAssistant, hass_storage: dict[str, Any]
+):
+    """Older versions saved login states to disk, they are removed on startup."""
+    hass_storage[LEGACY_STORAGE_KEY] = {"version": 1, "key": LEGACY_STORAGE_KEY}
+
+    await setup(hass, DEFAULT_CONFIG, True)
+
+    assert LEGACY_STORAGE_KEY not in hass_storage
+
+
+@pytest.mark.asyncio
 async def test_provider_hides_login_from_another_ip(hass: HomeAssistant):
     """A finished OIDC login is only offered to the client that finished it."""
     await setup(hass, DEFAULT_CONFIG, True)
     provider = get_oidc_provider(hass)
+    state_store = get_state_store(hass)
 
-    state_id = await provider.async_create_state("https://example.com/", "127.0.0.1")
-    await provider.async_save_user_info(
+    state_id = state_store.create_state("https://example.com/", "127.0.0.1")
+    state_store.set_userinfo_for_state(
         state_id,
         {"sub": "sub", "display_name": None, "username": None, "role": "system-users"},
     )
@@ -152,26 +159,6 @@ async def test_provider_hides_login_when_the_check_fails(hass: HomeAssistant, ca
         assert provider.async_can_start_login(AuthFlowContext()) is False
 
     assert "Could not check if the OIDC login is ready" in caplog.text
-
-
-@pytest.mark.asyncio
-async def test_provider_ip_fallback_fails_closed_without_request_context(
-    hass: HomeAssistant,
-):
-    """Provider should not invent a shared IP when request context is missing."""
-    await setup(
-        hass,
-        DEFAULT_CONFIG,
-        True,
-    )
-
-    provider = get_oidc_provider(hass)
-
-    with patch(
-        "custom_components.auth_oidc.provider.http.current_request"
-    ) as current_request:
-        current_request.get.return_value = None
-        assert provider._resolve_ip() is None
 
 
 @pytest.mark.asyncio
@@ -293,7 +280,7 @@ async def login_user(hass: HomeAssistant, state_id: str):
 
     provider = get_oidc_provider(hass)
     # This helper runs outside an HTTP request, so pass the known local test IP.
-    sub = await provider.async_get_subject(state_id, "127.0.0.1")
+    sub = provider.get_subject(state_id, "127.0.0.1")
     assert sub is not None and sub == MockOIDCServer.get_final_subject()
 
     # Get credentials
@@ -456,8 +443,7 @@ async def assert_login_not_allowed(hass: HomeAssistant, state_id: str, resp) -> 
     assert resp.status == 403
     assert "not allowed to log in" in await resp.text()
 
-    provider = get_oidc_provider(hass)
-    assert not await provider.async_is_state_ready(state_id, "127.0.0.1")
+    assert not get_state_store(hass).is_state_ready(state_id, "127.0.0.1")
 
 
 @pytest.mark.asyncio

@@ -6,7 +6,7 @@ from urllib.parse import quote
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from ..provider import OpenIDAuthProvider
+from ..stores.state_store import StateStore
 from ..tools.helpers import (
     error_response,
     get_url,
@@ -28,18 +28,18 @@ class OIDCRedirectView(HomeAssistantView):
     def __init__(
         self,
         oidc_client: OIDCClient,
-        oidc_provider: OpenIDAuthProvider,
+        state_store: StateStore,
         force_https: bool,
     ) -> None:
         self.oidc_client = oidc_client
-        self.oidc_provider = oidc_provider
+        self.state_store = state_store
         self.force_https = force_https
 
     async def get(self, req: web.Request) -> web.Response:
         """Receive response."""
 
         # Get cookie to get the state_id
-        state_id = await get_valid_state_id(req, self.oidc_provider)
+        state_id = get_valid_state_id(req, self.state_store)
 
         if not state_id:
             # Direct access to the redirect endpoint, go to welcome page instead
@@ -54,7 +54,7 @@ class OIDCRedirectView(HomeAssistantView):
 
             if result:
                 auth_url, flow = result
-                if not await self.oidc_provider.async_save_flow(state_id, flow):
+                if not self.state_store.set_flow_for_state(state_id, flow, req.remote):
                     return await error_response("invalid_state")
 
                 return await template_response("redirect", {"url": quote(auth_url)})

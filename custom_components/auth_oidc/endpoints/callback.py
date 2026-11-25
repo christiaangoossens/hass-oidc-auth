@@ -4,6 +4,7 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from ..provider import OpenIDAuthProvider
+from ..stores.state_store import StateStore
 from ..tools.helpers import error_response, get_url, get_valid_state_id
 from ..tools.oidc_client import OIDCClient
 
@@ -21,17 +22,19 @@ class OIDCCallbackView(HomeAssistantView):
         self,
         oidc_client: OIDCClient,
         oidc_provider: OpenIDAuthProvider,
+        state_store: StateStore,
         force_https: bool,
     ) -> None:
         self.oidc_client = oidc_client
         self.oidc_provider = oidc_provider
+        self.state_store = state_store
         self.force_https = force_https
 
     async def get(self, request: web.Request) -> web.Response:  # pylint: disable=too-many-return-statements
         """Receive response."""
 
         # Get cookie to get the state_id
-        state_id = await get_valid_state_id(request, self.oidc_provider)
+        state_id = get_valid_state_id(request, self.state_store)
         if not state_id:
             return await error_response("missing_state_cookie")
 
@@ -57,7 +60,7 @@ class OIDCCallbackView(HomeAssistantView):
             return await error_response("state_mismatch")
 
         # The flow is only there if this state was sent to the identity provider
-        flow = await self.oidc_provider.async_pop_flow(state_id)
+        flow = self.state_store.pop_flow_for_state(state_id, request.remote)
         if flow is None:
             return await error_response("invalid_state")
 
@@ -77,7 +80,7 @@ class OIDCCallbackView(HomeAssistantView):
             return await error_response("user_not_allowed", status=403)
 
         # Finalize on the state
-        success = await self.oidc_provider.async_save_user_info(state_id, user_details)
+        success = self.state_store.set_userinfo_for_state(state_id, user_details)
         if not success:
             return await error_response("save_user_info_failed", status=500)
 

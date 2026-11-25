@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import os
 from typing import TYPE_CHECKING
-from unittest.mock import ANY, AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse
 
 import pytest
@@ -24,8 +24,9 @@ from homeassistant.setup import async_setup_component
 
 from custom_components.auth_oidc import DOMAIN
 from custom_components.auth_oidc.endpoints import device_sse
-from custom_components.auth_oidc.provider import OpenIDAuthProvider
 from custom_components.auth_oidc.tools.types import OIDCFlow
+
+from .integration import get_state_store
 
 if TYPE_CHECKING:
     # Annotation only, so the tests also run with the older
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
     from pytest_homeassistant.typing import ClientSessionGenerator
 
 MOBILE_CLIENT_ID = "https://home-assistant.io/Android"
+STATE_STORE = "custom_components.auth_oidc.stores.state_store.StateStore"
 TEST_FLOW: OIDCFlow = {"code_verifier": "verifier", "nonce": "nonce"}
 WELCOME_PATH = "/auth/oidc/welcome"
 
@@ -350,18 +352,18 @@ async def test_welcome_only_adds_store_token_for_web_clients(
 
     captured_redirect_uri = {}
 
-    async def fake_create_state(state_redirect_uri: str, *_args):
+    def fake_create_state(state_redirect_uri: str, *_args):
         captured_redirect_uri["value"] = state_redirect_uri
         return "state-id"
 
     with (
         patch(
-            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_create_state",
-            new=AsyncMock(side_effect=fake_create_state),
+            f"{STATE_STORE}.create_state",
+            new=MagicMock(side_effect=fake_create_state),
         ),
         patch(
-            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_generate_device_code",
-            new=AsyncMock(return_value="123456"),
+            f"{STATE_STORE}.create_device_code",
+            new=MagicMock(return_value="123456"),
         ),
     ):
         client = await hass_client()
@@ -430,8 +432,8 @@ async def test_welcome_mobile_device_code_generation_failure(
     await setup(hass)
 
     with patch(
-        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_generate_device_code",
-        new=AsyncMock(return_value=None),
+        f"{STATE_STORE}.create_device_code",
+        new=MagicMock(return_value=None),
     ):
         client = await hass_client()
         redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID, get_test_origin(client))
@@ -567,13 +569,45 @@ async def test_redirect_shows_error_when_auth_url_empty(
 
 
 @pytest.mark.asyncio
+async def test_login_pages_reject_a_state_from_another_ip(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator
+):
+    """A state cookie used from another IP than it was created on is not accepted."""
+    await setup(hass)
+
+    client = await hass_client()
+    redirect_uri = create_redirect_uri(MOBILE_CLIENT_ID, get_test_origin(client))
+    resp_welcome = await client.get(
+        f"/auth/oidc/welcome?redirect_uri={encode_redirect_uri(redirect_uri)}",
+        allow_redirects=False,
+    )
+    state = resp_welcome.cookies["auth_oidc_state"].value
+
+    # As if the cookie was taken to another network
+    get_state_store(hass).get_data()[state]["ip_address"] = "10.0.0.1"
+
+    resp = await client.get("/auth/oidc/redirect", allow_redirects=False)
+    assert resp.status == 302
+    assert resp.headers["Location"].endswith(WELCOME_PATH)
+
+    for resp in (
+        await client.get("/auth/oidc/finish"),
+        await client.post("/auth/oidc/finish", data={"device_code": "123456"}),
+        await client.get(f"/auth/oidc/callback?code=code&state={state}"),
+    ):
+        assert resp.status == 400
+        assert "Missing state cookie" in await resp.text()
+
+    resp = await client.get("/auth/oidc/device-sse")
+    assert await resp.text() == "event: expired\ndata: false\n\n"
+
+
+@pytest.mark.asyncio
 async def test_redirect_rejects_state_removed_during_discovery(
     hass: HomeAssistant, hass_client: ClientSessionGenerator
 ):
     """A state that is gone once the discovery document loaded can't store its flow."""
     await setup(hass)
-    provider = hass.auth.get_auth_providers(DOMAIN)[0]
-    assert isinstance(provider, OpenIDAuthProvider)
 
     client = await hass_client()
     redirect_uri = create_redirect_uri(
@@ -586,8 +620,8 @@ async def test_redirect_rejects_state_removed_during_discovery(
     state = resp_welcome.cookies["auth_oidc_state"].value
 
     async def remove_state_during_discovery(*_args):
-        # Using a state removes it, like an expiry or eviction would
-        await provider.async_get_subject(state)
+        # Like an expiry or eviction would
+        get_state_store(hass).get_data().pop(state)
         return "https://issuer/authorize", TEST_FLOW
 
     with patch(
@@ -886,8 +920,8 @@ async def test_finish_post_rejects_invalid_state(
     assert resp_welcome.status in (200, 302)
 
     with patch(
-        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_get_redirect_uri_for_state",
-        new=AsyncMock(return_value=None),
+        f"{STATE_STORE}.get_redirect_uri_for_state",
+        new=MagicMock(return_value=None),
     ):
         resp = await client.post("/auth/oidc/finish", allow_redirects=False)
         assert resp.status == 400
@@ -926,8 +960,8 @@ async def test_device_sse_emits_expired_for_unknown_state(
 
     # Valid when the stream opens, expired at the first poll
     with patch(
-        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_valid",
-        new=AsyncMock(side_effect=[True, False]),
+        f"{STATE_STORE}.is_state_valid",
+        new=MagicMock(side_effect=[True, False]),
     ):
         resp = await client.get("/auth/oidc/device-sse", allow_redirects=False)
         assert resp.status == 200
@@ -951,12 +985,12 @@ async def test_device_sse_ready_wins_over_expired(
 
     with (
         patch(
-            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_valid",
-            new=AsyncMock(side_effect=[True, False]),
+            f"{STATE_STORE}.is_state_valid",
+            new=MagicMock(side_effect=[True, False]),
         ),
         patch(
-            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_ready",
-            new=AsyncMock(return_value=True),
+            f"{STATE_STORE}.is_state_ready",
+            new=MagicMock(return_value=True),
         ),
     ):
         resp = await client.get("/auth/oidc/device-sse", allow_redirects=False)
@@ -993,8 +1027,8 @@ async def test_device_sse_sends_keepalive_while_waiting(
 
     # Valid when the stream opens and for two polls, expired at the third
     with patch(
-        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_valid",
-        new=AsyncMock(side_effect=[True, True, True, False]),
+        f"{STATE_STORE}.is_state_valid",
+        new=MagicMock(side_effect=[True, True, True, False]),
     ):
         resp = await client.get("/auth/oidc/device-sse", allow_redirects=False)
         payload = await resp.text()
@@ -1023,8 +1057,8 @@ async def test_device_sse_handles_runtime_error_and_returns_cleanly(
     assert resp_welcome.status == 200
 
     with patch(
-        "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_ready",
-        new=AsyncMock(side_effect=RuntimeError("disconnect")),
+        f"{STATE_STORE}.is_state_ready",
+        new=MagicMock(side_effect=RuntimeError("disconnect")),
     ):
         resp = await client.get("/auth/oidc/device-sse", allow_redirects=False)
         assert resp.status == 200
@@ -1048,8 +1082,8 @@ async def test_device_sse_ignores_write_eof_connection_reset(
 
     with (
         patch(
-            "custom_components.auth_oidc.provider.OpenIDAuthProvider.async_is_state_valid",
-            new=AsyncMock(side_effect=[True, False]),
+            f"{STATE_STORE}.is_state_valid",
+            new=MagicMock(side_effect=[True, False]),
         ),
         patch(
             "custom_components.auth_oidc.endpoints.device_sse.web.StreamResponse.write_eof",
